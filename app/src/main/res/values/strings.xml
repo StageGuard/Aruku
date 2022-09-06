@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Aruku</string>
+    <string name="app_mirai_service_desc">Aruku mirai background service</string>
+</resources>
