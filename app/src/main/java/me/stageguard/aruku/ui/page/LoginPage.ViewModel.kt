@@ -1,6 +1,5 @@
 package me.stageguard.aruku.ui.page
 
-import android.util.Log
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
@@ -12,7 +11,6 @@ import me.stageguard.aruku.preference.proto.AccountsOuterClass.Accounts.AccountI
 import me.stageguard.aruku.service.parcel.AccountInfo as AccountInfoParcel
 import me.stageguard.aruku.service.IArukuMiraiInterface
 import me.stageguard.aruku.service.ILoginSolver
-import me.stageguard.aruku.util.toLogTag
 import net.mamoe.mirai.utils.secondsToMillis
 
 class LoginViewModel(
