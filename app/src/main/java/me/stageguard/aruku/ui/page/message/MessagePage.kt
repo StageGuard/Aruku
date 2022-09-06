@@ -21,7 +21,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import me.stageguard.aruku.R
 import me.stageguard.aruku.ui.theme.ArukuTheme
+import me.stageguard.aruku.util.stringRes
 
 @Composable
 fun MessagePage(
@@ -41,7 +43,8 @@ fun MessageView(
 ) {
     val botListExpanded = remember { mutableStateOf(false) }
     Box(modifier = Modifier.fillMaxWidth().wrapContentHeight()) {
-        Text("Messages",
+        Text(
+            text = R.string.messages.stringRes,
             style = TextStyle(fontSize = 35.sp, fontWeight = FontWeight.Bold),
             modifier = Modifier.padding(start = 15.dp, top = 35.dp)
         )
@@ -52,7 +55,7 @@ fun MessageView(
                  navigateToLoginPage()
              }
         }, modifier = Modifier.align(Alignment.BottomEnd).padding(0.dp)) {
-            Image(Icons.Outlined.AccountCircle, "Account",)
+            Image(Icons.Outlined.AccountCircle, "Account")
         }
     }
 }

@@ -1,4 +1,30 @@
 <resources>
     <string name="app_name">Aruku</string>
     <string name="app_mirai_service_desc">Aruku mirai background service</string>
+    <string name="messages">Messages</string>
+    <string name="login_message">Let\'s login</string>
+    <string name="login_desc">Login to ArukuMirai to access more function.</string>
+    <string name="qq_account">QQ Account</string>
+    <string name="qq_password">Password</string>
+    <string name="advanced_options">Advanced options</string>
+    <string name="auto_reconnect">Auto reconnect</string>
+    <string name="login">LOGIN</string>
+    <string name="internet_permission">Please allow INTERNET permission</string>
+    <string name="login_failed">Login failed</string>
+    <string name="login_failed_message">Failed to login account %$1s: \n %$2s</string>
+    <string name="confirm">Confirm</string>
+    <string name="captcha_required">Captcha required</string>
+    <string name="cancel">Cancel</string>
+    <string name="verification_code">Verification code</string>
+    <string name="slider_result">Slider result</string>
+    <string name="verify_captcha_message">We need to verify captcha while logging account %$1s.\n %$2s \n Click outside the dialog to regenerate captcha or cancel login.</string>
+    <string name="verify_captcha_message_code">Please enter the verification code.</string>
+    <string name="verify_captcha_message_slider">Please open the link to solve the slider and enter slider result.</string>
+    <string name="verify_captcha_message_device">Please open the link via Android QQ client and click Confirm after finishing verification.</string>
+    <string name="protocol">Protocol</string>
+    <string name="heartbeat_strategy">Heartbeat strategy</string>
+    <string name="heartbeat_period_millis">Heartbeat period millis</string>
+    <string name="stat_heartbeat_timeout_millis">Stat heartbeat timeout millis</string>
+    <string name="heartbeat_timeout_millis">Heartbeat timeout millis</string>
+    <string name="reconnection_retry_times">Reconnection retry times</string>
 </resources>

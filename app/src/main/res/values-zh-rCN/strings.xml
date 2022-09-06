@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_mirai_service_desc">Aruku mirai 后台服务</string>
+    <string name="messages">消息</string>
+    <string name="login_message">登录</string>
+    <string name="login_desc">登录以解锁更多功能</string>
+    <string name="qq_account">QQ账号</string>
+    <string name="qq_password">密码</string>
+    <string name="advanced_options">高级选项</string>
+    <string name="auto_reconnect">自动重连</string>
+    <string name="login">登录</string>
+    <string name="internet_permission">请授予网络权限</string>
+    <string name="login_failed">登陆失败</string>
+    <string name="login_failed_message">%$1s 登陆失败： \n %$2s</string>
+    <string name="confirm">确定</string>
+    <string name="captcha_required">需要验证</string>
+    <string name="cancel">取消</string>
+    <string name="verification_code">验证码</string>
+    <string name="app_name">Aruku</string>
+    <string name="slider_result">滑动验证</string>
+    <string name="verify_captcha_message">需要完成验证码以登录账号 %$1s.\n %$2s \n 点击对话框外部重新生成验证码或取消登录</string>
+    <string name="verify_captcha_message_code">请输入验证码</string>
+    <string name="verify_captcha_message_slider">请完成滑动验证</string>
+    <string name="verify_captcha_message_device">请打开QQ完成设备验证</string>
+    <string name="protocol">协议</string>
+    <string name="heartbeat_strategy">心跳策略</string>
+    <string name="heartbeat_period_millis">心跳周期(毫秒)</string>
+    <string name="stat_heartbeat_timeout_millis">心跳统计超时(毫秒)</string>
+    <string name="heartbeat_timeout_millis">心跳超时(毫秒)</string>
+    <string name="reconnection_retry_times">重连次数</string>
+
+</resources>
