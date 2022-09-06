@@ -10,6 +10,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -46,8 +47,8 @@ private const val TAG = "LoginView"
 fun LoginPage(
     onLoginSuccess: () -> Unit
 ) {
-    val context = LocalArukuMiraiInterface.current
-    val viewModel: LoginViewModel = viewModel { LoginViewModel(context) }
+    val arukuInterface = LocalArukuMiraiInterface.current
+    val viewModel: LoginViewModel = viewModel { LoginViewModel(arukuInterface) }
 
     if (viewModel.state.value is LoginState.LoginSuccess) {
         onLoginSuccess()
@@ -302,16 +303,18 @@ fun LoginView(
                                         modifier = Modifier.padding(horizontal = 5.dp).align(Alignment.CenterHorizontally)
                                     )
                                 } else {
-                                    Text(
-                                        text = if (captchaType is CaptchaType.Slider) captchaType.url
+                                    SelectionContainer {
+                                        Text(
+                                            text = if (captchaType is CaptchaType.Slider) captchaType.url
                                             else if (captchaType is CaptchaType.UnsafeDevice) captchaType.url
                                             else "",
-                                        style = TextStyle.Default.copy(
-                                            fontFamily = FontFamily.Monospace,
-                                            color = MaterialTheme.colorScheme.primary
-                                        ),
-                                        modifier = Modifier.align(Alignment.CenterHorizontally).padding(5.dp)
-                                    )
+                                            style = TextStyle.Default.copy(
+                                                fontFamily = FontFamily.Monospace,
+                                                color = MaterialTheme.colorScheme.primary
+                                            ),
+                                            modifier = Modifier.align(Alignment.CenterHorizontally).padding(5.dp)
+                                        )
+                                    }
                                 }
 
                                 if (captchaType !is CaptchaType.UnsafeDevice) {
