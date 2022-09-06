@@ -1,5 +1,6 @@
 package me.stageguard.aruku.service
 
+import android.app.*
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -10,12 +11,15 @@ import androidx.lifecycle.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.single
 import me.stageguard.aruku.ArukuApplication
+import me.stageguard.aruku.R
 import me.stageguard.aruku.preference.accountStore
 import me.stageguard.aruku.preference.proto.AccountsOuterClass.Accounts
+import me.stageguard.aruku.ui.activity.MainActivity
 import me.stageguard.aruku.preference.proto.AccountsOuterClass.Accounts.AccountInfo as AccountInfoProto
 import me.stageguard.aruku.service.parcel.AccountInfo as AccountInfoParcel
 import me.stageguard.aruku.util.ArukuMiraiLogger
 import me.stageguard.aruku.util.LiveConcurrentHashMap
+import me.stageguard.aruku.util.stringRes
 import me.stageguard.aruku.util.toLogTag
 import net.mamoe.mirai.Bot
 import net.mamoe.mirai.BotFactory
@@ -104,7 +108,33 @@ class ArukuMiraiService : LifecycleService() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        return super.onStartCommand(intent, flags, startId)
+        super.onStartCommand(intent, flags, startId)
+
+        val context = ArukuApplication.INSTANCE.applicationContext
+
+        val notificationChannel = NotificationChannel(
+            this::class.java.simpleName,
+            R.string.app_name.stringRes,
+            NotificationManager.IMPORTANCE_HIGH
+        ).apply { lockscreenVisibility = Notification.VISIBILITY_PUBLIC }
+
+        (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).createNotificationChannel(notificationChannel)
+
+        val pendingIntent = PendingIntent.getActivity(context, 0,
+            Intent(context, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = Notification.Builder(this, this::class.java.simpleName).apply {
+            setContentTitle(R.string.app_name.stringRes)
+            setContentText(R.string.service_notification_text.stringRes)
+            setSmallIcon(R.mipmap.ic_launcher)
+            setContentIntent(pendingIntent)
+            setTicker(R.string.service_notification_text.stringRes)
+        }.build()
+
+        startForeground(0, notification)
+
+        return Service.START_STICKY
     }
 
     override fun onBind(intent: Intent): IBinder {
@@ -115,10 +145,6 @@ class ArukuMiraiService : LifecycleService() {
     override fun onDestroy() {
         bots.forEach { (_, bot) -> removeBot(bot.id) }
         super.onDestroy()
-    }
-
-    private fun notification() {
-
     }
 
     private fun addBot(accountInfo: AccountInfoParcel): Boolean {

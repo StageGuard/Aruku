@@ -28,5 +28,6 @@
     <string name="stat_heartbeat_timeout_millis">心跳统计超时(毫秒)</string>
     <string name="heartbeat_timeout_millis">心跳超时(毫秒)</string>
     <string name="reconnection_retry_times">重连次数</string>
+    <string name="service_notification_text">Aruku 服务正在前台运行</string>
 
 </resources>

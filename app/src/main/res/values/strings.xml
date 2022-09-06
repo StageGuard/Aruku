@@ -27,4 +27,5 @@
     <string name="stat_heartbeat_timeout_millis">Stat heartbeat timeout millis</string>
     <string name="heartbeat_timeout_millis">Heartbeat timeout millis</string>
     <string name="reconnection_retry_times">Reconnection retry times</string>
+    <string name="service_notification_text">Aruku service is running foreground.</string>
 </resources>
