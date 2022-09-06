@@ -7,44 +7,43 @@ class ArukuMiraiLogger(
     override val identity: String?,
     override val isEnabled: Boolean
 ) : MiraiLogger {
-    private val tag = toLogTag("Bot")
     override fun debug(message: String?) {
-        Log.d(tag, message, null)
+        Log.d(identity, message, null)
     }
 
     override fun debug(message: String?, e: Throwable?) {
-        Log.d(tag, message, e)
+        Log.d(identity, message, e)
     }
 
     override fun error(message: String?) {
-        Log.e(tag, message, null)
+        Log.e(identity, message, null)
     }
 
     override fun error(message: String?, e: Throwable?) {
-        Log.e(tag, message, e)
+        Log.e(identity, message, e)
     }
 
     override fun info(message: String?) {
-        Log.i(tag, message, null)
+        Log.i(identity, message, null)
     }
 
     override fun info(message: String?, e: Throwable?) {
-        Log.i(tag, message, e)
+        Log.i(identity, message, e)
     }
 
     override fun verbose(message: String?) {
-        Log.v(tag, message, null)
+        Log.v(identity, message, null)
     }
 
     override fun verbose(message: String?, e: Throwable?) {
-        Log.v(tag, message, e)
+        Log.v(identity, message, e)
     }
 
     override fun warning(message: String?) {
-        Log.w(tag, message, null)
+        Log.w(identity, message, null)
     }
 
     override fun warning(message: String?, e: Throwable?) {
-        Log.w(tag, message, e)
+        Log.w(identity, message, e)
     }
 }
