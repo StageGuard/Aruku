@@ -23,7 +23,9 @@ android {
 
     buildTypes {
         release {
-            minifyEnabled false
+            minifyEnabled true
+            shrinkResources true
+            buildConfigField("boolean", "LOG_DEBUG", "false")
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
@@ -50,13 +52,16 @@ android {
 dependencies {
     // jetpack
     implementation 'androidx.core:core-ktx:1.8.0'
-    implementation 'com.google.android.material:material:1.7.0-beta01'
+//    implementation 'com.google.android.material:material:1.7.0-beta01'
     implementation 'androidx.activity:activity-compose:1.5.1'
     implementation 'androidx.navigation:navigation-compose:2.5.1'
 
     // jetpack compose
     implementation "androidx.compose.ui:ui:$compose_version"
     implementation "androidx.compose.ui:ui-tooling-preview:$compose_version"
+//    implementation("androidx.compose.material:material:$compose_version")
+    implementation("androidx.compose.material:material-icons-core:$compose_version")
+    implementation("androidx.compose.material:material-icons-extended:$compose_version")
     implementation 'androidx.compose.material3:material3:1.0.0-alpha15'
     implementation "androidx.compose.runtime:runtime-livedata:1.2.1"
 

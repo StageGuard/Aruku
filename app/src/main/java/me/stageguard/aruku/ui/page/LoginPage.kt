@@ -11,6 +11,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ExpandMore
+import androidx.compose.material.icons.outlined.Visibility
+import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -37,8 +41,8 @@ import com.google.accompanist.permissions.rememberPermissionState
 import me.stageguard.aruku.R
 import me.stageguard.aruku.preference.proto.AccountsOuterClass.Accounts
 import me.stageguard.aruku.preference.proto.AccountsOuterClass.Accounts.AccountInfo
-import me.stageguard.aruku.ui.SingleItemLazyColumn
 import me.stageguard.aruku.ui.LocalArukuMiraiInterface
+import me.stageguard.aruku.ui.SingleItemLazyColumn
 import me.stageguard.aruku.ui.theme.ArukuTheme
 
 private const val TAG = "LoginView"
@@ -126,9 +130,10 @@ fun LoginView(
                     keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Password),
                     trailingIcon = {
                         IconButton(onClick = { passwordVisible.value = !passwordVisible.value }) {
-                            Icon(imageVector = ImageVector.vectorResource(
-                                if (passwordVisible.value) R.drawable.ic_visibility_off else R.drawable.ic_visibility,
-                            ), contentDescription = "${if (passwordVisible.value) "Hide" else "Show"} password.")
+                            Icon(
+                                imageVector = if (passwordVisible.value) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility ,
+                                contentDescription = "${if (passwordVisible.value) "Hide" else "Show"} password."
+                            )
                         }
                     },
                     visualTransformation = if (passwordVisible.value) VisualTransformation.None else PasswordVisualTransformation(),
@@ -140,7 +145,7 @@ fun LoginView(
                     .clickable { showAdvanced.value = !showAdvanced.value }
                 ) {
                     Image(
-                        ImageVector.vectorResource(R.drawable.ic_expand_more),
+                        Icons.Outlined.ExpandMore,
                         "Show advanced options.",
                         modifier = Modifier.rotate(showAdvancedIconRotation)
                     )
@@ -371,7 +376,7 @@ fun <T> CompoundDropdownMenu(
             trailingIcon = {
                 IconButton(onClick = { expanded.value = !expanded.value }) {
                     Image(
-                        ImageVector.vectorResource(R.drawable.ic_expand_more),
+                        Icons.Outlined.ExpandMore,
                         contentDescription = "Expand ${description ?: ""} dropdown menu."
                     )
                 }

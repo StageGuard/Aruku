@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.Aruku" parent="Theme.AppCompat.NoActionBar"/>
-    <style name="Theme.Aruku.NavigationView" parent="ThemeOverlay.Material3.NavigationView"/>
+    <style name="Theme.Aruku" parent="android:Theme.Material.Light.NoActionBar"/>
+<!--    <style name="Theme.Aruku.NavigationView" parent="ThemeOverlay.Material3.NavigationView"/>-->
 </resources>
