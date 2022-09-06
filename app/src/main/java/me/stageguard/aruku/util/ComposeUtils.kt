@@ -11,4 +11,4 @@ import me.stageguard.aruku.ArukuApplication
 
 val @receiver:StringRes Int.stringRes get() = ArukuApplication.INSTANCE.getString(this)
 
-fun @receiver:StringRes Int.stringRes(vararg args: Any) = ArukuApplication.INSTANCE.getString(this, args)
+fun @receiver:StringRes Int.stringRes(vararg args: Any) = ArukuApplication.INSTANCE.getString(this, *args)
