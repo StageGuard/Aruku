@@ -7,7 +7,6 @@ import android.content.ServiceConnection
 import android.os.IBinder
 import android.util.Log
 import androidx.lifecycle.*
-import io.ktor.utils.io.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.single
 import me.stageguard.aruku.ArukuApplication
@@ -138,6 +137,10 @@ class ArukuMiraiService : LifecycleService() {
                     if (throwable is LoginFailedException) {
                         Log.e(toLogTag(), "login $accountNo failed.", throwable)
                         loginSolvers[accountNo]?.onLoginFailed(accountNo, throwable.killBot, throwable.message)
+                    } else {
+                        Log.e(toLogTag(), "uncaught exception while logging $accountNo.", throwable)
+                        loginSolvers[accountNo]?.onLoginFailed(accountNo, true, throwable.message)
+                        removeBot(accountNo)
                     }
                 }) {
                     targetBot.login()
@@ -172,6 +175,7 @@ class ArukuMiraiService : LifecycleService() {
     private fun createBot(accountInfo: AccountInfoProto): Bot {
         return accountInfo.run {
             BotFactory.newBot(accountNo, passwordMd5) {
+                workingDir = ArukuApplication.INSTANCE.filesDir.resolve("mirai/")
                 parentCoroutineContext = lifecycleScope.coroutineContext
                 protocol = when(getProtocol()) {
                     Accounts.login_protocol.ANDROID_PHONE -> MiraiProtocol.ANDROID_PHONE
