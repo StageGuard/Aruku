@@ -39,6 +39,7 @@ import me.stageguard.aruku.service.parcel.AccountInfo as AccountInfoParcel
 class ArukuMiraiService : LifecycleService() {
     companion object {
         const val FOREGROUND_NOTIFICATION_ID = 72
+        const val FOREGROUND_NOTIFICATION_CHANNEL_ID = "ArukuMiraiService"
     }
 
     private val bots: MutableLiveData<MutableMap<Long, Bot>> = MutableLiveData(mutableMapOf())
@@ -128,29 +129,38 @@ class ArukuMiraiService : LifecycleService() {
         super.onStartCommand(intent, flags, startId)
 
         val context = ArukuApplication.INSTANCE.applicationContext
+        val notificationManager = context.getSystemService(NOTIFICATION_SERVICE) as NotificationManager
 
-        val notificationChannel = NotificationChannel(
-            this::class.java.simpleName,
-            R.string.app_name.stringRes,
-            NotificationManager.IMPORTANCE_HIGH
-        ).apply { lockscreenVisibility = Notification.VISIBILITY_PUBLIC }
+        val existingNotification = notificationManager.activeNotifications.find { it.id == FOREGROUND_NOTIFICATION_ID }
 
-        (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).createNotificationChannel(notificationChannel)
+        if (existingNotification == null) {
+            var channel = notificationManager.getNotificationChannel(FOREGROUND_NOTIFICATION_CHANNEL_ID)
 
-        val pendingIntent = PendingIntent.getActivity(
-            context, 0,
-            Intent(context, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE
-        )
+            if (channel == null) {
+                channel = NotificationChannel(
+                    FOREGROUND_NOTIFICATION_CHANNEL_ID,
+                    R.string.app_name.stringRes,
+                    NotificationManager.IMPORTANCE_HIGH
+                ).apply { lockscreenVisibility = Notification.VISIBILITY_PUBLIC }
 
-        val notification = Notification.Builder(this, this::class.java.simpleName).apply {
-            setContentTitle(R.string.app_name.stringRes)
-            setContentText(R.string.service_notification_text.stringRes)
-            setSmallIcon(R.drawable.ic_launcher_foreground)
-            setContentIntent(pendingIntent)
-            setTicker(R.string.service_notification_text.stringRes)
-        }.build()
+                notificationManager.createNotificationChannel(channel)
+            }
 
-        startForeground(FOREGROUND_NOTIFICATION_ID, notification)
+            val pendingIntent = PendingIntent.getActivity(
+                context, 0,
+                Intent(context, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE
+            )
+
+            val notification = Notification.Builder(this, channel.id).apply {
+                setContentTitle(R.string.app_name.stringRes)
+                setContentText(R.string.service_notification_text.stringRes)
+                setSmallIcon(R.drawable.ic_launcher_foreground)
+                setContentIntent(pendingIntent)
+                setTicker(R.string.service_notification_text.stringRes)
+            }.build()
+
+            startForeground(FOREGROUND_NOTIFICATION_ID, notification)
+        }
 
         return Service.START_STICKY
     }
