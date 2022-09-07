@@ -6,5 +6,5 @@ package me.stageguard.aruku.service;
 
 
 interface IBotListObserver {
-    void onChange(out long[] newList);
+    void onChange(inout long[] newList);
 }

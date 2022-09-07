@@ -1,6 +1,7 @@
 package me.stageguard.aruku.ui.activity
 
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.Composable
@@ -11,19 +12,22 @@ import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import kotlinx.coroutines.flow.single
 import kotlinx.coroutines.launch
 import me.stageguard.aruku.preference.accountStore
 import me.stageguard.aruku.service.ArukuMiraiService
 import me.stageguard.aruku.service.IBotListObserver
 import me.stageguard.aruku.ui.LocalArukuMiraiInterface
 import me.stageguard.aruku.ui.LocalNavController
+import me.stageguard.aruku.ui.page.ServiceConnectingPage
 import me.stageguard.aruku.ui.page.login.LoginPage
 import me.stageguard.aruku.ui.page.message.MessagePage
-import me.stageguard.aruku.ui.page.ServiceConnectingPage
 import me.stageguard.aruku.ui.theme.ArukuTheme
+import me.stageguard.aruku.util.toLogTag
 import me.stageguard.aruku.util.weakReference
 
 val unitProp = Unit
+
 class MainActivity : ComponentActivity() {
     companion object {
         const val NAV_MESSAGE = "message"
@@ -86,9 +90,13 @@ class MainActivity : ComponentActivity() {
                 }
                 composable(NAV_LOGIN) {
                     LoginPage(onLoginSuccess = { accountInfo ->
-                        lifecycleScope.launch { accountStore.update { accounts ->
-                            accounts.toBuilder().putAccount(accountInfo.accountNo, accountInfo).build()
-                        } }
+                        lifecycleScope.launch {
+                            Log.i(toLogTag(), "updating accountStore")
+                            accountStore.updateData { accounts ->
+                                accounts.toBuilder().putAccount(accountInfo.accountNo, accountInfo).build()
+                            }
+                            Log.i(toLogTag(), accountStore.data.single().accountMap.toString())
+                        }
                         navController.popBackStack()
                     })
                 }

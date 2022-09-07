@@ -42,9 +42,10 @@ fun LoginPage(
 ) {
     val arukuInterface = LocalArukuMiraiInterface.current
     val viewModel: LoginViewModel = viewModel { LoginViewModel(arukuInterface) }
+    val onLoginSuccessState = rememberUpdatedState(onLoginSuccess)
 
     if (viewModel.state.value is LoginState.LoginSuccess) {
-        onLoginSuccess(viewModel.accountInfo.value)
+        onLoginSuccessState.value.invoke(viewModel.accountInfo.value)
     } else {
         LoginView(accountInfo = viewModel.accountInfo,
             state = viewModel.state,

@@ -5,29 +5,33 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
+import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.lifecycle.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.single
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import me.stageguard.aruku.ArukuApplication
 import me.stageguard.aruku.R
 import me.stageguard.aruku.preference.accountStore
 import me.stageguard.aruku.preference.proto.AccountsOuterClass.Accounts
 import me.stageguard.aruku.ui.activity.MainActivity
-import me.stageguard.aruku.util.ArukuMiraiLogger
-import me.stageguard.aruku.util.LiveConcurrentHashMap
-import me.stageguard.aruku.util.stringRes
-import me.stageguard.aruku.util.toLogTag
+import me.stageguard.aruku.util.*
 import net.mamoe.mirai.Bot
 import net.mamoe.mirai.BotFactory
 import net.mamoe.mirai.network.CustomLoginFailedException
 import net.mamoe.mirai.network.LoginFailedException
+import net.mamoe.mirai.utils.*
 import net.mamoe.mirai.utils.BotConfiguration.HeartbeatStrategy
 import net.mamoe.mirai.utils.BotConfiguration.MiraiProtocol
-import net.mamoe.mirai.utils.LoginSolver
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.collections.component1
+import kotlin.collections.component2
+import kotlin.collections.set
 import kotlin.properties.ReadOnlyProperty
+import kotlin.random.Random
 import kotlin.reflect.KProperty
 import me.stageguard.aruku.preference.proto.AccountsOuterClass.Accounts.AccountInfo as AccountInfoProto
 import me.stageguard.aruku.service.parcel.AccountInfo as AccountInfoParcel
@@ -37,20 +41,18 @@ class ArukuMiraiService : LifecycleService() {
         const val FOREGROUND_NOTIFICATION_ID = 72
     }
 
-    private val bots: LiveConcurrentHashMap<Long, Bot> = LiveConcurrentHashMap { newList ->
-        botListObservers.forEach { (_, observer) -> observer.onChange(newList.keys.toLongArray()) }
-    }
+    private val bots: MutableLiveData<MutableMap<Long, Bot>> = MutableLiveData(mutableMapOf())
     private val botJobs: ConcurrentHashMap<Long, Job> = ConcurrentHashMap()
 
-    private val botListObservers: MutableMap<String, IBotListObserver> = mutableMapOf()
+    private val botListObservers: MutableMap<String, Observer<Map<Long, Bot>>> = mutableMapOf()
     private val loginSolvers: MutableMap<Long, ILoginSolver> = mutableMapOf()
 
     private val binderInterface = object : IArukuMiraiInterface.Stub() {
         override fun addBot(info: AccountInfoParcel?, alsoLogin: Boolean): Boolean {
             Log.i(toLogTag(), "addBot(info=$info)")
             if (info == null) return false
-            addBot(info)
-            if (alsoLogin) login(info.accountNo)
+            this@ArukuMiraiService.addBot(info, true)
+            if (alsoLogin) this@ArukuMiraiService.login(info.accountNo)
             return true
         }
 
@@ -59,11 +61,11 @@ class ArukuMiraiService : LifecycleService() {
         }
 
         override fun getBots(): LongArray {
-            return this@ArukuMiraiService.bots.map { it.key }.toLongArray()
+            return this@ArukuMiraiService.bots.value?.map { it.key }?.toLongArray() ?: longArrayOf()
         }
 
         override fun loginAll() {
-            this@ArukuMiraiService.bots.forEach { (no, _) -> login(no) }
+            this@ArukuMiraiService.bots.value?.forEach { (no, _) -> login(no) }
         }
 
         override fun login(accountNo: Long): Boolean {
@@ -72,14 +74,24 @@ class ArukuMiraiService : LifecycleService() {
 
         override fun addBotListObserver(identity: String?, observer: IBotListObserver?) {
             if (identity != null && observer != null) {
-                botListObservers[identity] = observer
+                val lifecycleObserver = Observer { new: Map<Long, Bot> ->
+                    //observer.onChange(new.keys.toLongArray())
+                }
+                botListObservers[identity] = lifecycleObserver
+                lifecycleScope.launch(Dispatchers.Main) {
+                    this@ArukuMiraiService.bots.observe(this@ArukuMiraiService, lifecycleObserver)
+                }
             } else {
                 Log.w(this@ArukuMiraiService.toLogTag(), "Empty identity or observer for botListObservers.")
             }
         }
 
         override fun removeBotListObserver(identity: String?) {
-            botListObservers.remove(identity)
+            val lifecycleObserver = this@ArukuMiraiService.botListObservers[identity]
+            if (lifecycleObserver != null) {
+                this@ArukuMiraiService.bots.removeObserver(lifecycleObserver)
+                this@ArukuMiraiService.botListObservers.remove(identity, lifecycleObserver)
+            }
         }
 
         override fun addLoginSolver(bot: Long, solver: ILoginSolver?) {
@@ -100,9 +112,10 @@ class ArukuMiraiService : LifecycleService() {
         if (ArukuApplication.initialized.get()) {
             val context = ArukuApplication.INSTANCE.applicationContext
             lifecycleScope.launch {
-                val accounts = context.accountStore.single().accountMap
+                val accounts = context.accountStore.data.single().accountMap
                 accounts.forEach { (id, info) ->
-                    bots[id] = createBot(info).also { login(id) }
+                    bots.value?.set(id, createBot(info).also { login(id) })
+                    bots.notifyPost()
                 }
             }
             Log.i(toLogTag(), "ArukuMiraiService is created.")
@@ -148,20 +161,21 @@ class ArukuMiraiService : LifecycleService() {
     }
 
     override fun onDestroy() {
-        bots.forEach { (_, bot) -> removeBot(bot.id) }
+        bots.value?.forEach { (_, bot) -> removeBot(bot.id) }
         super.onDestroy()
     }
 
-    private fun addBot(accountInfo: AccountInfoParcel): Boolean {
-        if (this@ArukuMiraiService.bots[accountInfo.accountNo] != null) {
-            this@ArukuMiraiService.removeBot(accountInfo.accountNo)
+    private fun addBot(accountInfo: AccountInfoParcel, notifyPost: Boolean = false): Boolean {
+        if (bots.value?.get(accountInfo.accountNo) != null) {
+            removeBot(accountInfo.accountNo, notifyPost)
         }
-        this@ArukuMiraiService.bots[accountInfo.accountNo] = createBot(accountInfo.into())
+        bots.value?.set(accountInfo.accountNo, createBot(accountInfo.into()))
+        if (notifyPost) bots.notifyPost() else bots.notify()
         return true
     }
 
     private fun login(accountNo: Long): Boolean {
-        val targetBot = this@ArukuMiraiService.bots[accountNo]
+        val targetBot = bots.value?.get(accountNo)
         return if (targetBot != null) {
             if (!targetBot.isOnline) {
                 val job = lifecycleScope.launch(context = CoroutineExceptionHandler { _, throwable ->
@@ -189,15 +203,16 @@ class ArukuMiraiService : LifecycleService() {
         } else false
     }
 
-    private fun removeBot(accountNo: Long): Boolean {
-        val bot = bots[accountNo]
+    private fun removeBot(accountNo: Long, notifyPost: Boolean = true): Boolean {
+        val bot = bots.value?.get(accountNo)
         val botJob = botJobs[accountNo]
         return bot?.run {
             lifecycleScope.launch(Dispatchers.Main) {
                 bot.closeAndJoin()
                 botJob?.cancelAndJoin()
             }
-            bots.remove(accountNo)
+            bots.value?.remove(accountNo)
+            if (notifyPost) bots.notifyPost() else bots.notify()
             botJobs.remove(accountNo)
             true
         } ?: false
@@ -232,6 +247,45 @@ class ArukuMiraiService : LifecycleService() {
 
                 botLoggerSupplier = { ArukuMiraiLogger("Bot.${it.id}", true) }
                 networkLoggerSupplier = { ArukuMiraiLogger("Net.${it.id}", true) }
+
+                val deviceInfoFile = ArukuApplication.INSTANCE.filesDir
+                    .resolve("mirai/device-${accountInfo.accountNo}.json")
+
+                if (deviceInfoFile.exists()) {
+                    fileBasedDeviceInfo(deviceInfoFile.absolutePath)
+                } else {
+                    deviceInfo = {
+                        DeviceInfo(
+                            display = Build.DISPLAY.toByteArray(),
+                            product = Build.PRODUCT.toByteArray(),
+                            device = Build.DEVICE.toByteArray(),
+                            board = Build.BOARD.toByteArray(),
+                            brand = Build.BRAND.toByteArray(),
+                            model = Build.MODEL.toByteArray(),
+                            bootloader = Build.BOOTLOADER.toByteArray(),
+                            fingerprint = Build.FINGERPRINT.toByteArray(),
+                            bootId = generateUUID(getRandomByteArray(16, Random.Default).md5()).toByteArray(),
+                            procVersion = byteArrayOf(),
+                            baseBand = byteArrayOf(),
+                            version = DeviceInfo.Version(
+                                release = Build.VERSION.RELEASE.toByteArray(),
+                                codename = Build.VERSION.CODENAME.toByteArray(),
+                                sdk = Build.VERSION.SDK_INT
+                            ),
+                            simInfo = "T-Mobile".toByteArray(),
+                            osType = "android".toByteArray(),
+                            macAddress = "02:00:00:00:00:00".toByteArray(),
+                            wifiBSSID = "02:00:00:00:00:00".toByteArray(),
+                            wifiSSID = "<unknown ssid>".toByteArray(),
+                            imsiMd5 = getRandomByteArray(16, Random.Default).md5(),
+                            imei = ArukuApplication.INSTANCE.applicationContext.imei,
+                            apn = "wifi".toByteArray()
+                        ).also {
+                            deviceInfoFile.createNewFile()
+                            deviceInfoFile.writeText(Json.encodeToString(it))
+                        }
+                    }
+                }
 
                 loginSolver = object : LoginSolver() {
                     override suspend fun onSolvePicCaptcha(bot: Bot, data: ByteArray): String {
