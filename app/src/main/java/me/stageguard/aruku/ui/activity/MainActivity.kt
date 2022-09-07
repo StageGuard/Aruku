@@ -41,7 +41,7 @@ class MainActivity : ComponentActivity() {
                 serviceConnector.getValue(Unit, ::unitProp)
             else null
 
-    private val botLst by lazy { MutableLiveData(listOf<Long>()) }
+    private val botList by lazy { MutableLiveData(listOf<Long>()) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -50,10 +50,10 @@ class MainActivity : ComponentActivity() {
 
         serviceConnector.connected.observe(this) { connected ->
             if (connected) {
-                botLst.value = serviceInterface?.bots?.toList() ?: listOf()
+                botList.value = serviceInterface?.bots?.toList() ?: listOf()
                 serviceInterface?.addBotListObserver(toString(), object : IBotListObserver.Stub() {
                     override fun onChange(newList: LongArray?) {
-                        botLst.value = newList?.toList() ?: listOf()
+                        botList.postValue(newList?.toList() ?: listOf())
                     }
                 })
             } else {
@@ -77,7 +77,7 @@ class MainActivity : ComponentActivity() {
     @Composable
     fun Navigation() {
         val navController = rememberNavController()
-        val botList = botLst.observeAsState(listOf())
+        val botList = botList.observeAsState(listOf())
         CompositionLocalProvider(
             LocalArukuMiraiInterface provides serviceInterface!!,
             LocalNavController provides navController

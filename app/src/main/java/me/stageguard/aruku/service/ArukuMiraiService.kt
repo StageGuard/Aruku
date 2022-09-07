@@ -75,7 +75,7 @@ class ArukuMiraiService : LifecycleService() {
         override fun addBotListObserver(identity: String?, observer: IBotListObserver?) {
             if (identity != null && observer != null) {
                 val lifecycleObserver = Observer { new: Map<Long, Bot> ->
-                    //observer.onChange(new.keys.toLongArray())
+                    observer.onChange(new.keys.toLongArray())
                 }
                 botListObservers[identity] = lifecycleObserver
                 lifecycleScope.launch(Dispatchers.Main) {
@@ -161,7 +161,7 @@ class ArukuMiraiService : LifecycleService() {
     }
 
     override fun onDestroy() {
-        bots.value?.forEach { (_, bot) -> removeBot(bot.id) }
+        bots.value?.forEach { (_, bot) -> removeBot(bot.id, false) }
         super.onDestroy()
     }
 
