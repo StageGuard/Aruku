@@ -1,5 +1,6 @@
 package me.stageguard.aruku.ui.page.login
 
+import android.annotation.SuppressLint
 import android.content.res.Configuration.UI_MODE_NIGHT_NO
 import androidx.compose.animation.*
 import androidx.compose.foundation.layout.*
@@ -29,9 +30,7 @@ import com.google.accompanist.permissions.rememberPermissionState
 import me.stageguard.aruku.R
 import me.stageguard.aruku.preference.proto.AccountsOuterClass.Accounts.AccountInfo
 import me.stageguard.aruku.ui.LocalArukuMiraiInterface
-import me.stageguard.aruku.ui.SingleItemLazyColumn
-import me.stageguard.aruku.ui.page.LoginState
-import me.stageguard.aruku.ui.page.LoginViewModel
+import me.stageguard.aruku.ui.common.SingleItemLazyColumn
 import me.stageguard.aruku.ui.theme.ArukuTheme
 import me.stageguard.aruku.util.stringRes
 
@@ -39,31 +38,29 @@ private const val TAG = "LoginView"
 
 @Composable
 fun LoginPage(
-    onLoginSuccess: () -> Unit
+    onLoginSuccess: (AccountInfo) -> Unit
 ) {
     val arukuInterface = LocalArukuMiraiInterface.current
     val viewModel: LoginViewModel = viewModel { LoginViewModel(arukuInterface) }
 
     if (viewModel.state.value is LoginState.LoginSuccess) {
-        onLoginSuccess()
+        onLoginSuccess(viewModel.accountInfo.value)
     } else {
-        LoginView(
-            defaultAccountInfo = LoginViewModel.defaultAccountInfoConfiguration,
+        LoginView(accountInfo = viewModel.accountInfo,
             state = viewModel.state,
             onLoginClick = { viewModel.doLogin(it) },
             onLoginFailedClick = { viewModel.removeBotAndClearState(it) },
             onRetryCaptchaClick = { viewModel.retryCaptcha() },
-            onSubmitCaptchaClick = { _, result -> viewModel.submitCaptcha(result) }
-        )
+            onSubmitCaptchaClick = { _, result -> viewModel.submitCaptcha(result) })
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
 @Composable
 fun LoginView(
-    defaultAccountInfo: AccountInfo,
+    accountInfo: MutableState<AccountInfo>,
     state: State<LoginState>,
-    onLoginClick: (AccountInfo) -> Unit,
+    onLoginClick: (Long) -> Unit,
     onLoginFailedClick: (Long) -> Unit,
     onRetryCaptchaClick: (Long) -> Unit,
     onSubmitCaptchaClick: (Long, String) -> Unit
@@ -73,18 +70,13 @@ fun LoginView(
     val password = remember { mutableStateOf("") }
     val passwordVisible = rememberSaveable { mutableStateOf(false) }
 
-    val protocol = rememberSaveable { mutableStateOf(defaultAccountInfo.protocol) }
-    val heartbeatStrategy =
-        rememberSaveable { mutableStateOf(defaultAccountInfo.heartbeatStrategy) }
-    val heartbeatPeriodMillis =
-        rememberSaveable { mutableStateOf(defaultAccountInfo.heartbeatPeriodMillis) }
-    val heartbeatTimeoutMillis =
-        rememberSaveable { mutableStateOf(defaultAccountInfo.heartbeatTimeoutMillis) }
-    val statHeartbeatPeriodMillis =
-        rememberSaveable { mutableStateOf(defaultAccountInfo.statHeartbeatPeriodMillis) }
-    val autoReconnect = rememberSaveable { mutableStateOf(defaultAccountInfo.autoReconnect) }
-    val reconnectionRetryTimes =
-        rememberSaveable { mutableStateOf(defaultAccountInfo.reconnectionRetryTimes) }
+    val protocol = rememberSaveable { mutableStateOf(accountInfo.value.protocol) }
+    val heartbeatStrategy = rememberSaveable { mutableStateOf(accountInfo.value.heartbeatStrategy) }
+    val heartbeatPeriodMillis = rememberSaveable { mutableStateOf(accountInfo.value.heartbeatPeriodMillis) }
+    val heartbeatTimeoutMillis = rememberSaveable { mutableStateOf(accountInfo.value.heartbeatTimeoutMillis) }
+    val statHeartbeatPeriodMillis = rememberSaveable { mutableStateOf(accountInfo.value.statHeartbeatPeriodMillis) }
+    val autoReconnect = rememberSaveable { mutableStateOf(accountInfo.value.autoReconnect) }
+    val reconnectionRetryTimes = rememberSaveable { mutableStateOf(accountInfo.value.reconnectionRetryTimes) }
 
     val topBarState = rememberTopAppBarState()
     val scrollBehavior = remember { TopAppBarDefaults.pinnedScrollBehavior(topBarState) }
@@ -93,15 +85,11 @@ fun LoginView(
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 25.dp)
-                .align(Alignment.TopCenter)
+            modifier = Modifier.fillMaxSize().padding(horizontal = 25.dp).align(Alignment.TopCenter)
         ) {
             Spacer(
-                Modifier
-                    .fillMaxWidth()
-                    .height(50.dp))
+                Modifier.fillMaxWidth().height(50.dp)
+            )
             Text(
                 text = R.string.login_message.stringRes,
                 style = TextStyle.Default.copy(fontSize = 36.sp, fontWeight = FontWeight.Bold),
@@ -113,22 +101,17 @@ fun LoginView(
                 modifier = Modifier.padding(vertical = 4.dp)
             )
             Column(
-                modifier = Modifier
-                    .padding(10.dp)
-                    .nestedScroll(scrollBehavior.nestedScrollConnection)
+                modifier = Modifier.padding(10.dp).nestedScroll(scrollBehavior.nestedScrollConnection)
             ) {
                 SingleItemLazyColumn {
                     OutlinedTextField(
                         value = account.value,
                         label = {
                             Text(
-                                R.string.qq_account.stringRes,
-                                style = MaterialTheme.typography.bodyMedium
+                                R.string.qq_account.stringRes, style = MaterialTheme.typography.bodyMedium
                             )
                         },
-                        modifier = Modifier
-                            .padding(top = 30.dp, bottom = 4.dp)
-                            .fillMaxWidth(),
+                        modifier = Modifier.padding(top = 30.dp, bottom = 4.dp).fillMaxWidth(),
                         singleLine = true,
                         shape = RoundedCornerShape(15.dp),
                         isError = if (account.value.isEmpty()) false else !isAccountValid,
@@ -139,13 +122,10 @@ fun LoginView(
                         value = password.value,
                         label = {
                             Text(
-                                R.string.qq_password.stringRes,
-                                style = MaterialTheme.typography.bodyMedium
+                                R.string.qq_password.stringRes, style = MaterialTheme.typography.bodyMedium
                             )
                         },
-                        modifier = Modifier
-                            .padding(top = 4.dp)
-                            .fillMaxWidth(),
+                        modifier = Modifier.padding(top = 4.dp).fillMaxWidth(),
                         singleLine = true,
                         shape = RoundedCornerShape(15.dp),
                         keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Password),
@@ -164,8 +144,8 @@ fun LoginView(
                         enabled = state.value is LoginState.Default
                     )
                     AdvancedOptions(
-                        protocol,
                         state,
+                        protocol,
                         heartbeatStrategy,
                         heartbeatPeriodMillis,
                         statHeartbeatPeriodMillis,
@@ -175,7 +155,7 @@ fun LoginView(
                     )
                     Button(
                         onClick = {
-                            onLoginClick(AccountInfo.newBuilder().apply {
+                            accountInfo.value = accountInfo.value.toBuilder().apply {
                                 this.accountNo = account.value.toLong()
                                 this.passwordMd5 = password.value
                                 this.protocol = protocol.value
@@ -185,16 +165,12 @@ fun LoginView(
                                 this.statHeartbeatPeriodMillis = statHeartbeatPeriodMillis.value
                                 this.autoReconnect = autoReconnect.value
                                 this.reconnectionRetryTimes = reconnectionRetryTimes.value
-                            }.build())
+                            }.build()
+                            onLoginClick(account.value.toLong())
                         },
-                        modifier = Modifier
-                            .padding(vertical = 30.dp)
-                            .fillMaxWidth(),
+                        modifier = Modifier.padding(vertical = 30.dp).fillMaxWidth(),
                         shape = RoundedCornerShape(15.dp),
-                        enabled = state.value is LoginState.Default
-                                && isAccountValid
-                                && account.value.isNotEmpty()
-                                && internetPermission.status.isGranted,
+                        enabled = state.value is LoginState.Default && isAccountValid && account.value.isNotEmpty() && internetPermission.status.isGranted,
                         colors = if (internetPermission.status.isGranted) ButtonDefaults.buttonColors(
                             disabledContainerColor = MaterialTheme.colorScheme.primaryContainer
                         ) else ButtonDefaults.buttonColors(
@@ -207,10 +183,7 @@ fun LoginView(
                             exit = shrinkHorizontally(shrinkTowards = Alignment.Start) + fadeOut(),
                         ) {
                             CircularProgressIndicator(
-                                modifier = Modifier
-                                    .padding(end = 3.dp)
-                                    .size(14.dp),
-                                strokeWidth = 3.dp
+                                modifier = Modifier.padding(end = 3.dp).size(14.dp), strokeWidth = 3.dp
                             )
                         }
                         Text(
@@ -222,35 +195,24 @@ fun LoginView(
                     }
                     if (state.value is LoginState.LoginFailed) {
                         val failedState = state.value as LoginState.LoginFailed
-                        AlertDialog(
-                            onDismissRequest = { onLoginFailedClick(failedState.bot) },
-                            title = {
-                                Text(
-                                    text = R.string.login_failed.stringRes,
-                                    style = MaterialTheme.typography.titleLarge
-                                )
-                            },
-                            text = {
-                                Text(
-                                    text = R.string.login_failed_message.stringRes(
-                                        failedState.bot.toString(),
-                                        failedState.cause
-                                    ),
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
-                            },
-                            confirmButton = {
-                                Button(onClick = { onLoginFailedClick(failedState.bot) }) {
-                                    Text(R.string.confirm.stringRes)
-                                }
+                        AlertDialog(onDismissRequest = { onLoginFailedClick(failedState.bot) }, title = {
+                            Text(
+                                text = R.string.login_failed.stringRes, style = MaterialTheme.typography.titleLarge
+                            )
+                        }, text = {
+                            Text(
+                                text = R.string.login_failed_message.stringRes(
+                                    failedState.bot.toString(), failedState.cause
+                                ), style = MaterialTheme.typography.bodyMedium
+                            )
+                        }, confirmButton = {
+                            Button(onClick = { onLoginFailedClick(failedState.bot) }) {
+                                Text(R.string.confirm.stringRes)
                             }
-                        )
+                        })
                     } else if (state.value is LoginState.CaptchaRequired) {
                         CaptchaRequired(
-                            state,
-                            onRetryCaptchaClick,
-                            onSubmitCaptchaClick,
-                            onLoginFailedClick
+                            state, onRetryCaptchaClick, onSubmitCaptchaClick, onLoginFailedClick
                         )
                     }
                 }
@@ -259,17 +221,16 @@ fun LoginView(
     }
 }
 
+@SuppressLint("UnrememberedMutableState")
 @Preview(uiMode = UI_MODE_NIGHT_NO, backgroundColor = 0xffffffff)
 @Composable
 fun LoginViewPreview() {
     ArukuTheme(dynamicColor = false, darkTheme = true) {
-        LoginView(
-            AccountInfo.getDefaultInstance(),
+        LoginView(mutableStateOf(AccountInfo.getDefaultInstance()),
             remember { mutableStateOf(LoginState.Default) },
             onLoginClick = {},
             onLoginFailedClick = {},
             onRetryCaptchaClick = {},
-            onSubmitCaptchaClick = { _, _ -> }
-        )
+            onSubmitCaptchaClick = { _, _ -> })
     }
 }

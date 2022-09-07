@@ -17,7 +17,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import me.stageguard.aruku.service.ArukuMiraiService
 import me.stageguard.aruku.ui.theme.ArukuTheme
 import me.stageguard.aruku.util.toLogTag
@@ -43,13 +42,15 @@ fun ServiceConnectingPage(connectorRef: WeakReference<ServiceConnection>) {
 fun ServiceConnectingView() {
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.wrapContentSize().align(Alignment.Center)) {
-            Text("Connecting to ArukuMiraiService",
+            Text(
+                "Connecting to ArukuMiraiService",
                 style = TextStyle(fontSize = 32.sp, fontWeight = FontWeight.Bold),
                 modifier = Modifier
                     .align(Alignment.CenterHorizontally)
                     .padding(start = 30.dp, end = 30.dp, bottom = 10.dp)
             )
-            Text("We lost connection to ArukuMiraiService, please wait until it is connected.",
+            Text(
+                "We lost connection to ArukuMiraiService, please wait until it is connected.",
                 style = TextStyle(fontSize = 18.sp),
                 modifier = Modifier
                     .align(Alignment.CenterHorizontally)

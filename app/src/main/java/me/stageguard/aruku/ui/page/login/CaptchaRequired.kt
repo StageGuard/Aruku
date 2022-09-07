@@ -1,6 +1,5 @@
 package me.stageguard.aruku.ui.page.login
 
-import android.annotation.SuppressLint
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Column
@@ -20,8 +19,6 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import me.stageguard.aruku.R
-import me.stageguard.aruku.ui.page.CaptchaType
-import me.stageguard.aruku.ui.page.LoginState
 import me.stageguard.aruku.util.stringRes
 
 /**
@@ -57,7 +54,6 @@ fun CaptchaRequired(
                             is CaptchaType.Picture -> R.string.verify_captcha_message_code
                             is CaptchaType.Slider -> R.string.verify_captcha_message_slider
                             is CaptchaType.UnsafeDevice -> R.string.verify_captcha_message_device
-                            else -> error("never occur")
                         }.stringRes
                     ),
                     style = MaterialTheme.typography.bodyMedium,

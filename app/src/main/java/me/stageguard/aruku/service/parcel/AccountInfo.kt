@@ -2,10 +2,10 @@ package me.stageguard.aruku.service.parcel
 
 import android.os.Parcelable
 import kotlinx.parcelize.Parcelize
-import me.stageguard.aruku.preference.proto.AccountsOuterClass.Accounts.AccountInfo as AccountInfoProto
-import me.stageguard.aruku.preference.proto.AccountsOuterClass.Accounts.login_protocol
 import me.stageguard.aruku.preference.proto.AccountsOuterClass.Accounts.heartbeat_strategy
+import me.stageguard.aruku.preference.proto.AccountsOuterClass.Accounts.login_protocol
 import me.stageguard.aruku.service.ParcelInto
+import me.stageguard.aruku.preference.proto.AccountsOuterClass.Accounts.AccountInfo as AccountInfoProto
 
 @Parcelize
 data class AccountInfo(
@@ -20,7 +20,7 @@ data class AccountInfo(
     val reconnectionRetryTimes: Int
 ) : Parcelable, ParcelInto<AccountInfoProto> {
     override fun into(): AccountInfoProto {
-        return AccountInfoProto.newBuilder().apply proto@ {
+        return AccountInfoProto.newBuilder().apply proto@{
             this@proto.accountNo = this@AccountInfo.accountNo
             this@proto.passwordMd5 = this@AccountInfo.passwordMd5
             this@proto.protocol = this@AccountInfo.protocol

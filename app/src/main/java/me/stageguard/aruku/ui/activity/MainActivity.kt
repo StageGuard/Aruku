@@ -7,25 +7,27 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import kotlinx.coroutines.launch
+import me.stageguard.aruku.preference.accountStore
 import me.stageguard.aruku.service.ArukuMiraiService
 import me.stageguard.aruku.service.IBotListObserver
 import me.stageguard.aruku.ui.LocalArukuMiraiInterface
 import me.stageguard.aruku.ui.LocalNavController
 import me.stageguard.aruku.ui.page.login.LoginPage
-import me.stageguard.aruku.ui.page.MessagePage
+import me.stageguard.aruku.ui.page.message.MessagePage
 import me.stageguard.aruku.ui.page.ServiceConnectingPage
 import me.stageguard.aruku.ui.theme.ArukuTheme
 import me.stageguard.aruku.util.weakReference
 
-const val NAV_MESSAGE = "message"
-const val NAV_LOGIN = "login"
-
+val unitProp = Unit
 class MainActivity : ComponentActivity() {
     companion object {
-        val unitProp = Unit
+        const val NAV_MESSAGE = "message"
+        const val NAV_LOGIN = "login"
     }
 
     private val serviceConnector by lazy { ArukuMiraiService.Connector(this) }
@@ -44,6 +46,7 @@ class MainActivity : ComponentActivity() {
 
         serviceConnector.connected.observe(this) { connected ->
             if (connected) {
+                botLst.value = serviceInterface?.bots?.toList() ?: listOf()
                 serviceInterface?.addBotListObserver(toString(), object : IBotListObserver.Stub() {
                     override fun onChange(newList: LongArray?) {
                         botLst.value = newList?.toList() ?: listOf()
@@ -82,7 +85,12 @@ class MainActivity : ComponentActivity() {
                     })
                 }
                 composable(NAV_LOGIN) {
-                    LoginPage(onLoginSuccess = { navController.popBackStack() })
+                    LoginPage(onLoginSuccess = { accountInfo ->
+                        lifecycleScope.launch { accountStore.update { accounts ->
+                            accounts.toBuilder().putAccount(accountInfo.accountNo, accountInfo).build()
+                        } }
+                        navController.popBackStack()
+                    })
                 }
             }
         }

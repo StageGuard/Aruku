@@ -6,14 +6,14 @@ import java.util.function.BiFunction
 import java.util.function.Function
 
 class LiveConcurrentHashMap<K : Any, V : Any>(
-    private val observer: Observer<Map<K, V>> = Observer {  }
+    private val observer: Observer<Map<K, V>> = Observer { }
 ) : ConcurrentHashMap<K, V>() {
     private fun <T : Any?> T.observe(condition: T.() -> Boolean = { true }): T {
         if (condition()) observer.onChanged(this@LiveConcurrentHashMap.toMap())
         return this
     }
 
-    private fun <T : Any?> T.notNullObserve(): T  = observe { this != null }
+    private fun <T : Any?> T.notNullObserve(): T = observe { this != null }
 
     override fun putIfAbsent(key: K, value: V): V? {
         return super.putIfAbsent(key, value).also {

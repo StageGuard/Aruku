@@ -19,7 +19,6 @@ import me.stageguard.aruku.preference.proto.AccountsOuterClass
 import me.stageguard.aruku.ui.common.CompoundDropdownMenu
 import me.stageguard.aruku.ui.common.ExpandedAnimatedVisibility
 import me.stageguard.aruku.ui.common.NumberOutlinedTextField
-import me.stageguard.aruku.ui.page.LoginState
 import me.stageguard.aruku.util.stringRes
 
 /**
@@ -29,8 +28,8 @@ import me.stageguard.aruku.util.stringRes
 
 @Composable
 fun AdvancedOptions(
-    protocol: MutableState<AccountsOuterClass.Accounts.login_protocol>,
     state: State<LoginState>,
+    protocol: MutableState<AccountsOuterClass.Accounts.login_protocol>,
     heartbeatStrategy: MutableState<AccountsOuterClass.Accounts.heartbeat_strategy>,
     heartbeatPeriodMillis: MutableState<Long>,
     statHeartbeatPeriodMillis: MutableState<Long>,

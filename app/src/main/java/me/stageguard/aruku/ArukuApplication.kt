@@ -12,14 +12,16 @@ import java.util.concurrent.atomic.AtomicBoolean
 class ArukuApplication : Application() {
     companion object {
         val initialized = AtomicBoolean(false)
-        lateinit var INSTANCE : ArukuApplication
+        lateinit var INSTANCE: ArukuApplication
     }
+
     override fun onCreate() {
         initialized.compareAndSet(false, true)
         INSTANCE = this
         startService(Intent(this, ArukuMiraiService::class.java))
         super.onCreate()
     }
+
     init {
         try {
             Security.removeProvider(BouncyCastleProvider.PROVIDER_NAME)

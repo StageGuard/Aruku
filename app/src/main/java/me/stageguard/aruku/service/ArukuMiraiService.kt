@@ -15,8 +15,6 @@ import me.stageguard.aruku.R
 import me.stageguard.aruku.preference.accountStore
 import me.stageguard.aruku.preference.proto.AccountsOuterClass.Accounts
 import me.stageguard.aruku.ui.activity.MainActivity
-import me.stageguard.aruku.preference.proto.AccountsOuterClass.Accounts.AccountInfo as AccountInfoProto
-import me.stageguard.aruku.service.parcel.AccountInfo as AccountInfoParcel
 import me.stageguard.aruku.util.ArukuMiraiLogger
 import me.stageguard.aruku.util.LiveConcurrentHashMap
 import me.stageguard.aruku.util.stringRes
@@ -25,14 +23,20 @@ import net.mamoe.mirai.Bot
 import net.mamoe.mirai.BotFactory
 import net.mamoe.mirai.network.CustomLoginFailedException
 import net.mamoe.mirai.network.LoginFailedException
-import net.mamoe.mirai.utils.BotConfiguration.MiraiProtocol
 import net.mamoe.mirai.utils.BotConfiguration.HeartbeatStrategy
+import net.mamoe.mirai.utils.BotConfiguration.MiraiProtocol
 import net.mamoe.mirai.utils.LoginSolver
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.properties.ReadOnlyProperty
 import kotlin.reflect.KProperty
+import me.stageguard.aruku.preference.proto.AccountsOuterClass.Accounts.AccountInfo as AccountInfoProto
+import me.stageguard.aruku.service.parcel.AccountInfo as AccountInfoParcel
 
 class ArukuMiraiService : LifecycleService() {
+    companion object {
+        const val FOREGROUND_NOTIFICATION_ID = 72
+    }
+
     private val bots: LiveConcurrentHashMap<Long, Bot> = LiveConcurrentHashMap { newList ->
         botListObservers.forEach { (_, observer) -> observer.onChange(newList.keys.toLongArray()) }
     }
@@ -98,7 +102,7 @@ class ArukuMiraiService : LifecycleService() {
             lifecycleScope.launch {
                 val accounts = context.accountStore.single().accountMap
                 accounts.forEach { (id, info) ->
-                    bots[id] = createBot(info)
+                    bots[id] = createBot(info).also { login(id) }
                 }
             }
             Log.i(toLogTag(), "ArukuMiraiService is created.")
@@ -120,19 +124,20 @@ class ArukuMiraiService : LifecycleService() {
 
         (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).createNotificationChannel(notificationChannel)
 
-        val pendingIntent = PendingIntent.getActivity(context, 0,
+        val pendingIntent = PendingIntent.getActivity(
+            context, 0,
             Intent(context, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE
         )
 
         val notification = Notification.Builder(this, this::class.java.simpleName).apply {
             setContentTitle(R.string.app_name.stringRes)
             setContentText(R.string.service_notification_text.stringRes)
-            setSmallIcon(R.mipmap.ic_launcher)
+            setSmallIcon(R.drawable.ic_launcher_foreground)
             setContentIntent(pendingIntent)
             setTicker(R.string.service_notification_text.stringRes)
         }.build()
 
-        startForeground(0, notification)
+        startForeground(FOREGROUND_NOTIFICATION_ID, notification)
 
         return Service.START_STICKY
     }
@@ -184,10 +189,10 @@ class ArukuMiraiService : LifecycleService() {
         } else false
     }
 
-    private fun removeBot(accountNo: Long) : Boolean {
+    private fun removeBot(accountNo: Long): Boolean {
         val bot = bots[accountNo]
         val botJob = botJobs[accountNo]
-        return bot ?.run {
+        return bot?.run {
             lifecycleScope.launch(Dispatchers.Main) {
                 bot.closeAndJoin()
                 botJob?.cancelAndJoin()
@@ -203,7 +208,7 @@ class ArukuMiraiService : LifecycleService() {
             BotFactory.newBot(accountNo, passwordMd5) {
                 workingDir = ArukuApplication.INSTANCE.filesDir.resolve("mirai/")
                 parentCoroutineContext = lifecycleScope.coroutineContext
-                protocol = when(getProtocol()) {
+                protocol = when (getProtocol()) {
                     Accounts.login_protocol.ANDROID_PHONE -> MiraiProtocol.ANDROID_PHONE
                     Accounts.login_protocol.ANDROID_PAD -> MiraiProtocol.ANDROID_PAD
                     Accounts.login_protocol.ANDROID_WATCH -> MiraiProtocol.ANDROID_WATCH
@@ -213,7 +218,7 @@ class ArukuMiraiService : LifecycleService() {
                     Accounts.login_protocol.UNRECOGNIZED, null -> MiraiProtocol.ANDROID_PHONE
                 }
                 autoReconnectOnForceOffline = autoReconnect
-                heartbeatStrategy = when(getHeartbeatStrategy()) {
+                heartbeatStrategy = when (getHeartbeatStrategy()) {
                     Accounts.heartbeat_strategy.STAT_HB -> HeartbeatStrategy.STAT_HB
                     Accounts.heartbeat_strategy.REGISTER -> HeartbeatStrategy.REGISTER
                     Accounts.heartbeat_strategy.NONE -> HeartbeatStrategy.NONE
@@ -230,18 +235,18 @@ class ArukuMiraiService : LifecycleService() {
 
                 loginSolver = object : LoginSolver() {
                     override suspend fun onSolvePicCaptcha(bot: Bot, data: ByteArray): String {
-                        return loginSolvers[bot.id]?.onSolvePicCaptcha(bot.id, data) ?:
-                        throw object : CustomLoginFailedException(false, "no login solver for bot ${bot.id}") {}
+                        return loginSolvers[bot.id]?.onSolvePicCaptcha(bot.id, data) ?: throw object :
+                            CustomLoginFailedException(false, "no login solver for bot ${bot.id}") {}
                     }
 
                     override suspend fun onSolveSliderCaptcha(bot: Bot, url: String): String {
-                        return loginSolvers[bot.id]?.onSolveSliderCaptcha(bot.id, url) ?:
-                        throw object : CustomLoginFailedException(false, "no login solver for bot ${bot.id}") {}
+                        return loginSolvers[bot.id]?.onSolveSliderCaptcha(bot.id, url) ?: throw object :
+                            CustomLoginFailedException(false, "no login solver for bot ${bot.id}") {}
                     }
 
                     override suspend fun onSolveUnsafeDeviceLoginVerify(bot: Bot, url: String): String {
-                        return loginSolvers[bot.id]?.onSolveUnsafeDeviceLoginVerify(bot.id, url) ?:
-                        throw object : CustomLoginFailedException(false, "no login solver for bot ${bot.id}") {}
+                        return loginSolvers[bot.id]?.onSolveUnsafeDeviceLoginVerify(bot.id, url) ?: throw object :
+                            CustomLoginFailedException(false, "no login solver for bot ${bot.id}") {}
                     }
                 }
             }
@@ -273,6 +278,7 @@ class ArukuMiraiService : LifecycleService() {
                     )
                     if (!bindResult) Log.e(toLogTag(), "Cannot bind ArukuMiraiService.")
                 }
+
                 Lifecycle.Event.ON_DESTROY -> {
                     context.unbindService(this)
                 }

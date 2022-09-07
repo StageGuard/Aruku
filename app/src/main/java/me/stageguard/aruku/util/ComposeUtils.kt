@@ -1,6 +1,5 @@
 package me.stageguard.aruku.util
 
-import androidx.annotation.IdRes
 import androidx.annotation.StringRes
 import me.stageguard.aruku.ArukuApplication
 
@@ -10,5 +9,4 @@ import me.stageguard.aruku.ArukuApplication
  */
 
 val @receiver:StringRes Int.stringRes get() = ArukuApplication.INSTANCE.getString(this)
-
 fun @receiver:StringRes Int.stringRes(vararg args: Any) = ArukuApplication.INSTANCE.getString(this, *args)

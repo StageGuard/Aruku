@@ -1,4 +1,4 @@
-package me.stageguard.aruku.ui.page
+package me.stageguard.aruku.ui.page.login
 
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
@@ -7,15 +7,27 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.runBlocking
 import me.stageguard.aruku.preference.proto.AccountsOuterClass
-import me.stageguard.aruku.preference.proto.AccountsOuterClass.Accounts.AccountInfo as AccountInfoProto
-import me.stageguard.aruku.service.parcel.AccountInfo as AccountInfoParcel
 import me.stageguard.aruku.service.IArukuMiraiInterface
 import me.stageguard.aruku.service.ILoginSolver
 import net.mamoe.mirai.utils.secondsToMillis
+import me.stageguard.aruku.preference.proto.AccountsOuterClass.Accounts.AccountInfo as AccountInfoProto
+import me.stageguard.aruku.service.parcel.AccountInfo as AccountInfoParcel
 
 class LoginViewModel(
     private val arukuServiceInterface: IArukuMiraiInterface
 ) : ViewModel() {
+    val accountInfo: MutableState<AccountInfoProto> by lazy {
+        mutableStateOf(AccountInfoProto.newBuilder().apply {
+            protocol = AccountsOuterClass.Accounts.login_protocol.ANDROID_PHONE
+            heartbeatStrategy = AccountsOuterClass.Accounts.heartbeat_strategy.STAT_HB
+            heartbeatPeriodMillis = 60.secondsToMillis
+            heartbeatTimeoutMillis = 5.secondsToMillis
+            statHeartbeatPeriodMillis = 300.secondsToMillis
+            autoReconnect = true
+            reconnectionRetryTimes = 5
+        }.build())
+    }
+
     val state: MutableState<LoginState> = mutableStateOf(LoginState.Default)
     private val captchaChannel = Channel<String?>()
 
@@ -51,26 +63,28 @@ class LoginViewModel(
             state.value = LoginState.LoginSuccess(bot)
         }
 
-;        override fun onLoginFailed(bot: Long, botKilled: Boolean, cause: String?) {
+        override fun onLoginFailed(bot: Long, botKilled: Boolean, cause: String?) {
             state.value = LoginState.LoginFailed(bot, cause.toString())
         }
 
     }
 
-    fun doLogin(accountInfo: AccountInfoProto) {
+    fun doLogin(accountNo: Long) {
         state.value = LoginState.Logging
-        arukuServiceInterface.addLoginSolver(accountInfo.accountNo, loginSolver)
-        arukuServiceInterface.addBot(AccountInfoParcel(
-            accountNo = accountInfo.accountNo,
-            passwordMd5 = accountInfo.passwordMd5,
-            protocol = accountInfo.protocol,
-            heartbeatStrategy = accountInfo.heartbeatStrategy,
-            heartbeatPeriodMillis = accountInfo.heartbeatPeriodMillis,
-            heartbeatTimeoutMillis = accountInfo.heartbeatTimeoutMillis,
-            statHeartbeatPeriodMillis = accountInfo.statHeartbeatPeriodMillis,
-            autoReconnect = accountInfo.autoReconnect,
-            reconnectionRetryTimes = accountInfo.reconnectionRetryTimes
-        ), true)
+        arukuServiceInterface.addLoginSolver(accountNo, loginSolver)
+        arukuServiceInterface.addBot(
+            AccountInfoParcel(
+                accountNo = accountInfo.value.accountNo,
+                passwordMd5 = accountInfo.value.passwordMd5,
+                protocol = accountInfo.value.protocol,
+                heartbeatStrategy = accountInfo.value.heartbeatStrategy,
+                heartbeatPeriodMillis = accountInfo.value.heartbeatPeriodMillis,
+                heartbeatTimeoutMillis = accountInfo.value.heartbeatTimeoutMillis,
+                statHeartbeatPeriodMillis = accountInfo.value.statHeartbeatPeriodMillis,
+                autoReconnect = accountInfo.value.autoReconnect,
+                reconnectionRetryTimes = accountInfo.value.reconnectionRetryTimes
+            ), true
+        )
     }
 
     fun retryCaptcha() {
@@ -86,20 +100,6 @@ class LoginViewModel(
     fun removeBotAndClearState(accountNo: Long) {
         state.value = LoginState.Default
         arukuServiceInterface.removeBot(accountNo)
-    }
-
-    companion object {
-        val defaultAccountInfoConfiguration: AccountInfoProto by lazy {
-            AccountInfoProto.newBuilder().apply {
-                protocol = AccountsOuterClass.Accounts.login_protocol.ANDROID_PHONE
-                heartbeatStrategy = AccountsOuterClass.Accounts.heartbeat_strategy.STAT_HB
-                heartbeatPeriodMillis = 60.secondsToMillis
-                heartbeatTimeoutMillis = 5.secondsToMillis
-                statHeartbeatPeriodMillis = 300.secondsToMillis
-                autoReconnect = true
-                reconnectionRetryTimes = 5
-            }.build()
-        }
     }
 }
 

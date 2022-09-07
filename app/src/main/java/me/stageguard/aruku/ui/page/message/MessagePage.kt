@@ -1,4 +1,4 @@
-package me.stageguard.aruku.ui.page
+package me.stageguard.aruku.ui.page.message
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
@@ -49,11 +49,11 @@ fun MessageView(
             modifier = Modifier.padding(start = 15.dp, top = 35.dp)
         )
         IconButton(onClick = {
-             if (botList.value.isNotEmpty()) {
-                 botListExpanded.value = !botListExpanded.value
-             } else {
-                 navigateToLoginPage()
-             }
+            if (botList.value.isNotEmpty()) {
+                botListExpanded.value = !botListExpanded.value
+            } else {
+                navigateToLoginPage()
+            }
         }, modifier = Modifier.align(Alignment.BottomEnd).padding(0.dp)) {
             Image(Icons.Outlined.AccountCircle, "Account")
         }

@@ -1,4 +1,4 @@
-package me.stageguard.aruku.ui
+package me.stageguard.aruku.ui.common
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope

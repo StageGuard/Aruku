@@ -1,15 +1,11 @@
 package me.stageguard.aruku.preference.serializer
 
-import androidx.compose.runtime.saveable.Saver
-import androidx.compose.runtime.saveable.SaverScope
 import androidx.datastore.core.CorruptionException
 import com.google.protobuf.InvalidProtocolBufferException
+import me.stageguard.aruku.preference.proto.AccountsOuterClass.Accounts
 import java.io.InputStream
 import java.io.OutputStream
 import androidx.datastore.core.Serializer as ProtoSerializer
-import me.stageguard.aruku.preference.proto.AccountsOuterClass.Accounts
-import me.stageguard.aruku.preference.proto.AccountsOuterClass.Accounts.AccountInfo
-import net.mamoe.mirai.Mirai
 
 object AccountsProtoSerializer : ProtoSerializer<Accounts> {
     override val defaultValue: Accounts
