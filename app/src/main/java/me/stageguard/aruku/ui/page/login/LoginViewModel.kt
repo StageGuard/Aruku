@@ -4,6 +4,7 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.runBlocking
 import me.stageguard.aruku.preference.proto.AccountsOuterClass
@@ -14,7 +15,8 @@ import me.stageguard.aruku.preference.proto.AccountsOuterClass.Accounts.AccountI
 import me.stageguard.aruku.service.parcel.AccountInfo as AccountInfoParcel
 
 class LoginViewModel(
-    private val arukuServiceInterface: IArukuMiraiInterface
+    private val arukuServiceInterface: IArukuMiraiInterface,
+    private val onLoginSuccess: (AccountInfoProto) -> Unit
 ) : ViewModel() {
     val accountInfo: MutableState<AccountInfoProto> by lazy {
         mutableStateOf(AccountInfoProto.newBuilder().apply {
@@ -60,7 +62,7 @@ class LoginViewModel(
         }
 
         override fun onLoginSuccess(bot: Long) {
-            state.value = LoginState.LoginSuccess(bot)
+            runBlocking(Dispatchers.Main) { onLoginSuccess(accountInfo.value) }
         }
 
         override fun onLoginFailed(bot: Long, botKilled: Boolean, cause: String?) {
@@ -108,7 +110,6 @@ sealed class LoginState {
     object Logging : LoginState()
     class CaptchaRequired(val bot: Long, val type: CaptchaType) : LoginState()
     class LoginFailed(val bot: Long, val cause: String) : LoginState()
-    class LoginSuccess(val bot: Long) : LoginState()
 }
 
 sealed class CaptchaType(val bot: Long) {

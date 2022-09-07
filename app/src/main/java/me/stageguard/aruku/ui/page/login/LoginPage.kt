@@ -41,19 +41,14 @@ fun LoginPage(
     onLoginSuccess: (AccountInfo) -> Unit
 ) {
     val arukuInterface = LocalArukuMiraiInterface.current
-    val viewModel: LoginViewModel = viewModel { LoginViewModel(arukuInterface) }
-    val onLoginSuccessState = rememberUpdatedState(onLoginSuccess)
+    val viewModel: LoginViewModel = viewModel { LoginViewModel(arukuInterface, onLoginSuccess) }
 
-    if (viewModel.state.value is LoginState.LoginSuccess) {
-        onLoginSuccessState.value.invoke(viewModel.accountInfo.value)
-    } else {
-        LoginView(accountInfo = viewModel.accountInfo,
-            state = viewModel.state,
-            onLoginClick = { viewModel.doLogin(it) },
-            onLoginFailedClick = { viewModel.removeBotAndClearState(it) },
-            onRetryCaptchaClick = { viewModel.retryCaptcha() },
-            onSubmitCaptchaClick = { _, result -> viewModel.submitCaptcha(result) })
-    }
+    LoginView(accountInfo = viewModel.accountInfo,
+        state = viewModel.state,
+        onLoginClick = { viewModel.doLogin(it) },
+        onLoginFailedClick = { viewModel.removeBotAndClearState(it) },
+        onRetryCaptchaClick = { viewModel.retryCaptcha() },
+        onSubmitCaptchaClick = { _, result -> viewModel.submitCaptcha(result) })
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
