@@ -1,7 +1,10 @@
 package me.stageguard.aruku.ui.page.login
 
+import android.graphics.BitmapFactory
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
@@ -38,7 +41,12 @@ class LoginViewModel(
             state.value = if (data == null) {
                 LoginState.LoginFailed(bot, "Picture captcha data is null.")
             } else {
-                LoginState.CaptchaRequired(bot, CaptchaType.Picture(bot, data))
+                LoginState.CaptchaRequired(
+                    bot, CaptchaType.Picture(
+                        bot,
+                        BitmapFactory.decodeByteArray(data, 0, data.size).asImageBitmap()
+                    )
+                )
             }
             return runBlocking(viewModelScope.coroutineContext) { captchaChannel.receive() }
         }
@@ -113,7 +121,7 @@ sealed class LoginState {
 }
 
 sealed class CaptchaType(val bot: Long) {
-    class Picture(bot: Long, val data: ByteArray) : CaptchaType(bot)
+    class Picture(bot: Long, val imageBitmap: ImageBitmap) : CaptchaType(bot)
     class Slider(bot: Long, val url: String) : CaptchaType(bot)
     class UnsafeDevice(bot: Long, val url: String) : CaptchaType(bot)
 }

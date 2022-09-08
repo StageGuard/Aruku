@@ -1,6 +1,5 @@
 package me.stageguard.aruku.ui.page.login
 
-import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -11,7 +10,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.tooling.preview.Preview
@@ -61,9 +60,7 @@ fun CaptchaRequired(
                 )
                 if (captchaType is CaptchaType.Picture) {
                     Image(
-                        bitmap = BitmapFactory
-                            .decodeByteArray(captchaType.data, 0, captchaType.data.size)
-                            .asImageBitmap(),
+                        bitmap = captchaType.imageBitmap,
                         contentDescription = "Picture captcha",
                         modifier = Modifier
                             .padding(horizontal = 5.dp)
@@ -123,11 +120,36 @@ fun CaptchaRequired(
 
 @Preview
 @Composable
-fun CaptchaRequired() {
+fun CaptchaRequiredSlider() {
     ArukuTheme {
         CaptchaRequired(
             LoginState.CaptchaRequired(
-                123, CaptchaType.Slider(123, "https://example.com")
+                123, CaptchaType.Slider(123, "https://example.com/captcha_url")
+            ), { }, { _, _ -> }, { }
+        )
+    }
+}
+
+@Preview
+@Composable
+fun CaptchaRequiredUDL() {
+    ArukuTheme {
+        CaptchaRequired(
+            LoginState.CaptchaRequired(
+                123, CaptchaType.UnsafeDevice(123, "https://example.com/udl_url")
+            ), { }, { _, _ -> }, { }
+        )
+    }
+}
+
+@Preview
+@Composable
+fun CaptchaRequiredPicture() {
+    ArukuTheme {
+        CaptchaRequired(
+            LoginState.CaptchaRequired(
+                123,
+                CaptchaType.Picture(123, ImageBitmap(200, 100))
             ), { }, { _, _ -> }, { }
         )
     }

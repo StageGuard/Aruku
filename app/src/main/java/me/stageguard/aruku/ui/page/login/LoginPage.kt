@@ -151,7 +151,7 @@ fun LoginView(
                         enabled = state.value is LoginState.Default
                     )
                     AdvancedOptions(
-                        state,
+                        state.value is LoginState.Default,
                         protocol,
                         heartbeatStrategy,
                         heartbeatPeriodMillis,
