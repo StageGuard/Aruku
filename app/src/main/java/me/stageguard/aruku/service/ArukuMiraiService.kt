@@ -10,13 +10,13 @@ import android.os.IBinder
 import android.util.Log
 import androidx.lifecycle.*
 import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.single
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import me.stageguard.aruku.ArukuApplication
 import me.stageguard.aruku.R
 import me.stageguard.aruku.preference.accountStore
 import me.stageguard.aruku.preference.proto.AccountsOuterClass.Accounts
+import me.stageguard.aruku.preference.safeFlow
 import me.stageguard.aruku.ui.activity.MainActivity
 import me.stageguard.aruku.util.*
 import net.mamoe.mirai.Bot
@@ -113,11 +113,15 @@ class ArukuMiraiService : LifecycleService() {
         if (ArukuApplication.initialized.get()) {
             val context = ArukuApplication.INSTANCE.applicationContext
             lifecycleScope.launch {
-                val accounts = context.accountStore.data.single().accountMap
-                accounts.forEach { (id, info) ->
-                    bots.value?.set(id, createBot(info).also { login(id) })
-                    bots.notifyPost()
+                context.accountStore.safeFlow.collect {
+                    it.accountMap.forEach { (id, info) ->
+                        Log.i(toLogTag(), "reading account data $info")
+                        bots.value?.set(id, createBot(info))
+                        bots.notifyPost()
+                        login(id)
+                    }
                 }
+                Log.i(toLogTag(), "read completed")
             }
             Log.i(toLogTag(), "ArukuMiraiService is created.")
         } else {
