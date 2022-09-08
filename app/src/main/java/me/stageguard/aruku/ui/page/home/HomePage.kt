@@ -1,4 +1,4 @@
-package me.stageguard.aruku.ui.page.message
+package me.stageguard.aruku.ui.page.home
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
@@ -26,18 +26,16 @@ import me.stageguard.aruku.ui.theme.ArukuTheme
 import me.stageguard.aruku.util.stringRes
 
 @Composable
-fun MessagePage(
+fun HomePage(
     botList: State<List<Long>>,
     navigateToLoginPage: () -> Unit
 ) {
-    val viewModel: MessageViewModel = viewModel {
-        MessageViewModel()
-    }
-    MessageView(botList, navigateToLoginPage)
+    val viewModel: HomeViewModel = viewModel { HomeViewModel() }
+    HomeView(botList, navigateToLoginPage)
 }
 
 @Composable
-fun MessageView(
+fun HomeView(
     botList: State<List<Long>>,
     navigateToLoginPage: () -> Unit
 ) {
@@ -64,5 +62,5 @@ fun MessageView(
 @Composable
 fun MessageViewPreview() {
     val list = remember { mutableStateOf(listOf<Long>()) }
-    ArukuTheme { MessageView(list) {} }
+    ArukuTheme { HomeView(list) {} }
 }

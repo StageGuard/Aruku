@@ -12,6 +12,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.single
 import kotlinx.coroutines.launch
 import me.stageguard.aruku.preference.accountStore
@@ -20,8 +21,8 @@ import me.stageguard.aruku.service.IBotListObserver
 import me.stageguard.aruku.ui.LocalArukuMiraiInterface
 import me.stageguard.aruku.ui.LocalNavController
 import me.stageguard.aruku.ui.page.ServiceConnectingPage
+import me.stageguard.aruku.ui.page.home.HomePage
 import me.stageguard.aruku.ui.page.login.LoginPage
-import me.stageguard.aruku.ui.page.message.MessagePage
 import me.stageguard.aruku.ui.theme.ArukuTheme
 import me.stageguard.aruku.util.toLogTag
 import me.stageguard.aruku.util.weakReference
@@ -84,13 +85,13 @@ class MainActivity : ComponentActivity() {
         ) {
             NavHost(navController, startDestination = NAV_MESSAGE) {
                 composable(NAV_MESSAGE) {
-                    MessagePage(botList, navigateToLoginPage = {
+                    HomePage(botList, navigateToLoginPage = {
                         navController.navigate(NAV_LOGIN)
                     })
                 }
                 composable(NAV_LOGIN) {
                     LoginPage(onLoginSuccess = { accountInfo ->
-                        lifecycleScope.launch {
+                        lifecycleScope.launch(Dispatchers.IO) {
                             Log.i(toLogTag(), "updating accountStore")
                             accountStore.updateData { accounts ->
                                 accounts.toBuilder().putAccount(accountInfo.accountNo, accountInfo).build()

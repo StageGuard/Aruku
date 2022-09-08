@@ -1,8 +1,8 @@
-package me.stageguard.aruku.ui.page.message
+package me.stageguard.aruku.ui.page.home
 
 import androidx.lifecycle.ViewModel
 
-class MessageViewModel(
+class HomeViewModel(
 
 ) : ViewModel() {
 
