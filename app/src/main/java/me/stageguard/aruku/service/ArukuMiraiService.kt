@@ -233,9 +233,12 @@ class ArukuMiraiService : LifecycleService() {
     }
 
     private fun createBot(accountInfo: AccountInfoProto): Bot {
+        val miraiWorkingDir = ArukuApplication.INSTANCE.filesDir.resolve("mirai/")
+        if (!miraiWorkingDir.exists()) miraiWorkingDir.mkdirs()
+
         return accountInfo.run {
             BotFactory.newBot(accountNo, passwordMd5) {
-                workingDir = ArukuApplication.INSTANCE.filesDir.resolve("mirai/")
+                workingDir = miraiWorkingDir
                 parentCoroutineContext = lifecycleScope.coroutineContext
                 protocol = when (getProtocol()) {
                     Accounts.login_protocol.ANDROID_PHONE -> MiraiProtocol.ANDROID_PHONE
@@ -262,9 +265,7 @@ class ArukuMiraiService : LifecycleService() {
                 botLoggerSupplier = { ArukuMiraiLogger("Bot.${it.id}", true) }
                 networkLoggerSupplier = { ArukuMiraiLogger("Net.${it.id}", true) }
 
-                val deviceInfoFile = ArukuApplication.INSTANCE.filesDir
-                    .resolve("mirai/device-${accountInfo.accountNo}.json")
-
+                val deviceInfoFile = miraiWorkingDir.resolve("device-${accountInfo.accountNo}.json")
                 if (deviceInfoFile.exists()) {
                     fileBasedDeviceInfo(deviceInfoFile.absolutePath)
                 } else {
