@@ -8,18 +8,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.State
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import me.stageguard.aruku.R
-import me.stageguard.aruku.util.stringRes
+import me.stageguard.aruku.ui.theme.ArukuTheme
+import me.stageguard.aruku.util.stringResC
 
 /**
  * Created by LoliBall on 2022/9/6 18:34.
@@ -29,32 +28,31 @@ import me.stageguard.aruku.util.stringRes
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
 fun CaptchaRequired(
-    state: State<LoginState>,
+    state: LoginState.CaptchaRequired,
     onRetryCaptchaClick: (Long) -> Unit,
     onSubmitCaptchaClick: (Long, String) -> Unit,
     onLoginFailedClick: (Long) -> Unit
 ) {
-    val captchaState = state.value as LoginState.CaptchaRequired
-    val captchaType = captchaState.type
+    val captchaType = state.type
     val captchaResult = remember { mutableStateOf("") }
     AlertDialog(
-        onDismissRequest = { onRetryCaptchaClick(captchaState.bot) },
+        onDismissRequest = { onRetryCaptchaClick(state.bot) },
         title = {
             Text(
-                text = R.string.captcha_required.stringRes,
+                text = R.string.captcha_required.stringResC,
                 style = MaterialTheme.typography.titleLarge
             )
         },
         text = {
             Column {
                 Text(
-                    text = R.string.verify_captcha_message.stringRes(
-                        captchaState.bot.toString(),
+                    text = R.string.verify_captcha_message.stringResC(
+                        state.bot.toString(),
                         when (captchaType) {
                             is CaptchaType.Picture -> R.string.verify_captcha_message_code
                             is CaptchaType.Slider -> R.string.verify_captcha_message_slider
                             is CaptchaType.UnsafeDevice -> R.string.verify_captcha_message_device
-                        }.stringRes
+                        }.stringResC
                     ),
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier
@@ -93,8 +91,8 @@ fun CaptchaRequired(
                         label = {
                             Text(
                                 text = when (captchaType) {
-                                    is CaptchaType.Picture -> R.string.verification_code.stringRes
-                                    is CaptchaType.Slider -> R.string.slider_result.stringRes
+                                    is CaptchaType.Picture -> R.string.verification_code.stringResC
+                                    is CaptchaType.Slider -> R.string.slider_result.stringResC
                                     else -> ""
                                 },
                                 style = MaterialTheme.typography.bodyMedium
@@ -111,14 +109,26 @@ fun CaptchaRequired(
             }
         },
         confirmButton = {
-            Button(onClick = { onSubmitCaptchaClick(captchaState.bot, captchaResult.value) }) {
-                Text(R.string.confirm.stringRes)
+            Button(onClick = { onSubmitCaptchaClick(state.bot, captchaResult.value) }) {
+                Text(R.string.confirm.stringResC)
             }
         },
         dismissButton = {
-            Button(onClick = { onLoginFailedClick(captchaState.bot) }) {
-                Text(R.string.cancel.stringRes)
+            Button(onClick = { onLoginFailedClick(state.bot) }) {
+                Text(R.string.cancel.stringResC)
             }
         }
     )
+}
+
+@Preview
+@Composable
+fun CaptchaRequired() {
+    ArukuTheme {
+        CaptchaRequired(
+            LoginState.CaptchaRequired(
+                123, CaptchaType.Slider(123, "https://example.com")
+            ), { }, { _, _ -> }, { }
+        )
+    }
 }

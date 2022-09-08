@@ -22,8 +22,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import me.stageguard.aruku.R
+import me.stageguard.aruku.ui.LocalStringRes
 import me.stageguard.aruku.ui.theme.ArukuTheme
-import me.stageguard.aruku.util.stringRes
 
 @Composable
 fun HomePage(
@@ -42,7 +42,7 @@ fun HomeView(
     val botListExpanded = remember { mutableStateOf(false) }
     Box(modifier = Modifier.fillMaxWidth().wrapContentHeight()) {
         Text(
-            text = R.string.messages.stringRes,
+            text = LocalStringRes.current id R.string.messages,
             style = TextStyle(fontSize = 35.sp, fontWeight = FontWeight.Bold),
             modifier = Modifier.padding(start = 15.dp, top = 35.dp)
         )

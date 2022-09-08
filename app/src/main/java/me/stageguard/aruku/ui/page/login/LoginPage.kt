@@ -15,6 +15,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -24,15 +25,13 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.google.accompanist.permissions.ExperimentalPermissionsApi
-import com.google.accompanist.permissions.isGranted
-import com.google.accompanist.permissions.rememberPermissionState
+import com.google.accompanist.permissions.*
 import me.stageguard.aruku.R
 import me.stageguard.aruku.preference.proto.AccountsOuterClass.Accounts.AccountInfo
 import me.stageguard.aruku.ui.LocalArukuMiraiInterface
 import me.stageguard.aruku.ui.common.SingleItemLazyColumn
 import me.stageguard.aruku.ui.theme.ArukuTheme
-import me.stageguard.aruku.util.stringRes
+import me.stageguard.aruku.util.stringResC
 
 private const val TAG = "LoginView"
 
@@ -77,7 +76,19 @@ fun LoginView(
     val topBarState = rememberTopAppBarState()
     val scrollBehavior = remember { TopAppBarDefaults.pinnedScrollBehavior(topBarState) }
 
-    val internetPermission = rememberPermissionState(android.Manifest.permission.INTERNET)
+    val internetPermission = if (!LocalInspectionMode.current) {
+        rememberPermissionState(android.Manifest.permission.INTERNET)
+    } else {
+        remember {
+            object : PermissionState {
+                override val permission: String = android.Manifest.permission.INTERNET
+                override val status: PermissionStatus = PermissionStatus.Granted
+                override fun launchPermissionRequest() {
+                    error("not implemented in inspection mode")
+                }
+            }
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -87,12 +98,12 @@ fun LoginView(
                 Modifier.fillMaxWidth().height(50.dp)
             )
             Text(
-                text = R.string.login_message.stringRes,
+                text = R.string.login_message.stringResC,
                 style = TextStyle.Default.copy(fontSize = 36.sp, fontWeight = FontWeight.Bold),
                 modifier = Modifier.padding(vertical = 4.dp)
             )
             Text(
-                text = R.string.login_desc.stringRes,
+                text = R.string.login_desc.stringResC,
                 style = TextStyle.Default.copy(fontSize = 24.sp),
                 modifier = Modifier.padding(vertical = 4.dp)
             )
@@ -104,7 +115,7 @@ fun LoginView(
                         value = account.value,
                         label = {
                             Text(
-                                R.string.qq_account.stringRes, style = MaterialTheme.typography.bodyMedium
+                                R.string.qq_account.stringResC, style = MaterialTheme.typography.bodyMedium
                             )
                         },
                         modifier = Modifier.padding(top = 30.dp, bottom = 4.dp).fillMaxWidth(),
@@ -118,7 +129,7 @@ fun LoginView(
                         value = password.value,
                         label = {
                             Text(
-                                R.string.qq_password.stringRes, style = MaterialTheme.typography.bodyMedium
+                                R.string.qq_password.stringResC, style = MaterialTheme.typography.bodyMedium
                             )
                         },
                         modifier = Modifier.padding(top = 4.dp).fillMaxWidth(),
@@ -183,8 +194,8 @@ fun LoginView(
                             )
                         }
                         Text(
-                            if (internetPermission.status.isGranted) R.string.login.stringRes
-                            else R.string.internet_permission.stringRes,
+                            if (internetPermission.status.isGranted) R.string.login.stringResC
+                            else R.string.internet_permission.stringResC,
                             style = TextStyle.Default.copy(fontWeight = FontWeight.Bold),
                             modifier = Modifier.padding(8.dp)
                         )
@@ -193,22 +204,25 @@ fun LoginView(
                         val failedState = state.value as LoginState.LoginFailed
                         AlertDialog(onDismissRequest = { onLoginFailedClick(failedState.bot) }, title = {
                             Text(
-                                text = R.string.login_failed.stringRes, style = MaterialTheme.typography.titleLarge
+                                text = R.string.login_failed.stringResC, style = MaterialTheme.typography.titleLarge
                             )
                         }, text = {
                             Text(
-                                text = R.string.login_failed_message.stringRes(
+                                text = R.string.login_failed_message.stringResC(
                                     failedState.bot.toString(), failedState.cause
                                 ), style = MaterialTheme.typography.bodyMedium
                             )
                         }, confirmButton = {
                             Button(onClick = { onLoginFailedClick(failedState.bot) }) {
-                                Text(R.string.confirm.stringRes)
+                                Text(R.string.confirm.stringResC)
                             }
                         })
                     } else if (state.value is LoginState.CaptchaRequired) {
                         CaptchaRequired(
-                            state, onRetryCaptchaClick, onSubmitCaptchaClick, onLoginFailedClick
+                            state.value as LoginState.CaptchaRequired,
+                            onRetryCaptchaClick,
+                            onSubmitCaptchaClick,
+                            onLoginFailedClick
                         )
                     }
                 }

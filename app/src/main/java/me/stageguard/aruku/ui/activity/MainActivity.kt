@@ -15,15 +15,18 @@ import androidx.navigation.compose.rememberNavController
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.single
 import kotlinx.coroutines.launch
+import me.stageguard.aruku.ArukuApplication
 import me.stageguard.aruku.preference.accountStore
 import me.stageguard.aruku.service.ArukuMiraiService
 import me.stageguard.aruku.service.IBotListObserver
 import me.stageguard.aruku.ui.LocalArukuMiraiInterface
-import me.stageguard.aruku.ui.LocalNavController
+import me.stageguard.aruku.ui.LocalMainNavProvider
+import me.stageguard.aruku.ui.LocalStringRes
 import me.stageguard.aruku.ui.page.ServiceConnectingPage
 import me.stageguard.aruku.ui.page.home.HomePage
 import me.stageguard.aruku.ui.page.login.LoginPage
 import me.stageguard.aruku.ui.theme.ArukuTheme
+import me.stageguard.aruku.util.StringResource
 import me.stageguard.aruku.util.toLogTag
 import me.stageguard.aruku.util.weakReference
 
@@ -65,10 +68,14 @@ class MainActivity : ComponentActivity() {
         setContent {
             val serviceConnected = serviceConnector.connected.observeAsState(false)
             ArukuTheme {
-                if (serviceConnected.value) {
-                    Navigation()
-                } else {
-                    ServiceConnectingPage(serviceConnector.weakReference())
+                CompositionLocalProvider(
+                    LocalStringRes provides StringResource(ArukuApplication.INSTANCE.applicationContext)
+                ) {
+                    if (serviceConnected.value) {
+                        Navigation()
+                    } else {
+                        ServiceConnectingPage(serviceConnector.weakReference())
+                    }
                 }
             }
         }
@@ -81,7 +88,7 @@ class MainActivity : ComponentActivity() {
         val botList = botList.observeAsState(listOf())
         CompositionLocalProvider(
             LocalArukuMiraiInterface provides serviceInterface!!,
-            LocalNavController provides navController
+            LocalMainNavProvider provides navController
         ) {
             NavHost(navController, startDestination = NAV_MESSAGE) {
                 composable(NAV_MESSAGE) {

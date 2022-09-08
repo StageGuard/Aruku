@@ -20,7 +20,7 @@ import androidx.compose.ui.unit.sp
 import me.stageguard.aruku.R
 import me.stageguard.aruku.service.ArukuMiraiService
 import me.stageguard.aruku.ui.theme.ArukuTheme
-import me.stageguard.aruku.util.stringRes
+import me.stageguard.aruku.util.stringResC
 import me.stageguard.aruku.util.toLogTag
 import java.lang.ref.WeakReference
 
@@ -45,14 +45,14 @@ fun ServiceConnectingView() {
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.wrapContentSize().align(Alignment.Center)) {
             Text(
-                R.string.service_connecting.stringRes,
+                R.string.service_connecting.stringResC,
                 style = TextStyle(fontSize = 32.sp, fontWeight = FontWeight.Bold),
                 modifier = Modifier
                     .align(Alignment.CenterHorizontally)
                     .padding(start = 30.dp, end = 30.dp, bottom = 10.dp)
             )
             Text(
-                R.string.service_connecting_message.stringRes,
+                R.string.service_connecting_message.stringResC,
                 style = TextStyle(fontSize = 18.sp),
                 modifier = Modifier
                     .align(Alignment.CenterHorizontally)
