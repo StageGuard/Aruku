@@ -16,7 +16,6 @@ import me.stageguard.aruku.ArukuApplication
 import me.stageguard.aruku.R
 import me.stageguard.aruku.preference.accountStore
 import me.stageguard.aruku.preference.proto.AccountsOuterClass.Accounts
-import me.stageguard.aruku.preference.safeFlow
 import me.stageguard.aruku.ui.activity.MainActivity
 import me.stageguard.aruku.util.*
 import net.mamoe.mirai.Bot
@@ -113,7 +112,7 @@ class ArukuMiraiService : LifecycleService() {
         if (ArukuApplication.initialized.get()) {
             val context = ArukuApplication.INSTANCE.applicationContext
             lifecycleScope.launch {
-                context.accountStore.safeFlow.collect {
+                context.accountStore.safeFlow().collect {
                     it.accountMap.forEach { (id, info) ->
                         Log.i(toLogTag(), "reading account data $info")
                         bots.value?.set(id, createBot(info))
