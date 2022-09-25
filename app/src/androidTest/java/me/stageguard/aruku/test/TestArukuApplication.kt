@@ -1,9 +1,8 @@
-package me.stageguard.aruku
+package me.stageguard.aruku.test
 
 import android.app.Application
 import android.content.Intent
 import android.util.Log
-import me.stageguard.aruku.preference.ArukuPreference
 import me.stageguard.aruku.service.ArukuMiraiService
 import me.stageguard.aruku.util.toLogTag
 import org.bouncycastle.jce.provider.BouncyCastleProvider
@@ -13,10 +12,10 @@ import org.koin.core.context.startKoin
 import java.security.Security
 import java.util.concurrent.atomic.AtomicBoolean
 
-class ArukuApplication : Application() {
+class TestArukuApplication : Application() {
     companion object {
         val initialized = AtomicBoolean(false)
-        lateinit var INSTANCE: ArukuApplication
+        lateinit var INSTANCE: Application
     }
 
     override fun onCreate() {
@@ -25,11 +24,9 @@ class ArukuApplication : Application() {
 
         startKoin {
             androidLogger()
-            androidContext(this@ArukuApplication)
-            modules(botFactoryModule)
+            androidContext(this@TestArukuApplication)
+            modules(testBotFactoryModule)
         }
-
-        registerComponentCallbacks(ArukuPreference)
 
         startService(Intent(this, ArukuMiraiService::class.java))
         super.onCreate()

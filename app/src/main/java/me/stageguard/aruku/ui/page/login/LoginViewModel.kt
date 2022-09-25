@@ -10,27 +10,30 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.runBlocking
-import me.stageguard.aruku.preference.proto.AccountsOuterClass
 import me.stageguard.aruku.service.IArukuMiraiInterface
 import me.stageguard.aruku.service.ILoginSolver
+import me.stageguard.aruku.service.parcel.AccountInfo
+import net.mamoe.mirai.utils.BotConfiguration
 import net.mamoe.mirai.utils.secondsToMillis
-import me.stageguard.aruku.preference.proto.AccountsOuterClass.Accounts.AccountInfo as AccountInfoProto
-import me.stageguard.aruku.service.parcel.AccountInfo as AccountInfoParcel
 
 class LoginViewModel(
     private val arukuServiceInterface: IArukuMiraiInterface,
-    private val onLoginSuccess: (AccountInfoProto) -> Unit
+    private val onLoginSuccess: (AccountInfo) -> Unit
 ) : ViewModel() {
-    val accountInfo: MutableState<AccountInfoProto> by lazy {
-        mutableStateOf(AccountInfoProto.newBuilder().apply {
-            protocol = AccountsOuterClass.Accounts.login_protocol.ANDROID_PHONE
-            heartbeatStrategy = AccountsOuterClass.Accounts.heartbeat_strategy.STAT_HB
-            heartbeatPeriodMillis = 60.secondsToMillis
-            heartbeatTimeoutMillis = 5.secondsToMillis
-            statHeartbeatPeriodMillis = 300.secondsToMillis
-            autoReconnect = true
-            reconnectionRetryTimes = 5
-        }.build())
+    val accountInfo: MutableState<AccountInfo> by lazy {
+        mutableStateOf(
+            AccountInfo(
+                accountNo = 0L,
+                passwordMd5 = "",
+                protocol = BotConfiguration.MiraiProtocol.ANDROID_PHONE.toString(),
+                heartbeatStrategy = BotConfiguration.HeartbeatStrategy.STAT_HB.toString(),
+                heartbeatPeriodMillis = 60.secondsToMillis,
+                heartbeatTimeoutMillis = 5.secondsToMillis,
+                statHeartbeatPeriodMillis = 300.secondsToMillis,
+                autoReconnect = true,
+                reconnectionRetryTimes = 5
+            )
+        )
     }
 
     val state: MutableState<LoginState> = mutableStateOf(LoginState.Default)
@@ -82,19 +85,7 @@ class LoginViewModel(
     fun doLogin(accountNo: Long) {
         state.value = LoginState.Logging
         arukuServiceInterface.addLoginSolver(accountNo, loginSolver)
-        arukuServiceInterface.addBot(
-            AccountInfoParcel(
-                accountNo = accountInfo.value.accountNo,
-                passwordMd5 = accountInfo.value.passwordMd5,
-                protocol = accountInfo.value.protocol,
-                heartbeatStrategy = accountInfo.value.heartbeatStrategy,
-                heartbeatPeriodMillis = accountInfo.value.heartbeatPeriodMillis,
-                heartbeatTimeoutMillis = accountInfo.value.heartbeatTimeoutMillis,
-                statHeartbeatPeriodMillis = accountInfo.value.statHeartbeatPeriodMillis,
-                autoReconnect = accountInfo.value.autoReconnect,
-                reconnectionRetryTimes = accountInfo.value.reconnectionRetryTimes
-            ), true
-        )
+        arukuServiceInterface.addBot(accountInfo.value, true)
     }
 
     fun retryCaptcha() {

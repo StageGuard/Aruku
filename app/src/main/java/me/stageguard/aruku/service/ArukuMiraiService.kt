@@ -8,23 +8,27 @@ import android.content.ServiceConnection
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.lifecycle.*
 import kotlinx.coroutines.*
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import me.stageguard.aruku.ArukuApplication
 import me.stageguard.aruku.R
-import me.stageguard.aruku.preference.accountStore
-import me.stageguard.aruku.preference.proto.AccountsOuterClass.Accounts
+import me.stageguard.aruku.database.ArukuDatabase
+import me.stageguard.aruku.service.parcel.AccountInfo
 import me.stageguard.aruku.ui.activity.MainActivity
 import me.stageguard.aruku.util.*
 import net.mamoe.mirai.Bot
 import net.mamoe.mirai.BotFactory
+import net.mamoe.mirai.event.events.BotOnlineEvent
 import net.mamoe.mirai.network.CustomLoginFailedException
 import net.mamoe.mirai.network.LoginFailedException
 import net.mamoe.mirai.utils.*
 import net.mamoe.mirai.utils.BotConfiguration.HeartbeatStrategy
 import net.mamoe.mirai.utils.BotConfiguration.MiraiProtocol
+import org.koin.android.ext.android.inject
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.collections.component1
 import kotlin.collections.component2
@@ -32,14 +36,15 @@ import kotlin.collections.set
 import kotlin.properties.ReadOnlyProperty
 import kotlin.random.Random
 import kotlin.reflect.KProperty
-import me.stageguard.aruku.preference.proto.AccountsOuterClass.Accounts.AccountInfo as AccountInfoProto
-import me.stageguard.aruku.service.parcel.AccountInfo as AccountInfoParcel
 
 class ArukuMiraiService : LifecycleService() {
     companion object {
         const val FOREGROUND_NOTIFICATION_ID = 72
         const val FOREGROUND_NOTIFICATION_CHANNEL_ID = "ArukuMiraiService"
     }
+
+    private val _botFactory: BotFactory by inject()
+    private val database: ArukuDatabase by inject()
 
     private val bots: MutableLiveData<MutableMap<Long, Bot>> = MutableLiveData(mutableMapOf())
     private val botJobs: ConcurrentHashMap<Long, Job> = ConcurrentHashMap()
@@ -48,7 +53,7 @@ class ArukuMiraiService : LifecycleService() {
     private val loginSolvers: MutableMap<Long, ILoginSolver> = mutableMapOf()
 
     private val binderInterface = object : IArukuMiraiInterface.Stub() {
-        override fun addBot(info: AccountInfoParcel?, alsoLogin: Boolean): Boolean {
+        override fun addBot(info: AccountInfo?, alsoLogin: Boolean): Boolean {
             Log.i(toLogTag(), "addBot(info=$info)")
             if (info == null) return false
             this@ArukuMiraiService.addBot(info, true)
@@ -109,30 +114,36 @@ class ArukuMiraiService : LifecycleService() {
 
     override fun onCreate() {
         super.onCreate()
-        if (ArukuApplication.initialized.get()) {
-            val context = ArukuApplication.INSTANCE.applicationContext
-            lifecycleScope.launch {
-                context.accountStore.safeFlow().collect {
-                    it.accountMap.forEach { (id, info) ->
-                        Log.i(toLogTag(), "reading account data $info")
-                        bots.value?.set(id, createBot(info))
-                        bots.notifyPost()
-                        login(id)
-                    }
-                }
-                Log.i(toLogTag(), "read completed")
-            }
-            Log.i(toLogTag(), "ArukuMiraiService is created.")
-        } else {
-            Log.e(toLogTag(), "ArukuApplication is not initialized yet.")
-        }
+
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
 
+        if (ArukuApplication.initialized.get()) {
+            database {
+                accounts().getAll().forEach { account ->
+                    Log.i(toLogTag(), "reading account data $account")
+                    bots.value?.set(account.accountNo, createBot(account.into()))
+                    Log.i(toLogTag(), "on create bot list after add: ${Bot.instances}")
+                    bots.notifyPost()
+                    login(account.accountNo)
+                }
+            }
+            Log.i(toLogTag(), "ArukuMiraiService is created.")
+        } else {
+            Log.e(toLogTag(), "ArukuApplication is not initialized yet.")
+        }
+
+        createNotification()
+
+        return Service.START_STICKY
+    }
+
+    private fun createNotification() {
         val context = ArukuApplication.INSTANCE.applicationContext
         val notificationManager = context.getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+
 
         val existingNotification = notificationManager.activeNotifications.find { it.id == FOREGROUND_NOTIFICATION_ID }
 
@@ -164,8 +175,6 @@ class ArukuMiraiService : LifecycleService() {
 
             startForeground(FOREGROUND_NOTIFICATION_ID, notification)
         }
-
-        return Service.START_STICKY
     }
 
     override fun onBind(intent: Intent): IBinder {
@@ -178,11 +187,11 @@ class ArukuMiraiService : LifecycleService() {
         super.onDestroy()
     }
 
-    private fun addBot(accountInfo: AccountInfoParcel, notifyPost: Boolean = false): Boolean {
-        if (bots.value?.get(accountInfo.accountNo) != null) {
-            removeBot(accountInfo.accountNo, notifyPost)
+    private fun addBot(account: AccountInfo, notifyPost: Boolean = false): Boolean {
+        if (bots.value?.get(account.accountNo) != null) {
+            removeBot(account.accountNo, notifyPost)
         }
-        bots.value?.set(accountInfo.accountNo, createBot(accountInfo.into()))
+        bots.value?.set(account.accountNo, createBot(account))
         if (notifyPost) bots.notifyPost() else bots.notify()
         return true
     }
@@ -202,7 +211,9 @@ class ArukuMiraiService : LifecycleService() {
                     }
                 }) {
                     targetBot.login()
-                    loginSolvers[accountNo]?.onLoginSuccess(accountNo)
+                    targetBot.eventChannel.parentScope(this).subscribeOnce<BotOnlineEvent> {
+                        loginSolvers[accountNo]?.onLoginSuccess(accountNo)
+                    }
                     targetBot.join()
                 }
                 val existingBotJob = botJobs[accountNo]
@@ -231,91 +242,75 @@ class ArukuMiraiService : LifecycleService() {
         } ?: false
     }
 
-    private fun createBot(accountInfo: AccountInfoProto): Bot {
+    private fun createBot(accountInfo: AccountInfo): Bot {
         val miraiWorkingDir = ArukuApplication.INSTANCE.filesDir.resolve("mirai/")
         if (!miraiWorkingDir.exists()) miraiWorkingDir.mkdirs()
 
-        return accountInfo.run {
-            BotFactory.newBot(accountNo, passwordMd5) {
-                workingDir = miraiWorkingDir
-                parentCoroutineContext = lifecycleScope.coroutineContext
-                protocol = when (getProtocol()) {
-                    Accounts.login_protocol.ANDROID_PHONE -> MiraiProtocol.ANDROID_PHONE
-                    Accounts.login_protocol.ANDROID_PAD -> MiraiProtocol.ANDROID_PAD
-                    Accounts.login_protocol.ANDROID_WATCH -> MiraiProtocol.ANDROID_WATCH
-                    Accounts.login_protocol.MACOS -> MiraiProtocol.MACOS
-                    Accounts.login_protocol.IPAD -> MiraiProtocol.IPAD
+        return _botFactory.newBot(accountInfo.accountNo, accountInfo.passwordMd5) {
+            workingDir = miraiWorkingDir
+            parentCoroutineContext = lifecycleScope.coroutineContext
+            protocol = MiraiProtocol.valueOf(accountInfo.protocol)
+            autoReconnectOnForceOffline = accountInfo.autoReconnect
+            heartbeatStrategy = HeartbeatStrategy.valueOf(accountInfo.heartbeatStrategy)
+            heartbeatPeriodMillis = accountInfo.heartbeatPeriodMillis
+            heartbeatTimeoutMillis = accountInfo.heartbeatTimeoutMillis
+            reconnectionRetryTimes = accountInfo.reconnectionRetryTimes
+            statHeartbeatPeriodMillis = accountInfo.statHeartbeatPeriodMillis
 
-                    Accounts.login_protocol.UNRECOGNIZED, null -> MiraiProtocol.ANDROID_PHONE
-                }
-                autoReconnectOnForceOffline = autoReconnect
-                heartbeatStrategy = when (getHeartbeatStrategy()) {
-                    Accounts.heartbeat_strategy.STAT_HB -> HeartbeatStrategy.STAT_HB
-                    Accounts.heartbeat_strategy.REGISTER -> HeartbeatStrategy.REGISTER
-                    Accounts.heartbeat_strategy.NONE -> HeartbeatStrategy.NONE
+            botLoggerSupplier = { ArukuMiraiLogger("Bot.${it.id}", true) }
+            networkLoggerSupplier = { ArukuMiraiLogger("Net.${it.id}", true) }
 
-                    Accounts.heartbeat_strategy.UNRECOGNIZED, null -> HeartbeatStrategy.STAT_HB
-                }
-                heartbeatPeriodMillis = getHeartbeatPeriodMillis()
-                heartbeatTimeoutMillis = getHeartbeatTimeoutMillis()
-                reconnectionRetryTimes = getReconnectionRetryTimes()
-                statHeartbeatPeriodMillis = getStatHeartbeatPeriodMillis()
-
-                botLoggerSupplier = { ArukuMiraiLogger("Bot.${it.id}", true) }
-                networkLoggerSupplier = { ArukuMiraiLogger("Net.${it.id}", true) }
-
-                val deviceInfoFile = miraiWorkingDir.resolve("device-${accountInfo.accountNo}.json")
-                if (deviceInfoFile.exists()) {
-                    fileBasedDeviceInfo(deviceInfoFile.absolutePath)
-                } else {
-                    deviceInfo = {
-                        DeviceInfo(
-                            display = Build.DISPLAY.toByteArray(),
-                            product = Build.PRODUCT.toByteArray(),
-                            device = Build.DEVICE.toByteArray(),
-                            board = Build.BOARD.toByteArray(),
-                            brand = Build.BRAND.toByteArray(),
-                            model = Build.MODEL.toByteArray(),
-                            bootloader = Build.BOOTLOADER.toByteArray(),
-                            fingerprint = Build.FINGERPRINT.toByteArray(),
-                            bootId = generateUUID(getRandomByteArray(16, Random.Default).md5()).toByteArray(),
-                            procVersion = byteArrayOf(),
-                            baseBand = byteArrayOf(),
-                            version = DeviceInfo.Version(
-                                release = Build.VERSION.RELEASE.toByteArray(),
-                                codename = Build.VERSION.CODENAME.toByteArray(),
-                                sdk = Build.VERSION.SDK_INT
-                            ),
-                            simInfo = "T-Mobile".toByteArray(),
-                            osType = "android".toByteArray(),
-                            macAddress = "02:00:00:00:00:00".toByteArray(),
-                            wifiBSSID = "02:00:00:00:00:00".toByteArray(),
-                            wifiSSID = "<unknown ssid>".toByteArray(),
-                            imsiMd5 = getRandomByteArray(16, Random.Default).md5(),
-                            imei = ArukuApplication.INSTANCE.applicationContext.imei,
-                            apn = "wifi".toByteArray()
-                        ).also {
-                            deviceInfoFile.createNewFile()
-                            deviceInfoFile.writeText(Json.encodeToString(it))
-                        }
+            val deviceInfoFile = miraiWorkingDir.resolve("device-${accountInfo.accountNo}.json")
+            if (deviceInfoFile.exists()) {
+                fileBasedDeviceInfo(deviceInfoFile.absolutePath)
+            } else {
+                deviceInfo = {
+                    DeviceInfo(
+                        display = Build.DISPLAY.toByteArray(),
+                        product = Build.PRODUCT.toByteArray(),
+                        device = Build.DEVICE.toByteArray(),
+                        board = Build.BOARD.toByteArray(),
+                        brand = Build.BRAND.toByteArray(),
+                        model = Build.MODEL.toByteArray(),
+                        bootloader = Build.BOOTLOADER.toByteArray(),
+                        fingerprint = Build.FINGERPRINT.toByteArray(),
+                        bootId = generateUUID(getRandomByteArray(16, Random.Default).md5()).toByteArray(),
+                        procVersion = byteArrayOf(),
+                        baseBand = byteArrayOf(),
+                        version = DeviceInfo.Version(
+                            release = Build.VERSION.RELEASE.toByteArray(),
+                            codename = Build.VERSION.CODENAME.toByteArray(),
+                            sdk = Build.VERSION.SDK_INT
+                        ),
+                        simInfo = "T-Mobile".toByteArray(),
+                        osType = "android".toByteArray(),
+                        macAddress = "02:00:00:00:00:00".toByteArray(),
+                        wifiBSSID = "02:00:00:00:00:00".toByteArray(),
+                        wifiSSID = "<unknown ssid>".toByteArray(),
+                        imsiMd5 = getRandomByteArray(16, Random.Default).md5(),
+                        imei = ArukuApplication.INSTANCE.applicationContext.imei,
+                        apn = "wifi".toByteArray()
+                    ).also {
+                        deviceInfoFile.createNewFile()
+                        deviceInfoFile.writeText(Json.encodeToString(it))
                     }
                 }
+            }
 
-                loginSolver = object : LoginSolver() {
-                    override suspend fun onSolvePicCaptcha(bot: Bot, data: ByteArray): String {
-                        return loginSolvers[bot.id]?.onSolvePicCaptcha(bot.id, data) ?: throw object :
-                            CustomLoginFailedException(false, "no login solver for bot ${bot.id}") {}
-                    }
+            loginSolver = object : LoginSolver() {
+                override suspend fun onSolvePicCaptcha(bot: Bot, data: ByteArray): String {
+                    return loginSolvers[bot.id]?.onSolvePicCaptcha(bot.id, data) ?: throw object :
+                        CustomLoginFailedException(false, "no login solver for bot ${bot.id}") {}
+                }
 
-                    override suspend fun onSolveSliderCaptcha(bot: Bot, url: String): String {
-                        return loginSolvers[bot.id]?.onSolveSliderCaptcha(bot.id, url) ?: throw object :
-                            CustomLoginFailedException(false, "no login solver for bot ${bot.id}") {}
-                    }
+                override suspend fun onSolveSliderCaptcha(bot: Bot, url: String): String {
+                    return loginSolvers[bot.id]?.onSolveSliderCaptcha(bot.id, url) ?: throw object :
+                        CustomLoginFailedException(false, "no login solver for bot ${bot.id}") {}
+                }
 
-                    override suspend fun onSolveUnsafeDeviceLoginVerify(bot: Bot, url: String): String {
-                        return loginSolvers[bot.id]?.onSolveUnsafeDeviceLoginVerify(bot.id, url) ?: throw object :
-                            CustomLoginFailedException(false, "no login solver for bot ${bot.id}") {}
-                    }
+                override suspend fun onSolveUnsafeDeviceLoginVerify(bot: Bot, url: String): String {
+                    return loginSolvers[bot.id]?.onSolveUnsafeDeviceLoginVerify(bot.id, url) ?: throw object :
+                        CustomLoginFailedException(false, "no login solver for bot ${bot.id}") {}
                 }
             }
         }
@@ -326,16 +321,29 @@ class ArukuMiraiService : LifecycleService() {
     ) : ServiceConnection, LifecycleEventObserver, ReadOnlyProperty<Any?, IArukuMiraiInterface> {
         private lateinit var _delegate: IArukuMiraiInterface
         val connected: MutableLiveData<Boolean> = MutableLiveData(false)
+        private val _bots: MutableLiveData<List<Long>> get() = MutableLiveData(listOf())
+        val bots: LiveData<List<Long>> get() = _bots
+        val botsState: SnapshotStateList<Long> = mutableStateListOf()
 
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             Log.d(toLogTag(), "service is connected: $name")
             _delegate = IArukuMiraiInterface.Stub.asInterface(service)
             connected.value = true
+
+            _delegate.addBotListObserver(toString(), object : IBotListObserver.Stub() {
+                override fun onChange(newList: LongArray?) {
+                    val l = newList?.toList() ?: listOf()
+                    _bots.postValue(l)
+                    botsState.removeIf { it !in l }
+                    l.forEach { if (it !in botsState) botsState.add(it) }
+                }
+            })
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
             Log.d(toLogTag(), "service is disconnected: $name")
             connected.value = false
+            _delegate.removeBotListObserver(toString())
         }
 
         override fun onStateChanged(source: LifecycleOwner, event: Lifecycle.Event) {

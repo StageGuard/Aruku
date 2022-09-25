@@ -18,12 +18,13 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import me.stageguard.aruku.R
-import me.stageguard.aruku.preference.proto.AccountsOuterClass
 import me.stageguard.aruku.ui.common.CompoundDropdownMenu
 import me.stageguard.aruku.ui.common.ExpandedAnimatedVisibility
 import me.stageguard.aruku.ui.common.NumberOutlinedTextField
 import me.stageguard.aruku.ui.theme.ArukuTheme
 import me.stageguard.aruku.util.stringResC
+import net.mamoe.mirai.utils.BotConfiguration.HeartbeatStrategy
+import net.mamoe.mirai.utils.BotConfiguration.MiraiProtocol
 
 /**
  * Created by LoliBall on 2022/9/6 18:35.
@@ -33,8 +34,8 @@ import me.stageguard.aruku.util.stringResC
 @Composable
 fun AdvancedOptions(
     enabled: Boolean,
-    protocol: MutableState<AccountsOuterClass.Accounts.login_protocol>,
-    heartbeatStrategy: MutableState<AccountsOuterClass.Accounts.heartbeat_strategy>,
+    protocol: MutableState<String>,
+    heartbeatStrategy: MutableState<String>,
     heartbeatPeriodMillis: MutableState<Long>,
     statHeartbeatPeriodMillis: MutableState<Long>,
     heartbeatTimeoutMillis: MutableState<Long>,
@@ -63,30 +64,28 @@ fun AdvancedOptions(
         ExpandedAnimatedVisibility(showAdvanced.value) {
             Column {
                 CompoundDropdownMenu(
-                    list = AccountsOuterClass.Accounts.login_protocol.values()
-                        .filter { it != AccountsOuterClass.Accounts.login_protocol.UNRECOGNIZED },
-                    current = protocol.value,
+                    list = MiraiProtocol.values().toList(),
+                    current = MiraiProtocol.valueOf(protocol.value),
                     label = R.string.protocol.stringResC,
                     modifier = Modifier
                         .padding(bottom = 4.dp)
                         .fillMaxWidth(),
-                    onClickItem = { protocol.value = it },
+                    onClickItem = { protocol.value = it.toString() },
                     enabled = enabled
                 )
                 CompoundDropdownMenu(
-                    list = AccountsOuterClass.Accounts.heartbeat_strategy.values()
-                        .filter { it != AccountsOuterClass.Accounts.heartbeat_strategy.UNRECOGNIZED },
-                    current = heartbeatStrategy.value,
+                    list = HeartbeatStrategy.values().toList(),
+                    current = HeartbeatStrategy.valueOf(heartbeatStrategy.value),
                     label = R.string.heartbeat_strategy.stringResC,
                     modifier = Modifier
                         .padding(vertical = 4.dp)
                         .fillMaxWidth(),
-                    onClickItem = { heartbeatStrategy.value = it },
+                    onClickItem = { heartbeatStrategy.value = it.toString() },
                     enabled = enabled
                 )
-                ExpandedAnimatedVisibility(heartbeatStrategy.value != AccountsOuterClass.Accounts.heartbeat_strategy.NONE) {
+                ExpandedAnimatedVisibility(heartbeatStrategy.value != HeartbeatStrategy.NONE.toString()) {
                     Column {
-                        ExpandedAnimatedVisibility(heartbeatStrategy.value == AccountsOuterClass.Accounts.heartbeat_strategy.REGISTER) {
+                        ExpandedAnimatedVisibility(heartbeatStrategy.value == HeartbeatStrategy.REGISTER.toString()) {
                             NumberOutlinedTextField(
                                 heartbeatPeriodMillis.value,
                                 label = R.string.heartbeat_period_millis.stringResC,
@@ -95,7 +94,7 @@ fun AdvancedOptions(
                                 heartbeatPeriodMillis.value = it.toLong()
                             }
                         }
-                        ExpandedAnimatedVisibility(heartbeatStrategy.value == AccountsOuterClass.Accounts.heartbeat_strategy.STAT_HB) {
+                        ExpandedAnimatedVisibility(heartbeatStrategy.value == HeartbeatStrategy.STAT_HB.toString()) {
                             NumberOutlinedTextField(
                                 statHeartbeatPeriodMillis.value,
                                 label = R.string.stat_heartbeat_timeout_millis.stringResC,
@@ -150,8 +149,8 @@ fun AdvancedOptionsPreview() {
     ArukuTheme(dynamicColor = false, darkTheme = true) {
         AdvancedOptions(
             enabled = true,
-            protocol = mutableStateOf(AccountsOuterClass.Accounts.login_protocol.ANDROID_PHONE),
-            heartbeatStrategy = mutableStateOf(AccountsOuterClass.Accounts.heartbeat_strategy.STAT_HB),
+            protocol = mutableStateOf(MiraiProtocol.ANDROID_PHONE.toString()),
+            heartbeatStrategy = mutableStateOf(HeartbeatStrategy.STAT_HB.toString()),
             heartbeatPeriodMillis = mutableStateOf(123),
             statHeartbeatPeriodMillis = mutableStateOf(123),
             heartbeatTimeoutMillis = mutableStateOf(123),

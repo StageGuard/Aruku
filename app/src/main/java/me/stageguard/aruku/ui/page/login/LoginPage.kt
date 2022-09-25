@@ -16,7 +16,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalInspectionMode
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -27,11 +26,13 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.accompanist.permissions.*
 import me.stageguard.aruku.R
-import me.stageguard.aruku.preference.proto.AccountsOuterClass.Accounts.AccountInfo
+import me.stageguard.aruku.service.parcel.AccountInfo
 import me.stageguard.aruku.ui.LocalArukuMiraiInterface
 import me.stageguard.aruku.ui.common.SingleItemLazyColumn
 import me.stageguard.aruku.ui.theme.ArukuTheme
 import me.stageguard.aruku.util.stringResC
+import net.mamoe.mirai.utils.BotConfiguration
+import net.mamoe.mirai.utils.secondsToMillis
 
 private const val TAG = "LoginView"
 
@@ -73,8 +74,8 @@ fun LoginView(
     val autoReconnect = rememberSaveable { mutableStateOf(accountInfo.value.autoReconnect) }
     val reconnectionRetryTimes = rememberSaveable { mutableStateOf(accountInfo.value.reconnectionRetryTimes) }
 
-    val topBarState = rememberTopAppBarState()
-    val scrollBehavior = remember { TopAppBarDefaults.pinnedScrollBehavior(topBarState) }
+    val topBarState = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
+    val scrollBehavior = remember { topBarState }
 
     val internetPermission = if (!LocalInspectionMode.current) {
         rememberPermissionState(android.Manifest.permission.INTERNET)
@@ -99,12 +100,12 @@ fun LoginView(
             )
             Text(
                 text = R.string.login_message.stringResC,
-                style = TextStyle.Default.copy(fontSize = 36.sp, fontWeight = FontWeight.Bold),
+                style = MaterialTheme.typography.titleLarge.copy(fontSize = 36.sp, fontWeight = FontWeight.Bold),
                 modifier = Modifier.padding(vertical = 4.dp)
             )
             Text(
                 text = R.string.login_desc.stringResC,
-                style = TextStyle.Default.copy(fontSize = 24.sp),
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 24.sp),
                 modifier = Modifier.padding(vertical = 4.dp)
             )
             Column(
@@ -162,17 +163,18 @@ fun LoginView(
                     )
                     Button(
                         onClick = {
-                            accountInfo.value = accountInfo.value.toBuilder().apply {
-                                this.accountNo = account.value.toLong()
-                                this.passwordMd5 = password.value
-                                this.protocol = protocol.value
-                                this.heartbeatStrategy = heartbeatStrategy.value
-                                this.heartbeatPeriodMillis = heartbeatPeriodMillis.value
-                                this.heartbeatTimeoutMillis = heartbeatTimeoutMillis.value
-                                this.statHeartbeatPeriodMillis = statHeartbeatPeriodMillis.value
-                                this.autoReconnect = autoReconnect.value
-                                this.reconnectionRetryTimes = reconnectionRetryTimes.value
-                            }.build()
+                            accountInfo.value.apply a@{
+
+                                this@a.accountNo = account.value.toLong()
+                                this@a.passwordMd5 = password.value
+                                this@a.protocol = protocol.value
+                                this@a.heartbeatStrategy = heartbeatStrategy.value
+                                this@a.heartbeatPeriodMillis = heartbeatPeriodMillis.value
+                                this@a.heartbeatTimeoutMillis = heartbeatTimeoutMillis.value
+                                this@a.statHeartbeatPeriodMillis = statHeartbeatPeriodMillis.value
+                                this@a.autoReconnect = autoReconnect.value
+                                this@a.reconnectionRetryTimes = reconnectionRetryTimes.value
+                            }
                             onLoginClick(account.value.toLong())
                         },
                         modifier = Modifier.padding(vertical = 30.dp).fillMaxWidth(),
@@ -196,7 +198,7 @@ fun LoginView(
                         Text(
                             if (internetPermission.status.isGranted) R.string.login.stringResC
                             else R.string.internet_permission.stringResC,
-                            style = TextStyle.Default.copy(fontWeight = FontWeight.Bold),
+                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
                             modifier = Modifier.padding(8.dp)
                         )
                     }
@@ -236,7 +238,19 @@ fun LoginView(
 @Composable
 fun LoginViewPreview() {
     ArukuTheme(dynamicColor = false, darkTheme = true) {
-        LoginView(mutableStateOf(AccountInfo.getDefaultInstance()),
+        LoginView(mutableStateOf(
+            AccountInfo(
+                accountNo = 0L,
+                passwordMd5 = "",
+                protocol = BotConfiguration.MiraiProtocol.ANDROID_PHONE.toString(),
+                heartbeatStrategy = BotConfiguration.HeartbeatStrategy.STAT_HB.toString(),
+                heartbeatPeriodMillis = 60.secondsToMillis,
+                heartbeatTimeoutMillis = 5.secondsToMillis,
+                statHeartbeatPeriodMillis = 300.secondsToMillis,
+                autoReconnect = true,
+                reconnectionRetryTimes = 5
+            )
+        ),
             remember { mutableStateOf(LoginState.Default) },
             onLoginClick = {},
             onLoginFailedClick = {},

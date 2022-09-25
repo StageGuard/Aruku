@@ -30,4 +30,9 @@
     <string name="service_notification_text">Aruku service is running foreground.</string>
     <string name="service_connecting">Connecting to ArukuMiraiService</string>
     <string name="service_connecting_message">We lost connection to ArukuMiraiService, please wait until it is connected.</string>
+    <string name="add_account">Add account</string>
+    <string name="login_failed_please_retry">Login account %1$s failed, please switch to login page to login again.</string>
+    <string name="home_nav_message">Messages</string>
+    <string name="home_nav_contact">Contacts</string>
+    <string name="home_nav_profile">Profile</string>
 </resources>

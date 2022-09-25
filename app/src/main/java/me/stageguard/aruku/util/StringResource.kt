@@ -35,5 +35,5 @@ val @receiver:StringRes Int.stringRes: String
     get() = ArukuApplication.INSTANCE.getString(this)
 
 fun @receiver:StringRes Int.stringRes(vararg args: Any?): String {
-    return ArukuApplication.INSTANCE.getString(this, args)
+    return ArukuApplication.INSTANCE.getString(this, *args)
 }

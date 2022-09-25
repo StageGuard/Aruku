@@ -31,5 +31,9 @@
     <string name="service_notification_text">Aruku 服务正在前台运行</string>
     <string name="service_connecting">正在连接到 ArukuMiraiService</string>
     <string name="service_connecting_message">我们丢失了与 ArukuMiraiService 的连接，请等待连接</string>
-
+    <string name="add_account">添加账号</string>
+    <string name="login_failed_please_retry">无法登录账号 %1$s，请点击右上角再次切换到当前帐号重新登录。</string>
+    <string name="home_nav_message">消息</string>
+    <string name="home_nav_contact">联系人</string>
+    <string name="home_nav_profile">我的</string>
 </resources>

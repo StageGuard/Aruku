@@ -4,22 +4,23 @@ import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.livedata.observeAsState
-import androidx.lifecycle.MutableLiveData
+import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.single
 import kotlinx.coroutines.launch
 import me.stageguard.aruku.ArukuApplication
-import me.stageguard.aruku.preference.accountStore
+import me.stageguard.aruku.database.ArukuDatabase
+import me.stageguard.aruku.preference.ArukuPreference
 import me.stageguard.aruku.service.ArukuMiraiService
-import me.stageguard.aruku.service.IBotListObserver
 import me.stageguard.aruku.ui.LocalArukuMiraiInterface
+import me.stageguard.aruku.ui.LocalBot
 import me.stageguard.aruku.ui.LocalMainNavProvider
 import me.stageguard.aruku.ui.LocalStringRes
 import me.stageguard.aruku.ui.page.ServiceConnectingPage
@@ -29,12 +30,14 @@ import me.stageguard.aruku.ui.theme.ArukuTheme
 import me.stageguard.aruku.util.StringResource
 import me.stageguard.aruku.util.toLogTag
 import me.stageguard.aruku.util.weakReference
+import net.mamoe.mirai.Bot
+import org.koin.android.ext.android.inject
 
 val unitProp = Unit
 
 class MainActivity : ComponentActivity() {
     companion object {
-        const val NAV_MESSAGE = "message"
+        const val NAV_HOME = "home"
         const val NAV_LOGIN = "login"
     }
 
@@ -45,25 +48,13 @@ class MainActivity : ComponentActivity() {
                 serviceConnector.getValue(Unit, ::unitProp)
             else null
 
-    private val botList by lazy { MutableLiveData(listOf<Long>()) }
+    private val database: ArukuDatabase by inject()
+
+    private val activeBot = mutableStateOf<Bot?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         lifecycle.addObserver(serviceConnector)
-
-        serviceConnector.connected.observe(this) { connected ->
-            if (connected) {
-                botList.value = serviceInterface?.bots?.toList() ?: listOf()
-                serviceInterface?.addBotListObserver(toString(), object : IBotListObserver.Stub() {
-                    override fun onChange(newList: LongArray?) {
-                        botList.postValue(newList?.toList() ?: listOf())
-                    }
-                })
-            } else {
-                serviceInterface?.removeBotListObserver(toString())
-            }
-        }
 
         setContent {
             val serviceConnected = serviceConnector.connected.observeAsState(false)
@@ -82,28 +73,31 @@ class MainActivity : ComponentActivity() {
     }
 
 
+    @OptIn(ExperimentalAnimationApi::class)
     @Composable
     fun Navigation() {
         val navController = rememberNavController()
-        val botList = botList.observeAsState(listOf())
         CompositionLocalProvider(
             LocalArukuMiraiInterface provides serviceInterface!!,
             LocalMainNavProvider provides navController
         ) {
-            NavHost(navController, startDestination = NAV_MESSAGE) {
-                composable(NAV_MESSAGE) {
-                    HomePage(botList, navigateToLoginPage = {
-                        navController.navigate(NAV_LOGIN)
-                    })
+            NavHost(navController, startDestination = NAV_HOME) {
+                composable(NAV_HOME) {
+                    CompositionLocalProvider(LocalBot provides activeBot.value) {
+                        HomePage(serviceConnector.botsState,
+                            navigateToLoginPage = { navController.navigate(NAV_LOGIN) },
+                            onSwitchAccount = { activeBot.value = Bot.getInstanceOrNull(it) }
+                        )
+                    }
                 }
                 composable(NAV_LOGIN) {
                     LoginPage(onLoginSuccess = { accountInfo ->
                         lifecycleScope.launch(Dispatchers.IO) {
                             Log.i(toLogTag(), "updating accountStore")
-                            accountStore.updateData { accounts ->
-                                accounts.toBuilder().putAccount(accountInfo.accountNo, accountInfo).build()
-                            }
-                            Log.i(toLogTag(), accountStore.data.single().accountMap.toString())
+
+                            database.accounts().insert(accountInfo.into())
+                            ArukuPreference.activeBot = accountInfo.accountNo
+                            activeBot.value = Bot.getInstance(accountInfo.accountNo)
                         }
                         navController.popBackStack()
                     })
