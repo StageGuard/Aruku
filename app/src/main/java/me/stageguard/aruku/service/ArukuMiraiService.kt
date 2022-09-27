@@ -18,11 +18,15 @@ import me.stageguard.aruku.ArukuApplication
 import me.stageguard.aruku.R
 import me.stageguard.aruku.database.ArukuDatabase
 import me.stageguard.aruku.service.parcel.AccountInfo
+import me.stageguard.aruku.service.parcel.ArukuMessage
+import me.stageguard.aruku.service.parcel.ArukuMessageEvent
+import me.stageguard.aruku.service.parcel.ArukuMessageType
 import me.stageguard.aruku.ui.activity.MainActivity
 import me.stageguard.aruku.util.*
 import net.mamoe.mirai.Bot
 import net.mamoe.mirai.BotFactory
-import net.mamoe.mirai.event.events.BotOnlineEvent
+import net.mamoe.mirai.event.ListeningStatus
+import net.mamoe.mirai.event.events.*
 import net.mamoe.mirai.network.CustomLoginFailedException
 import net.mamoe.mirai.network.LoginFailedException
 import net.mamoe.mirai.utils.*
@@ -51,6 +55,7 @@ class ArukuMiraiService : LifecycleService() {
 
     private val botListObservers: MutableMap<String, Observer<Map<Long, Bot>>> = mutableMapOf()
     private val loginSolvers: MutableMap<Long, ILoginSolver> = mutableMapOf()
+    private val messageConsumers: MutableMap<Long, MutableMap<String, IMessageConsumer>> = mutableMapOf()
 
     private val binderInterface = object : IArukuMiraiInterface.Stub() {
         override fun addBot(info: AccountInfo?, alsoLogin: Boolean): Boolean {
@@ -78,16 +83,17 @@ class ArukuMiraiService : LifecycleService() {
         }
 
         override fun addBotListObserver(identity: String?, observer: IBotListObserver?) {
-            if (identity != null && observer != null) {
-                val lifecycleObserver = Observer { new: Map<Long, Bot> ->
-                    observer.onChange(new.keys.toLongArray())
-                }
-                botListObservers[identity] = lifecycleObserver
-                lifecycleScope.launch(Dispatchers.Main) {
-                    this@ArukuMiraiService.bots.observe(this@ArukuMiraiService, lifecycleObserver)
-                }
-            } else {
+            if (identity == null || observer == null) {
                 Log.w(this@ArukuMiraiService.toLogTag(), "Empty identity or observer for botListObservers.")
+                return
+
+            }
+            val lifecycleObserver = Observer { new: Map<Long, Bot> ->
+                observer.onChange(new.keys.toLongArray())
+            }
+            botListObservers[identity] = lifecycleObserver
+            lifecycleScope.launch(Dispatchers.Main) {
+                this@ArukuMiraiService.bots.observe(this@ArukuMiraiService, lifecycleObserver)
             }
         }
 
@@ -110,6 +116,25 @@ class ArukuMiraiService : LifecycleService() {
         override fun removeLoginSolver(bot: Long) {
             loginSolvers.remove(bot)
         }
+
+        override fun addMessageEventConsumer(bot: Long, identity: String?, consumer: IMessageConsumer?) {
+            if (identity == null || consumer == null) {
+                Log.w(this@ArukuMiraiService.toLogTag(), "Empty identity or consumer for messageConsumers.")
+                return
+            }
+            var exist = true
+            val botConsumers = messageConsumers.getOrPut(bot) {
+                exist = false
+                mutableMapOf(identity to consumer)
+            }
+            if (exist) botConsumers[identity] = consumer
+        }
+
+        override fun removeMessageEventConsumer(identity: String?) {
+            messageConsumers.iterator().forEach { entry ->
+                entry.value.remove(identity)
+            }
+        }
     }
 
     override fun onCreate() {
@@ -124,10 +149,12 @@ class ArukuMiraiService : LifecycleService() {
             database {
                 accounts().getAll().forEach { account ->
                     Log.i(toLogTag(), "reading account data $account")
-                    bots.value?.set(account.accountNo, createBot(account.into()))
-                    Log.i(toLogTag(), "on create bot list after add: ${Bot.instances}")
-                    bots.notifyPost()
-                    login(account.accountNo)
+                    val existingBot = bots.value?.get(account.accountNo)
+                    if (existingBot == null) {
+                        bots.value?.set(account.accountNo, createBot(account.into()))
+                        bots.notifyPost()
+                        login(account.accountNo)
+                    }
                 }
             }
             Log.i(toLogTag(), "ArukuMiraiService is created.")
@@ -210,9 +237,54 @@ class ArukuMiraiService : LifecycleService() {
                         removeBot(accountNo)
                     }
                 }) {
-                    targetBot.login()
-                    targetBot.eventChannel.parentScope(this).subscribeOnce<BotOnlineEvent> {
+                    val eventChannel = targetBot.eventChannel.parentScope(this)
+                    eventChannel.subscribeOnce<BotOnlineEvent> {
                         loginSolvers[accountNo]?.onLoginSuccess(accountNo)
+                    }
+                    targetBot.login()
+                    eventChannel.subscribe<MessageEvent>(coroutineContext = CoroutineExceptionHandler { _, throwable ->
+                        if (throwable is IllegalStateException && throwable.toString()
+                                .matches(Regex("UNKNOWN_MESSAGE_EVENT_TYPE"))
+                        ) {
+                            Log.w(
+                                this@ArukuMiraiService.toLogTag(),
+                                "Unknown message type while listening ${targetBot.id}"
+                            )
+                        } else {
+                            Log.e(
+                                this@ArukuMiraiService.toLogTag(),
+                                "Error while subscribing message of ${targetBot.id}",
+                                throwable
+                            )
+                        }
+                    }) { ev ->
+                        if (!this@ArukuMiraiService.lifecycleScope.isActive) return@subscribe ListeningStatus.STOPPED
+
+                        val parcelMessageEvent = ArukuMessageEvent(
+                            bot = ev.bot.id,
+                            subject = ev.subject.id,
+                            sender = ev.sender.id,
+                            senderName = ev.senderName,
+                            message = ArukuMessage(
+                                source = ev.source,
+                                messages = ev.message
+                            ),
+                            type = when (ev) {
+                                is GroupMessageEvent -> ArukuMessageType.GROUP
+                                is FriendMessageEvent -> ArukuMessageType.FRIEND
+                                is GroupTempMessageEvent -> ArukuMessageType.TEMP
+                                else -> error("UNKNOWN_MESSAGE_EVENT_TYPE")
+                            }
+                        )
+                        database { messageRecords().insert(parcelMessageEvent.into()) }
+
+                        messageConsumers[ev.bot.id]?.let { consumers ->
+                            consumers.forEach { (_, consumer) ->
+                                consumer.consume(parcelMessageEvent)
+                            }
+                        }
+
+                        return@subscribe ListeningStatus.LISTENING
                     }
                     targetBot.join()
                 }

@@ -4,6 +4,7 @@ package me.stageguard.aruku.service;
 import me.stageguard.aruku.service.parcel.AccountInfo;
 import me.stageguard.aruku.service.IBotListObserver;
 import me.stageguard.aruku.service.ILoginSolver;
+import me.stageguard.aruku.service.IMessageConsumer;
 
 // Declare any non-default types here with import statements
 
@@ -21,4 +22,6 @@ interface IArukuMiraiInterface {
     void removeBotListObserver(String identity);
     void addLoginSolver(long bot, in ILoginSolver solver);
     void removeLoginSolver(long bot);
+    void addMessageEventConsumer(long bot, String identity, in IMessageConsumer consumer);
+    void removeMessageEventConsumer(String identity);
 }
