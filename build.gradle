@@ -1,7 +1,7 @@
 buildscript {
     ext {
         compose_version = '1.3.0-beta01'
-        mirai_version = '2.13.0-dev-657b414c'
+        mirai_version = '2.14.0-dev-2baba6a1'
         lifecycle_version = '2.6.0-alpha02'
         koin_version = '3.2.1'
         room_version = '2.4.3'
@@ -18,4 +18,12 @@ plugins {
 
 task clean(type: Delete) {
     delete rootProject.buildDir
+}
+
+allprojects {
+    tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
+        kotlinOptions {
+            freeCompilerArgs += "-Xcontext-receivers"
+        }
+    }
 }

@@ -18,7 +18,9 @@
     <string name="verification_code">验证码</string>
     <string name="app_name">Aruku</string>
     <string name="slider_result">滑动验证</string>
-    <string name="verify_captcha_message">需要完成验证码以登录账号 %1$s.\n %2$s \n 点击对话框外部重新生成验证码或取消登录</string>
+    <string name="verify_captcha_message">需要完成验证码以登录账号 %1$s.\n %2$s \n
+        点击对话框外部重新生成验证码或取消登录
+    </string>
     <string name="verify_captcha_message_code">请输入验证码</string>
     <string name="verify_captcha_message_slider">请完成滑动验证</string>
     <string name="verify_captcha_message_device">请打开 QQ 完成设备验证</string>
@@ -36,4 +38,6 @@
     <string name="home_nav_message">消息</string>
     <string name="home_nav_contact">联系人</string>
     <string name="home_nav_profile">我的</string>
+    <string name="verify_captcha_sms">验证码短信已发送到 %1$s\\n请输入接收到的验证码。</string>
+    <string name="sms_code">短信验证码</string>
 </resources>

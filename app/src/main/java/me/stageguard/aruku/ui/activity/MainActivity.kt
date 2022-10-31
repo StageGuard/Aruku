@@ -9,12 +9,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateOf
-import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import me.stageguard.aruku.database.ArukuDatabase
 import me.stageguard.aruku.preference.ArukuPreference
 import me.stageguard.aruku.service.ArukuMiraiService
@@ -84,19 +81,29 @@ class MainActivity : ComponentActivity() {
                     CompositionLocalProvider(LocalBot provides activeBot.value) {
                         HomePage(
                             navigateToLoginPage = { navController.navigate(NAV_LOGIN) },
-                            onSwitchAccount = { activeBot.value = Bot.getInstanceOrNull(it) }
+                            onSwitchAccount = { accountNo ->
+                                ArukuPreference.activeBot = accountNo
+                                activeBot.value = Bot.getInstanceOrNull(accountNo).also {
+                                    Log.i(toLogTag("ACTIVE_BOT"), "switch account active bot: $it")
+                                }
+                            },
+                            onLaunchLoginSuccess = { accountNo ->
+                                if (accountNo == ArukuPreference.activeBot) {
+                                    activeBot.value = Bot.getInstanceOrNull(accountNo).also {
+                                        Log.i(
+                                            toLogTag("ACTIVE_BOT"),
+                                            "launch login success active bot pref: ${ArukuPreference.activeBot}"
+                                        )
+                                    }
+                                }
+                            }
                         )
                     }
                 }
                 composable(NAV_LOGIN) {
-                    LoginPage(onLoginSuccess = { accountInfo ->
-                        lifecycleScope.launch(Dispatchers.IO) {
-                            Log.i(toLogTag(), "updating accountStore")
-
-                            database.accounts().insert(accountInfo.into())
-                            ArukuPreference.activeBot = accountInfo.accountNo
-                            activeBot.value = Bot.getInstance(accountInfo.accountNo)
-                        }
+                    LoginPage(onLoginSuccess = { accountNo ->
+                        ArukuPreference.activeBot = accountNo
+                        activeBot.value = Bot.getInstance(accountNo)
                         navController.popBackStack()
                     })
                 }

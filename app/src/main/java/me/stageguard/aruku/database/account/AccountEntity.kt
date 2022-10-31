@@ -9,14 +9,15 @@ import me.stageguard.aruku.util.Into
 @Entity(tableName = "account")
 data class AccountEntity(
     @PrimaryKey @ColumnInfo(name = "account_no") val accountNo: Long,
-    @ColumnInfo(name = "password_md5") val passwordMd5: String,
-    @ColumnInfo(name = "login_protocol") val loginProtocol: String,
-    @ColumnInfo(name = "heartbeat_strategy") val heartbeatStrategy: String,
-    @ColumnInfo(name = "heartbeat_period_millis") val heartbeatPeriodMillis: Long,
-    @ColumnInfo(name = "heartbeat_timeout_millis") val heartbeatTimeoutMillis: Long,
-    @ColumnInfo(name = "stat_heartbeat_period_millis") val statHeartbeatPeriodMillis: Long,
-    @ColumnInfo(name = "auto_reconnect") val autoReconnect: Boolean,
-    @ColumnInfo(name = "reconnection_retry_times") val reconnectionRetryTimes: Int
+    @ColumnInfo(name = "password_md5") var passwordMd5: String,
+    @ColumnInfo(name = "login_protocol") var loginProtocol: String,
+    @ColumnInfo(name = "heartbeat_strategy") var heartbeatStrategy: String,
+    @ColumnInfo(name = "heartbeat_period_millis") var heartbeatPeriodMillis: Long,
+    @ColumnInfo(name = "heartbeat_timeout_millis") var heartbeatTimeoutMillis: Long,
+    @ColumnInfo(name = "stat_heartbeat_period_millis") var statHeartbeatPeriodMillis: Long,
+    @ColumnInfo(name = "auto_reconnect") var autoReconnect: Boolean,
+    @ColumnInfo(name = "reconnection_retry_times") var reconnectionRetryTimes: Int,
+    @ColumnInfo(name = "is_offline_manually") var isOfflineManually: Boolean,
 ) : Into<AccountInfo> {
     override fun into(): AccountInfo {
         return AccountInfo(

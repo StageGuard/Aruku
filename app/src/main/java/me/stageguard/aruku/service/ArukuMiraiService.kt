@@ -5,11 +5,8 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
-import android.os.Build
 import android.os.IBinder
 import android.util.Log
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.lifecycle.*
 import kotlinx.coroutines.*
 import kotlinx.serialization.encodeToString
@@ -19,6 +16,7 @@ import me.stageguard.aruku.R
 import me.stageguard.aruku.database.ArukuDatabase
 import me.stageguard.aruku.database.contact.FriendEntity
 import me.stageguard.aruku.database.contact.GroupEntity
+import me.stageguard.aruku.database.message.MessagePreviewEntity
 import me.stageguard.aruku.service.parcel.AccountInfo
 import me.stageguard.aruku.service.parcel.ArukuMessage
 import me.stageguard.aruku.service.parcel.ArukuMessageEvent
@@ -27,21 +25,22 @@ import me.stageguard.aruku.ui.activity.MainActivity
 import me.stageguard.aruku.util.*
 import net.mamoe.mirai.Bot
 import net.mamoe.mirai.BotFactory
-import net.mamoe.mirai.contact.nameCardOrNick
 import net.mamoe.mirai.event.ListeningStatus
 import net.mamoe.mirai.event.events.*
 import net.mamoe.mirai.network.CustomLoginFailedException
 import net.mamoe.mirai.network.LoginFailedException
-import net.mamoe.mirai.utils.*
 import net.mamoe.mirai.utils.BotConfiguration.HeartbeatStrategy
 import net.mamoe.mirai.utils.BotConfiguration.MiraiProtocol
+import net.mamoe.mirai.utils.DeviceInfo
+import net.mamoe.mirai.utils.DeviceVerificationRequests
+import net.mamoe.mirai.utils.DeviceVerificationResult
+import net.mamoe.mirai.utils.LoginSolver
 import org.koin.android.ext.android.inject
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.collections.component1
 import kotlin.collections.component2
 import kotlin.collections.set
 import kotlin.properties.ReadOnlyProperty
-import kotlin.random.Random
 import kotlin.reflect.KProperty
 
 class ArukuMiraiService : LifecycleService() {
@@ -149,12 +148,12 @@ class ArukuMiraiService : LifecycleService() {
         super.onStartCommand(intent, flags, startId)
 
         if (ArukuApplication.initialized.get()) {
-            database {
-                accounts().getAll().forEach { account ->
+            lifecycleScope.launch(Dispatchers.IO) {
+                database { accounts().getAll() }.filter { !it.isOfflineManually }.forEach { account ->
                     Log.i(toLogTag(), "reading account data $account")
                     val existingBot = bots.value?.get(account.accountNo)
                     if (existingBot == null) {
-                        bots.value?.set(account.accountNo, createBot(account.into()))
+                        bots.value?.set(account.accountNo, createBot(account.into(), pushToDatabase = false))
                         bots.notifyPost()
                         login(account.accountNo)
                     }
@@ -221,7 +220,7 @@ class ArukuMiraiService : LifecycleService() {
         if (bots.value?.get(account.accountNo) != null) {
             removeBot(account.accountNo, notifyPost)
         }
-        bots.value?.set(account.accountNo, createBot(account))
+        bots.value?.set(account.accountNo, createBot(account, pushToDatabase = true))
         if (notifyPost) bots.notifyPost() else bots.notify()
         return true
     }
@@ -230,6 +229,13 @@ class ArukuMiraiService : LifecycleService() {
         val targetBot = bots.value?.get(accountNo)
         return if (targetBot != null) {
             if (!targetBot.isOnline) {
+                lifecycleScope.launch(Dispatchers.IO) {
+                    database {
+                        val accountDao = accounts()
+                        val account = accountDao[accountNo].singleOrNull()
+                        if (account != null) accountDao.update(account.apply { isOfflineManually = false })
+                    }
+                }
                 val job = lifecycleScope.launch(context = CoroutineExceptionHandler { _, throwable ->
                     if (throwable is LoginFailedException) {
                         Log.e(toLogTag(), "login $accountNo failed.", throwable)
@@ -265,15 +271,36 @@ class ArukuMiraiService : LifecycleService() {
     }
 
     private fun doInitAfterLogin(bot: Bot) {
-        // cache contacts
-        database {
-            groups().insert(*bot.groups.map { GroupEntity(bot.id, it.id, it.name) }.toTypedArray())
-            friends().insert(*bot.friends.map { FriendEntity(bot.id, it.id, it.nameCardOrNick, it.friendGroup.id) }
-                .toTypedArray())
-        }
-        // subscribe messages
-        lifecycleScope.launch {
 
+        // cache contacts
+        lifecycleScope.launch(Dispatchers.IO) {
+
+            val (groupDao, friendDao) = database { groups() to friends() }
+
+            val (onlineGroups, onlineGroupsIds) = bot.groups.run { this to this.map { it.id } }
+            val (cachedGroups, cachedGroupsIds) = groupDao.getGroups(bot.id).run { this to this.map { it.id } }
+
+            val newGroups = onlineGroups.filter { it.id !in cachedGroupsIds }
+            val deletedGroups = cachedGroups.filter { it.id !in onlineGroupsIds }
+
+            groupDao.delete(*deletedGroups.toTypedArray())
+            groupDao.update(*(onlineGroups - newGroups).map { GroupEntity(bot.id, it.id, it.name) }.toTypedArray())
+            groupDao.insert(*newGroups.map { GroupEntity(bot.id, it.id, it.name) }.toTypedArray())
+
+            val (onlineFriends, onlineFriendsIds) = bot.friends.run { this to this.map { it.id } }
+            val (cachedFriends, cachedFriendsIds) = friendDao.getFriends(bot.id).run { this to this.map { it.id } }
+
+            val newFriends = onlineFriends.filter { it.id !in cachedFriendsIds }
+            val deletedFriends = cachedFriends.filter { it.id !in onlineFriendsIds }
+
+            friendDao.delete(*deletedFriends.toTypedArray())
+            friendDao.update(*(onlineFriends - newFriends).map {
+                FriendEntity(bot.id, it.id, it.nick, it.friendGroup.id)
+            }.toTypedArray())
+            friendDao.insert(*newFriends.map { FriendEntity(bot.id, it.id, it.nick, it.friendGroup.id) }.toTypedArray())
+        }
+        lifecycleScope.launch {
+            // subscribe messages
             bot.eventChannel.subscribe<MessageEvent>(coroutineContext = CoroutineExceptionHandler { _, throwable ->
                 if (throwable is IllegalStateException && throwable.toString()
                         .matches(Regex("UNKNOWN_MESSAGE_EVENT_TYPE"))
@@ -292,6 +319,12 @@ class ArukuMiraiService : LifecycleService() {
             }) { ev ->
                 if (!this@ArukuMiraiService.lifecycleScope.isActive) return@subscribe ListeningStatus.STOPPED
 
+                val messageType = when (ev) {
+                    is GroupMessageEvent -> ArukuMessageType.GROUP
+                    is FriendMessageEvent -> ArukuMessageType.FRIEND
+                    is GroupTempMessageEvent -> ArukuMessageType.TEMP
+                    else -> error("UNKNOWN_MESSAGE_EVENT_TYPE")
+                }
                 val parcelMessageEvent = ArukuMessageEvent(
                     account = ev.bot.id,
                     subject = ev.subject.id,
@@ -301,14 +334,32 @@ class ArukuMiraiService : LifecycleService() {
                         source = ev.source,
                         messages = ev.message
                     ),
-                    type = when (ev) {
-                        is GroupMessageEvent -> ArukuMessageType.GROUP
-                        is FriendMessageEvent -> ArukuMessageType.FRIEND
-                        is GroupTempMessageEvent -> ArukuMessageType.TEMP
-                        else -> error("UNKNOWN_MESSAGE_EVENT_TYPE")
-                    }
+                    type = messageType
                 )
-                database { messageRecords().insert(parcelMessageEvent.into()) }
+                database {
+                    // insert message event to records
+                    messageRecords().insert(parcelMessageEvent.into())
+                    // update message preview
+                    val messagePreviewDao = messagePreview()
+                    val messagePreview = messagePreviewDao.getExactMessagePreview(ev.bot.id, ev.subject.id, messageType)
+                    if (messagePreview.isEmpty()) {
+                        messagePreviewDao.insert(
+                            MessagePreviewEntity(
+                                ev.bot.id,
+                                ev.subject.id,
+                                messageType,
+                                ev.time.toLong(),
+                                ev.message.serializeToMiraiCode()
+                            )
+                        )
+                    } else {
+                        messagePreviewDao.update(messagePreview.single().apply p@{
+                            this@p.time = ev.time.toLong()
+                            this@p.previewMiraiCode = ev.message.serializeToMiraiCode()
+                        })
+                    }
+
+                }
 
                 messageConsumers[ev.bot.id]?.let { consumers ->
                     consumers.forEach { (_, consumer) ->
@@ -336,9 +387,30 @@ class ArukuMiraiService : LifecycleService() {
         } ?: false
     }
 
-    private fun createBot(accountInfo: AccountInfo): Bot {
+    private fun createBot(accountInfo: AccountInfo, pushToDatabase: Boolean = false): Bot {
         val miraiWorkingDir = ArukuApplication.INSTANCE.filesDir.resolve("mirai/")
         if (!miraiWorkingDir.exists()) miraiWorkingDir.mkdirs()
+
+        if (pushToDatabase) lifecycleScope.launch(Dispatchers.IO) {
+            database {
+                val accountDao = accounts()
+                val existAccountInfo = accountDao[accountInfo.accountNo]
+                if (existAccountInfo.isEmpty()) {
+                    accountDao.insert(accountInfo.into())
+                } else {
+                    accountDao.update(existAccountInfo.single().apply a@{
+                        this@a.passwordMd5 = accountInfo.passwordMd5
+                        this@a.loginProtocol = accountInfo.protocol
+                        this@a.heartbeatStrategy = accountInfo.heartbeatStrategy
+                        this@a.heartbeatPeriodMillis = accountInfo.heartbeatPeriodMillis
+                        this@a.heartbeatTimeoutMillis = accountInfo.heartbeatTimeoutMillis
+                        this@a.statHeartbeatPeriodMillis = accountInfo.statHeartbeatPeriodMillis
+                        this@a.autoReconnect = accountInfo.autoReconnect
+                        this@a.reconnectionRetryTimes = accountInfo.reconnectionRetryTimes
+                    })
+                }
+            }
+        }
 
         return _botFactory.newBot(accountInfo.accountNo, accountInfo.passwordMd5) {
             workingDir = miraiWorkingDir
@@ -359,7 +431,7 @@ class ArukuMiraiService : LifecycleService() {
                 fileBasedDeviceInfo(deviceInfoFile.absolutePath)
             } else {
                 deviceInfo = {
-                    DeviceInfo(
+                    /*DeviceInfo(
                         display = Build.DISPLAY.toByteArray(),
                         product = Build.PRODUCT.toByteArray(),
                         device = Build.DEVICE.toByteArray(),
@@ -384,10 +456,10 @@ class ArukuMiraiService : LifecycleService() {
                         imsiMd5 = getRandomByteArray(16, Random.Default).md5(),
                         imei = ArukuApplication.INSTANCE.applicationContext.imei,
                         apn = "wifi".toByteArray()
-                    ).also {
-                        deviceInfoFile.createNewFile()
-                        deviceInfoFile.writeText(Json.encodeToString(it))
-                    }
+                    )*/DeviceInfo.random().also {
+                    deviceInfoFile.createNewFile()
+                    deviceInfoFile.writeText(Json.encodeToString(it))
+                }
                 }
             }
 
@@ -402,9 +474,32 @@ class ArukuMiraiService : LifecycleService() {
                         CustomLoginFailedException(false, "no login solver for bot ${bot.id}") {}
                 }
 
+                @Deprecated(
+                    "Please use onSolveDeviceVerification instead",
+                    replaceWith = ReplaceWith("onSolveDeviceVerification(bot, url, null)"),
+                    level = DeprecationLevel.WARNING
+                )
                 override suspend fun onSolveUnsafeDeviceLoginVerify(bot: Bot, url: String): String {
                     return loginSolvers[bot.id]?.onSolveUnsafeDeviceLoginVerify(bot.id, url) ?: throw object :
                         CustomLoginFailedException(false, "no login solver for bot ${bot.id}") {}
+                }
+
+                override suspend fun onSolveDeviceVerification(
+                    bot: Bot,
+                    requests: DeviceVerificationRequests
+                ): DeviceVerificationResult {
+                    val sms = requests.sms
+                    return if (sms != null) {
+                        sms.requestSms()
+                        val result = loginSolvers[bot.id]?.onSolveSMSRequest(bot.id, sms.countryCode + sms.phoneNumber)
+                            ?: throw object : CustomLoginFailedException(false, "no login solver for bot ${bot.id}") {}
+                        sms.solved(result)
+                    } else {
+                        val fallback = requests.fallback!!
+                        loginSolvers[bot.id]?.onSolveUnsafeDeviceLoginVerify(bot.id, fallback.url)
+                            ?: throw object : CustomLoginFailedException(false, "no login solver for bot ${bot.id}") {}
+                        fallback.solved()
+                    }
                 }
             }
         }
@@ -415,9 +510,11 @@ class ArukuMiraiService : LifecycleService() {
     ) : ServiceConnection, LifecycleEventObserver, ReadOnlyProperty<Any?, IArukuMiraiInterface> {
         private lateinit var _delegate: IArukuMiraiInterface
         val connected: MutableLiveData<Boolean> = MutableLiveData(false)
-        private val _bots: MutableLiveData<List<Long>> get() = MutableLiveData(listOf())
-        val bots: LiveData<List<Long>> get() = _bots
-        val botsState: SnapshotStateList<Long> = mutableStateListOf()
+
+        private val _bots: MutableList<Long> = mutableListOf()
+        private val _botsLiveData: MutableLiveData<List<Long>> = MutableLiveData()
+
+        val bots: LiveData<List<Long>> = _botsLiveData
 
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             Log.d(toLogTag(), "service is connected: $name")
@@ -427,9 +524,9 @@ class ArukuMiraiService : LifecycleService() {
             _delegate.addBotListObserver(toString(), object : IBotListObserver.Stub() {
                 override fun onChange(newList: LongArray?) {
                     val l = newList?.toList() ?: listOf()
-                    _bots.postValue(l)
-                    botsState.removeIf { it !in l }
-                    l.forEach { if (it !in botsState) botsState.add(it) }
+                    _bots.removeIf { it !in l }
+                    l.forEach { if (it !in _bots) _bots.add(it) }
+                    _botsLiveData.value = _bots
                 }
             })
         }

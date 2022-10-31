@@ -17,6 +17,13 @@ abstract class MessagePreviewDao : BaseDao<MessagePreviewEntity> {
     @Query("select * from message_preview where account_id=:account order by time desc")
     abstract fun getMessages(account: Long): Flow<List<MessagePreviewEntity>>
 
+    @Query("select * from message_preview where account_id=:account and subject=:subject and type=:type")
+    abstract fun getExactMessagePreview(
+        account: Long,
+        subject: Long,
+        type: ArukuMessageType
+    ): List<MessagePreviewEntity>
+
     fun getFriendMessages(account: Long): Flow<List<MessagePreviewEntity>> =
         getMessages(account, ArukuMessageType.FRIEND)
 

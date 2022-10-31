@@ -9,7 +9,7 @@ import me.stageguard.aruku.service.parcel.ArukuMessageType
 @Serializable
 @Entity(
     tableName = "message_preview",
-    indices = [Index("account_id")],
+    indices = [Index(value = ["account_id", "subject", "type"], unique = true)],
     foreignKeys = [
         ForeignKey(
             entity = AccountEntity::class,
@@ -20,10 +20,11 @@ import me.stageguard.aruku.service.parcel.ArukuMessageType
     ]
 )
 data class MessagePreviewEntity(
-    @PrimaryKey(autoGenerate = true) @ColumnInfo(name = "_prim_key") val _prim_key: Int,
     @ColumnInfo(name = "account_id") val account: Long,
     @ColumnInfo(name = "subject") val subject: Long,
     @ColumnInfo(name = "type")
     @TypeConverters(ArukuMessageTypeConverter::class) val type: ArukuMessageType,
-    @ColumnInfo(name = "time") val time: Long,
+    @ColumnInfo(name = "time") var time: Long,
+    @ColumnInfo(name = "preview") var previewMiraiCode: String,
+    @PrimaryKey(autoGenerate = true) @ColumnInfo(name = "_prim_key") val _prim_key: Int = 0,
 )

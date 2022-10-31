@@ -7,7 +7,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
@@ -45,42 +47,51 @@ fun CaptchaRequired(
         text = {
             Column {
                 Text(
-                    text = R.string.verify_captcha_message.stringResC(
-                        state.bot.toString(),
-                        when (captchaType) {
-                            is CaptchaType.Picture -> R.string.verify_captcha_message_code
-                            is CaptchaType.Slider -> R.string.verify_captcha_message_slider
-                            is CaptchaType.UnsafeDevice -> R.string.verify_captcha_message_device
-                        }.stringResC
-                    ),
+                    text = if (captchaType !is CaptchaType.SMSRequest) {
+                        R.string.verify_captcha_message.stringResC(
+                            state.bot.toString(),
+                            when (captchaType) {
+                                is CaptchaType.Picture -> R.string.verify_captcha_message_code.stringResC
+                                is CaptchaType.Slider -> R.string.verify_captcha_message_slider.stringResC
+                                is CaptchaType.UnsafeDevice -> R.string.verify_captcha_message_device.stringResC
+                                else -> ""
+                            }
+                        )
+                    } else R.string.verify_captcha_sms.stringResC(captchaType.phone ?: "-"),
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier
                         .padding(bottom = 5.dp)
                         .align(Alignment.CenterHorizontally)
                 )
-                if (captchaType is CaptchaType.Picture) {
-                    Image(
-                        bitmap = captchaType.imageBitmap,
-                        contentDescription = "Picture captcha",
-                        modifier = Modifier
-                            .padding(horizontal = 5.dp)
-                            .align(Alignment.CenterHorizontally)
-                    )
-                } else {
-                    SelectionContainer {
-                        Text(
-                            text = if (captchaType is CaptchaType.Slider) captchaType.url
-                            else if (captchaType is CaptchaType.UnsafeDevice) captchaType.url
-                            else "",
-                            style = TextStyle.Default.copy(
-                                fontFamily = FontFamily.Monospace,
-                                color = MaterialTheme.colorScheme.primary
-                            ),
+                when (captchaType) {
+                    is CaptchaType.Picture -> {
+                        Image(
+                            bitmap = captchaType.imageBitmap,
+                            contentDescription = "Picture captcha",
                             modifier = Modifier
+                                .padding(horizontal = 5.dp)
                                 .align(Alignment.CenterHorizontally)
-                                .padding(5.dp)
                         )
                     }
+
+                    is CaptchaType.Slider, is CaptchaType.UnsafeDevice -> {
+                        SelectionContainer {
+                            Text(
+                                text = if (captchaType is CaptchaType.Slider) captchaType.url
+                                else if (captchaType is CaptchaType.UnsafeDevice) captchaType.url
+                                else "",
+                                style = TextStyle.Default.copy(
+                                    fontFamily = FontFamily.Monospace,
+                                    color = MaterialTheme.colorScheme.primary
+                                ),
+                                modifier = Modifier
+                                    .align(Alignment.CenterHorizontally)
+                                    .padding(5.dp)
+                            )
+                        }
+                    }
+
+                    is CaptchaType.SMSRequest -> {}
                 }
 
                 if (captchaType !is CaptchaType.UnsafeDevice) {
@@ -90,6 +101,7 @@ fun CaptchaRequired(
                                 text = when (captchaType) {
                                     is CaptchaType.Picture -> R.string.verification_code.stringResC
                                     is CaptchaType.Slider -> R.string.slider_result.stringResC
+                                    is CaptchaType.SMSRequest -> R.string.sms_code.stringResC
                                     else -> ""
                                 },
                                 style = MaterialTheme.typography.bodyMedium
@@ -150,6 +162,19 @@ fun CaptchaRequiredPicture() {
             LoginState.CaptchaRequired(
                 123,
                 CaptchaType.Picture(123, ImageBitmap(200, 100))
+            ), { }, { _, _ -> }, { }
+        )
+    }
+}
+
+@Preview
+@Composable
+fun SMSRequest() {
+    ArukuTheme {
+        CaptchaRequired(
+            LoginState.CaptchaRequired(
+                123,
+                CaptchaType.SMSRequest(123, "+8611451419198")
             ), { }, { _, _ -> }, { }
         )
     }

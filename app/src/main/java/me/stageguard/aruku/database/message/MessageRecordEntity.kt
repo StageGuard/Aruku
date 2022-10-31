@@ -9,7 +9,7 @@ import me.stageguard.aruku.service.parcel.ArukuMessageType
 @Serializable
 @Entity(
     tableName = "message_record",
-    indices = [Index("account_id", "subject", "sender")],
+    indices = [Index("account_id", "subject", "type")],
     foreignKeys = [
         ForeignKey(
             entity = AccountEntity::class,

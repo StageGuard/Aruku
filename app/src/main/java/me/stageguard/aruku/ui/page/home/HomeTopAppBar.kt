@@ -26,6 +26,7 @@ import coil.request.ImageRequest
 import me.stageguard.aruku.R
 import me.stageguard.aruku.ui.LocalBot
 import me.stageguard.aruku.ui.theme.ArukuTheme
+import me.stageguard.aruku.ui.theme.ColorAccountOffline
 import me.stageguard.aruku.ui.theme.ColorAccountOnline
 import me.stageguard.aruku.util.stringResC
 
@@ -36,12 +37,14 @@ fun HomeTopAppBar(
     botListExpanded: MutableState<Boolean>,
     title: String,
     showAvatarProgressIndicator: Boolean,
-    avatarBorderColor: Color,
+    activeAccountOnline: Boolean,
     modifier: Modifier = Modifier,
     onAvatarClick: () -> Unit,
     onSwitchAccount: (Long) -> Unit,
     onAddAccountClick: () -> Unit,
 ) {
+    val account = LocalBot.current
+    val context = LocalContext.current
     LargeTopAppBar(
         modifier = modifier,
         colors = TopAppBarDefaults.largeTopAppBarColors(),
@@ -61,17 +64,37 @@ fun HomeTopAppBar(
             IconButton(
                 onClick = onAvatarClick,
             ) {
-                Box(modifier = Modifier.size(45.dp)) {
+                Box(
+                    modifier = Modifier.size(45.dp)
+                ) {
                     if (showAvatarProgressIndicator) CircularProgressIndicator(modifier = Modifier.fillMaxWidth())
-                    Icon(
-                        Icons.Outlined.AccountCircle,
-                        modifier = Modifier.border(
-                            width = ProgressIndicatorDefaults.CircularStrokeWidth,
-                            shape = CircleShape,
-                            color = if (showAvatarProgressIndicator) Color.Transparent else avatarBorderColor
-                        ).size(40.dp).align(Alignment.Center),
-                        contentDescription = "account avatar"
-                    )
+
+                    val accountImageShape = Modifier.size(40.dp).border(
+                        width = ProgressIndicatorDefaults.CircularStrokeWidth,
+                        shape = CircleShape,
+                        color = if (showAvatarProgressIndicator) Color.Transparent else {
+                            if (activeAccountOnline) ColorAccountOnline else ColorAccountOffline
+                        }
+                    ).align(Alignment.Center)
+
+                    if (account == null) {
+                        Icon(
+                            Icons.Outlined.AccountCircle,
+                            contentDescription = "account avatar url",
+                            modifier = accountImageShape
+                        )
+                    } else {
+                        AsyncImage(
+                            account.avatarUrl.let {
+                                ImageRequest.Builder(context)
+                                    .data(it)
+                                    .crossfade(true)
+                                    .build()
+                            },
+                            contentDescription = "account avatar url",
+                            modifier = accountImageShape
+                        )
+                    }
                 }
             }
             DropdownMenu(
@@ -82,9 +105,9 @@ fun HomeTopAppBar(
                     AccountListItem(
                         accountNo = bot.id,
                         accountNick = bot.nick,
-                        isActive = LocalBot.current?.id == bot.id,
+                        isActive = account?.id == bot.id,
                         avatarImageRequest = if (bot.avatarUrl != null) {
-                            ImageRequest.Builder(LocalContext.current)
+                            ImageRequest.Builder(context)
                                 .data(bot.avatarUrl)
                                 .crossfade(true)
                                 .build()
@@ -179,7 +202,7 @@ fun HomeTopAppBarPreview() {
             showAvatarProgressIndicator = true,
             onAvatarClick = { expanded.value = !expanded.value },
             onSwitchAccount = {},
-            avatarBorderColor = ColorAccountOnline,
+            activeAccountOnline = true,
             title = "123title"
         ) {}
     }

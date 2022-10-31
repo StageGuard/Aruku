@@ -1,5 +1,6 @@
 package me.stageguard.aruku.ui.page.home
 
+import android.util.Log
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedContentScope
 import androidx.compose.animation.ExperimentalAnimationApi
@@ -17,25 +18,30 @@ import me.stageguard.aruku.ui.LocalBot
 import me.stageguard.aruku.ui.page.login.CaptchaRequired
 import me.stageguard.aruku.ui.page.login.LoginState
 import me.stageguard.aruku.ui.theme.ArukuTheme
-import me.stageguard.aruku.ui.theme.ColorAccountOffline
-import me.stageguard.aruku.ui.theme.ColorAccountOnline
 import me.stageguard.aruku.util.stringResC
-import org.koin.androidx.compose.koinViewModel
+import me.stageguard.aruku.util.toLogTag
+import org.koin.androidx.compose.get
 
 @Composable
 fun HomePage(
     navigateToLoginPage: () -> Unit,
-    onSwitchAccount: (Long) -> Unit
+    onSwitchAccount: (Long) -> Unit,
+    onLaunchLoginSuccess: (Long) -> Unit
 ) {
     val bot = LocalBot.current
-    val viewModel: HomeViewModel by koinViewModel()
+    val viewModel: HomeViewModel = get()
     LaunchedEffect(bot) {
-        bot?.let { viewModel.observeAccountState(it) }
+        viewModel.observeAccountState(bot)
+    }
+    LaunchedEffect(viewModel.loginState.value) {
+        val state = viewModel.loginState.value
+        Log.i(toLogTag("ACTIVE_BOT"), "state: $state")
+        if (state is AccountState.Online) onLaunchLoginSuccess(state.bot)
     }
     HomeView(
         viewModel.currentNavSelection,
         viewModel.getAccountBasicInfo(),
-        viewModel.accountState,
+        viewModel.loginState,
         navigateToLoginPage,
         onSwitchAccount = onSwitchAccount,
         onRetryCaptchaClick = { accountNo -> viewModel.submitCaptcha(accountNo, null) },
@@ -70,7 +76,7 @@ fun HomeView(
                 botList = botList,
                 botListExpanded = botListExpanded,
                 showAvatarProgressIndicator = state.value is AccountState.Login,
-                avatarBorderColor = if (state.value is AccountState.Online) ColorAccountOnline else ColorAccountOffline,
+                activeAccountOnline = state.value is AccountState.Online,
                 title = currNavPage.value.label.stringResC,
                 modifier = Modifier,
                 onAvatarClick = {

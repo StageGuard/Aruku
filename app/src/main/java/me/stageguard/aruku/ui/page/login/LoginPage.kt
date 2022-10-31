@@ -2,6 +2,7 @@ package me.stageguard.aruku.ui.page.login
 
 import android.annotation.SuppressLint
 import android.content.res.Configuration.UI_MODE_NIGHT_NO
+import android.util.Log
 import androidx.compose.animation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -30,19 +31,21 @@ import me.stageguard.aruku.service.parcel.AccountInfo
 import me.stageguard.aruku.ui.common.SingleItemLazyColumn
 import me.stageguard.aruku.ui.theme.ArukuTheme
 import me.stageguard.aruku.util.stringResC
+import me.stageguard.aruku.util.toLogTag
 import net.mamoe.mirai.utils.BotConfiguration
 import net.mamoe.mirai.utils.secondsToMillis
-import org.koin.androidx.compose.koinViewModel
+import org.koin.androidx.compose.get
 
 private const val TAG = "LoginView"
 
 @Composable
 fun LoginPage(
-    onLoginSuccess: (AccountInfo) -> Unit
+    onLoginSuccess: (Long) -> Unit
 ) {
-    val viewModel: LoginViewModel by koinViewModel()
-    SideEffect {
-        if (viewModel.state.value is LoginState.Success) onLoginSuccess(viewModel.accountInfo.value)
+    val viewModel: LoginViewModel = get()
+    LaunchedEffect(viewModel.state.value) {
+        Log.i(toLogTag("LoginPageLaunchedEffect"), viewModel.state.value.toString())
+        if (viewModel.state.value is LoginState.Success) onLoginSuccess(viewModel.accountInfo.value.accountNo)
     }
 
     LoginView(accountInfo = viewModel.accountInfo,

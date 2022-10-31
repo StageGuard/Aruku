@@ -10,6 +10,7 @@ import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
 import org.koin.core.context.startKoin
+import org.koin.core.logger.Level
 import java.security.Security
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -24,7 +25,7 @@ class ArukuApplication : Application() {
         INSTANCE = this
 
         startKoin {
-            androidLogger()
+            androidLogger(Level.DEBUG)
             androidContext(this@ArukuApplication)
             modules(applicationModule)
         }

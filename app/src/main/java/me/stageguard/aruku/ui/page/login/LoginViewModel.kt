@@ -70,6 +70,11 @@ class LoginViewModel(
             return runBlocking(viewModelScope.coroutineContext) { captchaChannel.receive() }
         }
 
+        override fun onSolveSMSRequest(bot: Long, phone: String?): String? {
+            state.value = LoginState.CaptchaRequired(bot, CaptchaType.SMSRequest(bot, phone))
+            return runBlocking(viewModelScope.coroutineContext) { captchaChannel.receive() }
+        }
+
         override fun onLoginSuccess(bot: Long) {
             state.value = LoginState.Success(bot)
         }
@@ -114,4 +119,5 @@ sealed class CaptchaType(val bot: Long) {
     class Picture(bot: Long, val imageBitmap: ImageBitmap) : CaptchaType(bot)
     class Slider(bot: Long, val url: String) : CaptchaType(bot)
     class UnsafeDevice(bot: Long, val url: String) : CaptchaType(bot)
+    class SMSRequest(bot: Long, val phone: String?) : CaptchaType(bot)
 }

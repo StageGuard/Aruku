@@ -1,6 +1,5 @@
 package me.stageguard.aruku.ui.page.home
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -8,19 +7,23 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.imageResource
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import me.stageguard.aruku.R
+import me.stageguard.aruku.service.parcel.ArukuMessageType
+import me.stageguard.aruku.ui.LocalBot
 import me.stageguard.aruku.ui.theme.ArukuTheme
+import org.koin.androidx.compose.get
 import java.time.LocalDateTime
 import kotlin.random.Random
 import kotlin.random.nextInt
@@ -28,7 +31,11 @@ import kotlin.random.nextLong
 
 @Composable
 fun HomeNavMessage(padding: PaddingValues) {
-    val viewModel: HomeViewModel = viewModel()
+    val bot = LocalBot.current
+    val viewModel: HomeViewModel = get()
+    LaunchedEffect(bot) {
+        bot?.let { viewModel.observeMessagePreview(it) }
+    }
     LazyColumn(Modifier.padding(padding)) {
         viewModel.messages.forEach {
             item {
@@ -48,8 +55,11 @@ fun MessageCard(message: SimpleMessagePreview, modifier: Modifier = Modifier) {
                     shape = CircleShape,
                     elevation = CardDefaults.cardElevation(2.dp)
                 ) {
-                    Image(
-                        message.avatar,
+                    AsyncImage(
+                        ImageRequest.Builder(LocalContext.current)
+                            .data(message.avatarData)
+                            .crossfade(true)
+                            .build(),
                         "message avatar",
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop
@@ -133,14 +143,16 @@ fun MessageCardPreview() {
         R.drawable.ic_mock_avatar_18 to "MockUserName18",
     ).shuffled().map {
         SimpleMessagePreview(
-            ImageBitmap.imageResource(it.first),
+            ArukuMessageType.GROUP,
+            123123L,
+            it.first,
             it.second,
             "message preview",
             LocalDateTime.now().minusMinutes(Random.Default.nextLong(0L..3600L)),
             Random.Default.nextInt(0..100)
         )
     }
-    
+
     ArukuTheme {
         LazyColumn(modifier = Modifier.width(300.dp)) {
             mockMessages.forEach {

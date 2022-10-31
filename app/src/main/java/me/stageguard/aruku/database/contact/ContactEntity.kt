@@ -20,8 +20,8 @@ import me.stageguard.aruku.database.account.AccountEntity
 data class FriendEntity(
     @ColumnInfo(name = "account_id") val account: Long,
     @ColumnInfo(name = "friend_id") val id: Long,
-    @ColumnInfo(name = "friend_name") val name: String,
-    @ColumnInfo(name = "friend_group") val group: Int,
+    @ColumnInfo(name = "friend_name") var name: String,
+    @ColumnInfo(name = "friend_group") var group: Int,
     @PrimaryKey(autoGenerate = true) @ColumnInfo(name = "_prim_key") val _prim_key: Int = 0,
 )
 
@@ -41,6 +41,6 @@ data class FriendEntity(
 data class GroupEntity(
     @ColumnInfo(name = "account_id") val account: Long,
     @ColumnInfo(name = "group_id") val id: Long,
-    @ColumnInfo(name = "group_name") val name: String,
+    @ColumnInfo(name = "group_name") var name: String,
     @PrimaryKey(autoGenerate = true) @ColumnInfo(name = "_prim_key") val _prim_key: Int = 0,
 )

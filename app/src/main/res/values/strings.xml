@@ -11,16 +11,21 @@
     <string name="login">LOGIN</string>
     <string name="internet_permission">Please allow INTERNET permission</string>
     <string name="login_failed">Login failed</string>
-    <string name="login_failed_message">Failed to login account %1$s: \n %2$s</string>
+    <string name="login_failed_message">Failed to login account %1$s: %2$s</string>
     <string name="confirm">Confirm</string>
     <string name="captcha_required">Captcha required</string>
     <string name="cancel">Cancel</string>
     <string name="verification_code">Verification code</string>
     <string name="slider_result">Slider result</string>
-    <string name="verify_captcha_message">We need to verify captcha while logging account %1$s.\n %2$s \n Click outside the dialog to regenerate captcha or cancel login.</string>
+    <string name="verify_captcha_message">We need to verify captcha while logging account %1$s.\n %2$s \n Click outside
+        the dialog to regenerate captcha or cancel login.
+    </string>
     <string name="verify_captcha_message_code">Please enter the verification code.</string>
-    <string name="verify_captcha_message_slider">Please open the link to solve the slider and enter slider result.</string>
-    <string name="verify_captcha_message_device">Please open the link via Android QQ client and click Confirm after finishing verification.</string>
+    <string name="verify_captcha_message_slider">Please open the link to solve the slider and enter slider result.
+    </string>
+    <string name="verify_captcha_message_device">Please open the link via Android QQ client and click Confirm after
+        finishing verification.
+    </string>
     <string name="protocol">Protocol</string>
     <string name="heartbeat_strategy">Heartbeat strategy</string>
     <string name="heartbeat_period_millis">Heartbeat period millis</string>
@@ -29,10 +34,15 @@
     <string name="reconnection_retry_times">Reconnection retry times</string>
     <string name="service_notification_text">Aruku service is running foreground.</string>
     <string name="service_connecting">Connecting to ArukuMiraiService</string>
-    <string name="service_connecting_message">We lost connection to ArukuMiraiService, please wait until it is connected.</string>
+    <string name="service_connecting_message">We lost connection to ArukuMiraiService, please wait until it is
+        connected.
+    </string>
     <string name="add_account">Add account</string>
-    <string name="login_failed_please_retry">Login account %1$s failed, please switch to login page to login again.</string>
+    <string name="login_failed_please_retry">Login account %1$s failed, please switch to login page to login again.
+    </string>
     <string name="home_nav_message">Messages</string>
     <string name="home_nav_contact">Contacts</string>
     <string name="home_nav_profile">Profile</string>
+    <string name="verify_captcha_sms">A SMS code has sent to phone %1$s\\n Please enter verification code.</string>
+    <string name="sms_code">SMS code</string>
 </resources>

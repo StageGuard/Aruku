@@ -30,5 +30,5 @@ val applicationModule = module {
 
     // view model
     viewModel { LoginViewModel(get()) }
-    viewModel { HomeViewModel(get(), get<ArukuMiraiService.Connector>().botsState, get()) }
+    viewModel { HomeViewModel(get(), get<ArukuMiraiService.Connector>().bots, get()) }
 }

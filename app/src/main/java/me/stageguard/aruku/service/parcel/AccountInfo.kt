@@ -28,6 +28,7 @@ data class AccountInfo(
             statHeartbeatPeriodMillis = this@AccountInfo.statHeartbeatPeriodMillis,
             autoReconnect = this@AccountInfo.autoReconnect,
             reconnectionRetryTimes = this@AccountInfo.reconnectionRetryTimes,
+            isOfflineManually = false,
         )
     }
 }

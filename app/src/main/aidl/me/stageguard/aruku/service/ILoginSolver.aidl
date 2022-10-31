@@ -7,6 +7,7 @@ interface ILoginSolver {
     String onSolvePicCaptcha(long bot, inout byte[] data);
     String onSolveSliderCaptcha(long bot, String url);
     String onSolveUnsafeDeviceLoginVerify(long bot, String url);
+    String onSolveSMSRequest(long bot, String phone);
     void onLoginSuccess(long bot);
     void onLoginFailed(long bot, boolean botKilled, String cause);
 }

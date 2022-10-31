@@ -4,7 +4,6 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.DelicateCoroutinesApi
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.newSingleThreadContext
 import me.stageguard.aruku.database.account.AccountDao
 import me.stageguard.aruku.database.account.AccountEntity
@@ -41,7 +40,7 @@ abstract class ArukuDatabase : RoomDatabase() {
 
     abstract fun messagePreview(): MessagePreviewDao
 
-    operator fun invoke(block: ArukuDatabase.() -> Unit) {
-        databaseScope.launch { block(this@ArukuDatabase) }
+    operator fun <T> invoke(block: ArukuDatabase.() -> T): T {
+        return block(this@ArukuDatabase)
     }
 }
