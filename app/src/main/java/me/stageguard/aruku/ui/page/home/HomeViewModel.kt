@@ -197,7 +197,7 @@ class HomeViewModel(
                         unreadCount = 1
                     )
                 })
-                _messageSequences.sortBy { it.time }
+                _messageSequences.sortByDescending { it.time }
             }
         }
     }
