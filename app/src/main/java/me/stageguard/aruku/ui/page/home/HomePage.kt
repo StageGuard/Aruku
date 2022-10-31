@@ -9,32 +9,31 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.*
-import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
-import androidx.lifecycle.viewmodel.compose.viewModel
-import me.stageguard.aruku.ui.LocalArukuMiraiInterface
 import me.stageguard.aruku.ui.LocalBot
 import me.stageguard.aruku.ui.page.login.CaptchaRequired
 import me.stageguard.aruku.ui.page.login.LoginState
 import me.stageguard.aruku.ui.theme.ArukuTheme
+import me.stageguard.aruku.ui.theme.ColorAccountOffline
+import me.stageguard.aruku.ui.theme.ColorAccountOnline
 import me.stageguard.aruku.util.stringResC
+import org.koin.androidx.compose.koinViewModel
 
 @Composable
 fun HomePage(
-    botList: SnapshotStateList<Long>,
     navigateToLoginPage: () -> Unit,
     onSwitchAccount: (Long) -> Unit
 ) {
-    val arukuServiceInterface = LocalArukuMiraiInterface.current
     val bot = LocalBot.current
-    val viewModel: HomeViewModel = viewModel { HomeViewModel(arukuServiceInterface, botList) }
-    SideEffect {
+    val viewModel: HomeViewModel by koinViewModel()
+    LaunchedEffect(bot) {
         bot?.let { viewModel.observeAccountState(it) }
     }
     HomeView(
+        viewModel.currentNavSelection,
         viewModel.getAccountBasicInfo(),
         viewModel.accountState,
         navigateToLoginPage,
@@ -42,25 +41,26 @@ fun HomePage(
         onRetryCaptchaClick = { accountNo -> viewModel.submitCaptcha(accountNo, null) },
         onSubmitCaptchaClick = { accountNo, result -> viewModel.submitCaptcha(accountNo, result) },
         onLoginFailedClick = { viewModel.loginFailed(it) },
+        onHomeNavigate = { _, curr -> viewModel.currentNavSelection.value = homeNavs[curr]!! }
     )
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class)
 @Composable
 fun HomeView(
+    currentNavSelection: State<HomeNav>,
     botList: List<BasicAccountInfo>,
     state: State<AccountState>,
     navigateToLoginPage: () -> Unit,
     onSwitchAccount: (Long) -> Unit,
     onRetryCaptchaClick: (Long) -> Unit,
     onSubmitCaptchaClick: (Long, String) -> Unit,
-    onLoginFailedClick: (Long) -> Unit
+    onLoginFailedClick: (Long) -> Unit,
+    onHomeNavigate: (HomeNavSelection, HomeNavSelection) -> Unit
 
 ) {
     val botListExpanded = remember { mutableStateOf(false) }
-    val currNavPage = remember(HomeNavSelection.MESSAGE) {
-        mutableStateOf(homeNavs[HomeNavSelection.MESSAGE]!!)
-    }
+    val currNavPage = remember(HomeNavSelection.MESSAGE) { currentNavSelection }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -69,6 +69,8 @@ fun HomeView(
             HomeTopAppBar(
                 botList = botList,
                 botListExpanded = botListExpanded,
+                showAvatarProgressIndicator = state.value is AccountState.Login,
+                avatarBorderColor = if (state.value is AccountState.Online) ColorAccountOnline else ColorAccountOffline,
                 title = currNavPage.value.label.stringResC,
                 modifier = Modifier,
                 onAvatarClick = {
@@ -77,13 +79,11 @@ fun HomeView(
                     } else navigateToLoginPage()
                 },
                 onSwitchAccount = onSwitchAccount,
-                onAddAccountClick = navigateToLoginPage
+                onAddAccountClick = navigateToLoginPage,
             )
         },
         bottomBar = {
-            HomeNavigationBar(currNavPage.value.selection) { prev, curr ->
-                currNavPage.value = homeNavs[curr]!!
-            }
+            HomeNavigationBar(currNavPage.value.selection, onHomeNavigate)
         }
 
     ) { padding ->
@@ -123,11 +123,11 @@ fun HomeView(
 fun HomeiewPreview() {
     val list = remember { mutableStateListOf<BasicAccountInfo>() }
     val state = remember { mutableStateOf(AccountState.Default) }
+    val navState = remember { mutableStateOf(homeNavs[HomeNavSelection.MESSAGE]!!) }
     ArukuTheme {
         HomeView(
-            botList = list,
-            state = state,
-            {}, {}, {}, { _, _ -> }, {},
+            navState, botList = list, state = state,
+            {}, {}, {}, { _, _ -> }, {}, { _, _ -> },
         )
     }
 }

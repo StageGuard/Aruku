@@ -14,6 +14,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.runBlocking
 import me.stageguard.aruku.ArukuApplication
 import me.stageguard.aruku.R
+import me.stageguard.aruku.database.ArukuDatabase
 import me.stageguard.aruku.service.IArukuMiraiInterface
 import me.stageguard.aruku.service.ILoginSolver
 import me.stageguard.aruku.ui.page.login.CaptchaType
@@ -27,7 +28,8 @@ import java.time.LocalDateTime
 
 class HomeViewModel(
     private val arukuServiceInterface: IArukuMiraiInterface,
-    private val _accountList: SnapshotStateList<Long>
+    private val _accountList: SnapshotStateList<Long>,
+    private val database: ArukuDatabase,
 ) : ViewModel() {
 
     private val captchaChannel = Channel<String?>()
@@ -80,7 +82,7 @@ class HomeViewModel(
         }
 
         override fun onLoginFailed(bot: Long, botKilled: Boolean, cause: String?) {
-            accountState.value = AccountState.Login(bot, LoginState.LoginFailed(bot, cause.toString()))
+            accountState.value = AccountState.Login(bot, LoginState.Failed(bot, cause.toString()))
             Toast.makeText(
                 ArukuApplication.INSTANCE.applicationContext,
                 R.string.login_failed_please_retry.stringRes(bot.toString()),
@@ -89,9 +91,9 @@ class HomeViewModel(
         }
     }
     private var activeAccountLoginSolver: Pair<Long, ILoginSolver>? = null
-    private val _messageSequences = mutableStateListOf<Message>()
+    private val _messageSequences = mutableStateListOf<SimpleMessagePreview>()
 
-    val currentNavSelection = mutableStateOf(HomeNavSelection.MESSAGE)
+    val currentNavSelection = mutableStateOf(homeNavs[HomeNavSelection.MESSAGE]!!)
     val accountState = mutableStateOf<AccountState>(AccountState.Default)
     val messages get() = _messageSequences
 
@@ -135,6 +137,10 @@ class HomeViewModel(
             return@map BasicAccountInfo(b.id, b.nick, b.avatarUrl(AvatarSpec.ORIGINAL))
         }
     }
+
+    fun observeMessagePreview(account: Bot) {
+
+    }
 }
 
 enum class HomeNavSelection(val id: Int) {
@@ -156,7 +162,7 @@ data class BasicAccountInfo(
     val avatarUrl: String?
 )
 
-data class Message(
+data class SimpleMessagePreview(
     val avatar: ImageBitmap,
     val name: String,
     val preview: String,

@@ -24,16 +24,15 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.accompanist.permissions.*
 import me.stageguard.aruku.R
 import me.stageguard.aruku.service.parcel.AccountInfo
-import me.stageguard.aruku.ui.LocalArukuMiraiInterface
 import me.stageguard.aruku.ui.common.SingleItemLazyColumn
 import me.stageguard.aruku.ui.theme.ArukuTheme
 import me.stageguard.aruku.util.stringResC
 import net.mamoe.mirai.utils.BotConfiguration
 import net.mamoe.mirai.utils.secondsToMillis
+import org.koin.androidx.compose.koinViewModel
 
 private const val TAG = "LoginView"
 
@@ -41,15 +40,18 @@ private const val TAG = "LoginView"
 fun LoginPage(
     onLoginSuccess: (AccountInfo) -> Unit
 ) {
-    val arukuInterface = LocalArukuMiraiInterface.current
-    val viewModel: LoginViewModel = viewModel { LoginViewModel(arukuInterface, onLoginSuccess) }
+    val viewModel: LoginViewModel by koinViewModel()
+    SideEffect {
+        if (viewModel.state.value is LoginState.Success) onLoginSuccess(viewModel.accountInfo.value)
+    }
 
     LoginView(accountInfo = viewModel.accountInfo,
         state = viewModel.state,
         onLoginClick = { viewModel.doLogin(it) },
         onLoginFailedClick = { viewModel.removeBotAndClearState(it) },
         onRetryCaptchaClick = { viewModel.retryCaptcha() },
-        onSubmitCaptchaClick = { _, result -> viewModel.submitCaptcha(result) })
+        onSubmitCaptchaClick = { _, result -> viewModel.submitCaptcha(result) }
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
@@ -203,8 +205,8 @@ fun LoginView(
                             modifier = Modifier.padding(8.dp)
                         )
                     }
-                    if (state.value is LoginState.LoginFailed) {
-                        val failedState = state.value as LoginState.LoginFailed
+                    if (state.value is LoginState.Failed) {
+                        val failedState = state.value as LoginState.Failed
                         AlertDialog(onDismissRequest = { onLoginFailedClick(failedState.bot) }, title = {
                             Text(
                                 text = R.string.login_failed.stringResC, style = MaterialTheme.typography.titleLarge

@@ -17,6 +17,8 @@ import kotlinx.serialization.json.Json
 import me.stageguard.aruku.ArukuApplication
 import me.stageguard.aruku.R
 import me.stageguard.aruku.database.ArukuDatabase
+import me.stageguard.aruku.database.contact.FriendEntity
+import me.stageguard.aruku.database.contact.GroupEntity
 import me.stageguard.aruku.service.parcel.AccountInfo
 import me.stageguard.aruku.service.parcel.ArukuMessage
 import me.stageguard.aruku.service.parcel.ArukuMessageEvent
@@ -25,6 +27,7 @@ import me.stageguard.aruku.ui.activity.MainActivity
 import me.stageguard.aruku.util.*
 import net.mamoe.mirai.Bot
 import net.mamoe.mirai.BotFactory
+import net.mamoe.mirai.contact.nameCardOrNick
 import net.mamoe.mirai.event.ListeningStatus
 import net.mamoe.mirai.event.events.*
 import net.mamoe.mirai.network.CustomLoginFailedException
@@ -238,54 +241,16 @@ class ArukuMiraiService : LifecycleService() {
                     }
                 }) {
                     val eventChannel = targetBot.eventChannel.parentScope(this)
+
                     eventChannel.subscribeOnce<BotOnlineEvent> {
-                        loginSolvers[accountNo]?.onLoginSuccess(accountNo)
+                        withContext(this@ArukuMiraiService.lifecycleScope.coroutineContext) {
+                            Log.i(this@ArukuMiraiService.toLogTag(), "login success")
+                            loginSolvers[accountNo]?.onLoginSuccess(accountNo)
+                        }
+
                     }
                     targetBot.login()
-                    eventChannel.subscribe<MessageEvent>(coroutineContext = CoroutineExceptionHandler { _, throwable ->
-                        if (throwable is IllegalStateException && throwable.toString()
-                                .matches(Regex("UNKNOWN_MESSAGE_EVENT_TYPE"))
-                        ) {
-                            Log.w(
-                                this@ArukuMiraiService.toLogTag(),
-                                "Unknown message type while listening ${targetBot.id}"
-                            )
-                        } else {
-                            Log.e(
-                                this@ArukuMiraiService.toLogTag(),
-                                "Error while subscribing message of ${targetBot.id}",
-                                throwable
-                            )
-                        }
-                    }) { ev ->
-                        if (!this@ArukuMiraiService.lifecycleScope.isActive) return@subscribe ListeningStatus.STOPPED
-
-                        val parcelMessageEvent = ArukuMessageEvent(
-                            bot = ev.bot.id,
-                            subject = ev.subject.id,
-                            sender = ev.sender.id,
-                            senderName = ev.senderName,
-                            message = ArukuMessage(
-                                source = ev.source,
-                                messages = ev.message
-                            ),
-                            type = when (ev) {
-                                is GroupMessageEvent -> ArukuMessageType.GROUP
-                                is FriendMessageEvent -> ArukuMessageType.FRIEND
-                                is GroupTempMessageEvent -> ArukuMessageType.TEMP
-                                else -> error("UNKNOWN_MESSAGE_EVENT_TYPE")
-                            }
-                        )
-                        database { messageRecords().insert(parcelMessageEvent.into()) }
-
-                        messageConsumers[ev.bot.id]?.let { consumers ->
-                            consumers.forEach { (_, consumer) ->
-                                consumer.consume(parcelMessageEvent)
-                            }
-                        }
-
-                        return@subscribe ListeningStatus.LISTENING
-                    }
+                    doInitAfterLogin(targetBot)
                     targetBot.join()
                 }
                 val existingBotJob = botJobs[accountNo]
@@ -299,11 +264,68 @@ class ArukuMiraiService : LifecycleService() {
         } else false
     }
 
+    private fun doInitAfterLogin(bot: Bot) {
+        // cache contacts
+        database {
+            groups().insert(*bot.groups.map { GroupEntity(bot.id, it.id, it.name) }.toTypedArray())
+            friends().insert(*bot.friends.map { FriendEntity(bot.id, it.id, it.nameCardOrNick, it.friendGroup.id) }
+                .toTypedArray())
+        }
+        // subscribe messages
+        lifecycleScope.launch {
+
+            bot.eventChannel.subscribe<MessageEvent>(coroutineContext = CoroutineExceptionHandler { _, throwable ->
+                if (throwable is IllegalStateException && throwable.toString()
+                        .matches(Regex("UNKNOWN_MESSAGE_EVENT_TYPE"))
+                ) {
+                    Log.w(
+                        this@ArukuMiraiService.toLogTag(),
+                        "Unknown message type while listening ${bot.id}"
+                    )
+                } else {
+                    Log.e(
+                        this@ArukuMiraiService.toLogTag(),
+                        "Error while subscribing message of ${bot.id}",
+                        throwable
+                    )
+                }
+            }) { ev ->
+                if (!this@ArukuMiraiService.lifecycleScope.isActive) return@subscribe ListeningStatus.STOPPED
+
+                val parcelMessageEvent = ArukuMessageEvent(
+                    account = ev.bot.id,
+                    subject = ev.subject.id,
+                    sender = ev.sender.id,
+                    senderName = ev.senderName,
+                    message = ArukuMessage(
+                        source = ev.source,
+                        messages = ev.message
+                    ),
+                    type = when (ev) {
+                        is GroupMessageEvent -> ArukuMessageType.GROUP
+                        is FriendMessageEvent -> ArukuMessageType.FRIEND
+                        is GroupTempMessageEvent -> ArukuMessageType.TEMP
+                        else -> error("UNKNOWN_MESSAGE_EVENT_TYPE")
+                    }
+                )
+                database { messageRecords().insert(parcelMessageEvent.into()) }
+
+                messageConsumers[ev.bot.id]?.let { consumers ->
+                    consumers.forEach { (_, consumer) ->
+                        consumer.consume(parcelMessageEvent)
+                    }
+                }
+
+                return@subscribe ListeningStatus.LISTENING
+            }
+        }
+    }
+
     private fun removeBot(accountNo: Long, notifyPost: Boolean = true): Boolean {
         val bot = bots.value?.get(accountNo)
         val botJob = botJobs[accountNo]
         return bot?.run {
-            lifecycleScope.launch(Dispatchers.Main) {
+            lifecycleScope.launch {
                 bot.closeAndJoin()
                 botJob?.cancelAndJoin()
             }

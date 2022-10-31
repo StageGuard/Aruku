@@ -75,7 +75,7 @@ fun HomeNavigationBarPreview() {
     val homeNavSelection = remember { mutableStateOf(HomeNavSelection.MESSAGE) }
     ArukuTheme {
         HomeNavigationBar(homeNavSelection.value) { prev, cuur ->
-
+            homeNavSelection.value = cuur
         }
     }
 }

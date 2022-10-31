@@ -7,7 +7,6 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.runBlocking
 import me.stageguard.aruku.service.IArukuMiraiInterface
@@ -17,8 +16,7 @@ import net.mamoe.mirai.utils.BotConfiguration
 import net.mamoe.mirai.utils.secondsToMillis
 
 class LoginViewModel(
-    private val arukuServiceInterface: IArukuMiraiInterface,
-    private val onLoginSuccess: (AccountInfo) -> Unit
+    private val arukuServiceInterface: IArukuMiraiInterface
 ) : ViewModel() {
     val accountInfo: MutableState<AccountInfo> by lazy {
         mutableStateOf(
@@ -42,7 +40,7 @@ class LoginViewModel(
     private val loginSolver = object : ILoginSolver.Stub() {
         override fun onSolvePicCaptcha(bot: Long, data: ByteArray?): String? {
             state.value = if (data == null) {
-                LoginState.LoginFailed(bot, "Picture captcha data is null.")
+                LoginState.Failed(bot, "Picture captcha data is null.")
             } else {
                 LoginState.CaptchaRequired(
                     bot, CaptchaType.Picture(
@@ -56,7 +54,7 @@ class LoginViewModel(
 
         override fun onSolveSliderCaptcha(bot: Long, url: String?): String? {
             state.value = if (url == null) {
-                LoginState.LoginFailed(bot, "Slider captcha url is null.")
+                LoginState.Failed(bot, "Slider captcha url is null.")
             } else {
                 LoginState.CaptchaRequired(bot, CaptchaType.Slider(bot, url))
             }
@@ -65,7 +63,7 @@ class LoginViewModel(
 
         override fun onSolveUnsafeDeviceLoginVerify(bot: Long, url: String?): String? {
             state.value = if (url == null) {
-                LoginState.LoginFailed(bot, "UnsafeDeviceLogin captcha url is null.")
+                LoginState.Failed(bot, "UnsafeDeviceLogin captcha url is null.")
             } else {
                 LoginState.CaptchaRequired(bot, CaptchaType.UnsafeDevice(bot, url))
             }
@@ -73,11 +71,11 @@ class LoginViewModel(
         }
 
         override fun onLoginSuccess(bot: Long) {
-            runBlocking(Dispatchers.Main) { onLoginSuccess(accountInfo.value) }
+            state.value = LoginState.Success(bot)
         }
 
         override fun onLoginFailed(bot: Long, botKilled: Boolean, cause: String?) {
-            state.value = LoginState.LoginFailed(bot, cause.toString())
+            state.value = LoginState.Failed(bot, cause.toString())
         }
 
     }
@@ -108,7 +106,8 @@ sealed class LoginState {
     object Default : LoginState()
     object Logging : LoginState()
     class CaptchaRequired(val bot: Long, val type: CaptchaType) : LoginState()
-    class LoginFailed(val bot: Long, val cause: String) : LoginState()
+    class Failed(val bot: Long, val cause: String) : LoginState()
+    class Success(val bot: Long) : LoginState()
 }
 
 sealed class CaptchaType(val bot: Long) {

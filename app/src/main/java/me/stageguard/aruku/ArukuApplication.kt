@@ -26,7 +26,7 @@ class ArukuApplication : Application() {
         startKoin {
             androidLogger()
             androidContext(this@ArukuApplication)
-            modules(botFactoryModule)
+            modules(applicationModule)
         }
 
         registerComponentCallbacks(ArukuPreference)

@@ -9,42 +9,42 @@ import me.stageguard.aruku.service.parcel.ArukuMessageType
 @Dao
 abstract class MessageRecordDao : BaseDao<MessageRecordEntity> {
     // query all messages
-    @Query("select * from message_record where bot=:bot and type=:type and subject=:subject")
-    abstract fun getMessages(bot: Long, subject: Long, type: Int): Flow<List<MessageRecordEntity>>
+    @Query("select * from message_record where account_id=:account and type=:type and subject=:subject")
+    abstract fun getMessages(account: Long, subject: Long, type: Int): Flow<List<MessageRecordEntity>>
 
     // query last n messages
-    @Query("select * from message_record where bot=:bot and type=:type and subject=:subject order by time desc limit :num")
-    abstract fun getLastNMessages(bot: Long, subject: Long, type: Int, num: Int): Flow<List<MessageRecordEntity>>
+    @Query("select * from message_record where account_id=:account and type=:type and subject=:subject order by time desc limit :limit")
+    abstract fun getLastNMessages(account: Long, subject: Long, type: Int, limit: Int): Flow<List<MessageRecordEntity>>
 
     // query last n messages before a time
-    @Query("select * from message_record where bot=:bot and type=:type and subject=:subject and time<:before order by time desc limit :num")
+    @Query("select * from message_record where account_id=:account and type=:type and subject=:subject and time<:before order by time desc limit :limit")
     abstract fun getLastNMessagesBefore(
-        bot: Long,
+        account: Long,
         subject: Long,
         type: Int,
-        num: Int = 20,
+        limit: Int = 20,
         before: Int
     ): Flow<List<MessageRecordEntity>>
 
     // group
-    fun getGroupMessages(bot: Long, group: Long) = getMessages(bot, group, ArukuMessageType.GROUP.ordinal)
+    fun getGroupMessages(account: Long, group: Long) = getMessages(account, group, ArukuMessageType.GROUP.ordinal)
 
-    fun getLastNGroupMessages(bot: Long, group: Long, num: Int = 20) =
-        getLastNMessages(bot, group, ArukuMessageType.GROUP.ordinal, num)
+    fun getLastNGroupMessages(account: Long, group: Long, limit: Int = 20) =
+        getLastNMessages(account, group, ArukuMessageType.GROUP.ordinal, limit)
 
-    fun getLastNGroupMessagesBefore(bot: Long, group: Long, num: Int = 20, before: Int) =
-        getLastNMessagesBefore(bot, group, ArukuMessageType.GROUP.ordinal, num, before)
+    fun getLastNGroupMessagesBefore(account: Long, group: Long, limit: Int = 20, before: Int) =
+        getLastNMessagesBefore(account, group, ArukuMessageType.GROUP.ordinal, limit, before)
 
 
     // friend
-    fun getFriendMessages(bot: Long, friend: Long) = getMessages(bot, friend, ArukuMessageType.FRIEND.ordinal)
+    fun getFriendMessages(account: Long, friend: Long) = getMessages(account, friend, ArukuMessageType.FRIEND.ordinal)
 
-    fun getLastNFriendMessages(bot: Long, friend: Long, num: Int = 20) =
-        getLastNMessages(bot, friend, ArukuMessageType.FRIEND.ordinal, num)
+    fun getLastNFriendMessages(account: Long, friend: Long, limit: Int = 20) =
+        getLastNMessages(account, friend, ArukuMessageType.FRIEND.ordinal, limit)
 
-    fun getLastNFriendMessagesBefore(bot: Long, friend: Long, num: Int = 20, before: Int) =
-        getLastNMessagesBefore(bot, friend, ArukuMessageType.FRIEND.ordinal, num, before)
+    fun getLastNFriendMessagesBefore(account: Long, friend: Long, limit: Int = 20, before: Int) =
+        getLastNMessagesBefore(account, friend, ArukuMessageType.FRIEND.ordinal, limit, before)
 
-//    @Query("select * from message_record where bot=:bot and type='TEMP' and subject=:group and sender=:member")
-//    abstract fun getTempMessages(bot: Long, group: Long, member: Long): Flow<MessageRecordEntity?>
+//    @Query("select * from message_record where account_id=:account and type='TEMP' and subject=:group and sender=:member")
+//    abstract fun getTempMessages(account: Long, group: Long, member: Long): Flow<MessageRecordEntity?>
 }

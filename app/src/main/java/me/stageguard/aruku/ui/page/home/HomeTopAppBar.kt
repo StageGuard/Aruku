@@ -1,5 +1,6 @@
 package me.stageguard.aruku.ui.page.home
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -13,6 +14,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -24,6 +26,7 @@ import coil.request.ImageRequest
 import me.stageguard.aruku.R
 import me.stageguard.aruku.ui.LocalBot
 import me.stageguard.aruku.ui.theme.ArukuTheme
+import me.stageguard.aruku.ui.theme.ColorAccountOnline
 import me.stageguard.aruku.util.stringResC
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -32,10 +35,12 @@ fun HomeTopAppBar(
     botList: List<BasicAccountInfo>,
     botListExpanded: MutableState<Boolean>,
     title: String,
+    showAvatarProgressIndicator: Boolean,
+    avatarBorderColor: Color,
     modifier: Modifier = Modifier,
     onAvatarClick: () -> Unit,
     onSwitchAccount: (Long) -> Unit,
-    onAddAccountClick: () -> Unit
+    onAddAccountClick: () -> Unit,
 ) {
     LargeTopAppBar(
         modifier = modifier,
@@ -49,19 +54,26 @@ fun HomeTopAppBar(
                     text = title,
                     style = TextStyle(fontSize = 35.sp, fontWeight = FontWeight.Bold)
                 )
-                IconButton(
-                    onClick = onAvatarClick,
-                    modifier = Modifier.padding(end = 8.dp)
-                ) {
+
+            }
+        },
+        actions = {
+            IconButton(
+                onClick = onAvatarClick,
+            ) {
+                Box(modifier = Modifier.size(45.dp)) {
+                    if (showAvatarProgressIndicator) CircularProgressIndicator(modifier = Modifier.fillMaxWidth())
                     Icon(
                         Icons.Outlined.AccountCircle,
-                        modifier = Modifier.size(45.dp),
+                        modifier = Modifier.border(
+                            width = ProgressIndicatorDefaults.CircularStrokeWidth,
+                            shape = CircleShape,
+                            color = if (showAvatarProgressIndicator) Color.Transparent else avatarBorderColor
+                        ).size(40.dp).align(Alignment.Center),
                         contentDescription = "account avatar"
                     )
                 }
             }
-        },
-        actions = {
             DropdownMenu(
                 expanded = botListExpanded.value,
                 onDismissRequest = { botListExpanded.value = false }
@@ -164,8 +176,10 @@ fun HomeTopAppBarPreview() {
                 BasicAccountInfo(1145141919, "WhichWho", null),
             ),
             botListExpanded = expanded,
+            showAvatarProgressIndicator = true,
             onAvatarClick = { expanded.value = !expanded.value },
             onSwitchAccount = {},
+            avatarBorderColor = ColorAccountOnline,
             title = "123title"
         ) {}
     }

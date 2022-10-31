@@ -13,7 +13,7 @@ import net.mamoe.mirai.message.data.MessageSource
 
 @Parcelize
 data class ArukuMessageEvent(
-    val bot: Long,
+    val account: Long,
     val type: ArukuMessageType,
     val subject: Long,
     val sender: Long, // maybe friend, group or group member
@@ -26,7 +26,7 @@ data class ArukuMessageEvent(
 
     override fun into(): MessageRecordEntity {
         return MessageRecordEntity(
-            bot = this@ArukuMessageEvent.bot,
+            account = this@ArukuMessageEvent.account,
             type = this@ArukuMessageEvent.type,
             subject = this@ArukuMessageEvent.subject,
             sender = this@ArukuMessageEvent.sender,

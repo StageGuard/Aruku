@@ -15,10 +15,10 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import me.stageguard.aruku.ArukuApplication
 import me.stageguard.aruku.database.ArukuDatabase
 import me.stageguard.aruku.preference.ArukuPreference
 import me.stageguard.aruku.service.ArukuMiraiService
+import me.stageguard.aruku.service.IArukuMiraiInterface
 import me.stageguard.aruku.ui.LocalArukuMiraiInterface
 import me.stageguard.aruku.ui.LocalBot
 import me.stageguard.aruku.ui.LocalMainNavProvider
@@ -41,13 +41,8 @@ class MainActivity : ComponentActivity() {
         const val NAV_LOGIN = "login"
     }
 
-    private val serviceConnector by lazy { ArukuMiraiService.Connector(this) }
-    private val serviceInterface
-        get() =
-            if (serviceConnector.connected.value == true)
-                serviceConnector.getValue(Unit, ::unitProp)
-            else null
-
+    private val serviceConnector: ArukuMiraiService.Connector by inject()
+    private val serviceInterface: IArukuMiraiInterface by inject()
     private val database: ArukuDatabase by inject()
 
     private val activeBot = mutableStateOf<Bot?>(null)
@@ -59,9 +54,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             val serviceConnected = serviceConnector.connected.observeAsState(false)
             ArukuTheme {
-                CompositionLocalProvider(
-                    LocalStringRes provides StringResource(ArukuApplication.INSTANCE.applicationContext)
-                ) {
+                CompositionLocalProvider(LocalStringRes provides StringResource(this)) {
                     if (serviceConnected.value) {
                         Navigation()
                     } else {
@@ -72,19 +65,24 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        lifecycle.removeObserver(serviceConnector)
+    }
+
 
     @OptIn(ExperimentalAnimationApi::class)
     @Composable
     fun Navigation() {
         val navController = rememberNavController()
         CompositionLocalProvider(
-            LocalArukuMiraiInterface provides serviceInterface!!,
+            LocalArukuMiraiInterface provides serviceInterface,
             LocalMainNavProvider provides navController
         ) {
             NavHost(navController, startDestination = NAV_HOME) {
                 composable(NAV_HOME) {
                     CompositionLocalProvider(LocalBot provides activeBot.value) {
-                        HomePage(serviceConnector.botsState,
+                        HomePage(
                             navigateToLoginPage = { navController.navigate(NAV_LOGIN) },
                             onSwitchAccount = { activeBot.value = Bot.getInstanceOrNull(it) }
                         )
