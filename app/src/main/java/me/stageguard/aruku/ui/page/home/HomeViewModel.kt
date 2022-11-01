@@ -11,11 +11,8 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import me.stageguard.aruku.ArukuApplication
 import me.stageguard.aruku.R
 import me.stageguard.aruku.database.ArukuDatabase
@@ -111,6 +108,9 @@ class HomeViewModel(
     private val _messageSequences = mutableStateListOf<SimpleMessagePreview>()
 
     val currentNavSelection = mutableStateOf(homeNavs[HomeNavSelection.MESSAGE]!!)
+
+    // represents state of current account
+    // it is only changed at [observeAccountState] and [loginSolver]
     val loginState = mutableStateOf<AccountState>(AccountState.Default)
     val messages get() = _messageSequences
 
@@ -120,8 +120,10 @@ class HomeViewModel(
         if (account == null) {
             val activeBot = ArukuPreference.activeBot
             // first launch login
-            if (activeBot != null) {
+            if (activeBot != null) { // state: Logging
                 Log.i(toLogTag(), "First launch and observing background account login state.")
+                loginState.value = AccountState.Login(activeBot, LoginState.Logging)
+
                 activeAccountLoginSolver?.let { arukuServiceInterface.removeLoginSolver(it.first) }
                 val currentLoginSolver = activeBot to loginSolver
                 arukuServiceInterface.addLoginSolver(activeBot, currentLoginSolver.second)
@@ -131,13 +133,25 @@ class HomeViewModel(
             // bot is provided.
             // if offline, it is either logout manually or appears offline.
             if (!account.isOnline) {
-                loginState.value = AccountState.Login(account.id, LoginState.Logging)
+                viewModelScope.launch(Dispatchers.IO) {
+                    val dbAccount = database { accounts()[account.id].singleOrNull() }
+                    if (dbAccount == null) {
+                        Log.w(toLogTag(), "LocalBot is provided but the bot is not stored in database.")
+                        return@launch
+                    }
 
-                activeAccountLoginSolver?.let { arukuServiceInterface.removeLoginSolver(it.first) }
-                val currentLoginSolver = account.id to loginSolver
-                arukuServiceInterface.addLoginSolver(currentLoginSolver.first, currentLoginSolver.second)
-                activeAccountLoginSolver = currentLoginSolver
-            } else {
+                    if (!dbAccount.isOfflineManually) { // state: Logging
+                        loginState.value = AccountState.Login(account.id, LoginState.Logging)
+
+                        activeAccountLoginSolver?.let { arukuServiceInterface.removeLoginSolver(it.first) }
+                        val currentLoginSolver = account.id to loginSolver
+                        arukuServiceInterface.addLoginSolver(currentLoginSolver.first, currentLoginSolver.second)
+                        activeAccountLoginSolver = currentLoginSolver
+                    } else { // state: Offline
+                        loginState.value = AccountState.Offline(account.id, null)
+                    }
+                }
+            } else { // state: Online
                 loginState.value = AccountState.Online(account.id)
                 account.eventChannel.parentScope(viewModelScope).subscribe<BotOfflineEvent> {
                     if (!viewModelScope.isActive) return@subscribe ListeningStatus.STOPPED
@@ -153,8 +167,15 @@ class HomeViewModel(
         captchaChannel.trySend(result)
     }
 
-    fun loginFailed(accountNo: Long) {
+    fun cancelLogin(accountNo: Long) {
         loginState.value = AccountState.Offline(accountNo, null)
+        viewModelScope.launch {
+            val accountDao = database { accounts() }
+            val dbAccount = accountDao[accountNo].singleOrNull()
+            if (dbAccount != null) {
+                accountDao.update(dbAccount.apply { isOfflineManually = true })
+            }
+        }
         Toast.makeText(
             ArukuApplication.INSTANCE.applicationContext,
             R.string.login_failed_please_retry.stringRes(accountNo.toString()),

@@ -1,7 +1,6 @@
 package me.stageguard.aruku.ui.activity
 
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.ExperimentalAnimationApi
@@ -12,7 +11,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import me.stageguard.aruku.database.ArukuDatabase
 import me.stageguard.aruku.preference.ArukuPreference
 import me.stageguard.aruku.service.ArukuMiraiService
 import me.stageguard.aruku.service.IArukuMiraiInterface
@@ -25,7 +23,6 @@ import me.stageguard.aruku.ui.page.home.HomePage
 import me.stageguard.aruku.ui.page.login.LoginPage
 import me.stageguard.aruku.ui.theme.ArukuTheme
 import me.stageguard.aruku.util.StringResource
-import me.stageguard.aruku.util.toLogTag
 import me.stageguard.aruku.util.weakReference
 import net.mamoe.mirai.Bot
 import org.koin.android.ext.android.inject
@@ -40,7 +37,6 @@ class MainActivity : ComponentActivity() {
 
     private val serviceConnector: ArukuMiraiService.Connector by inject()
     private val serviceInterface: IArukuMiraiInterface by inject()
-    private val database: ArukuDatabase by inject()
 
     private val activeBot = mutableStateOf<Bot?>(null)
 
@@ -83,18 +79,11 @@ class MainActivity : ComponentActivity() {
                             navigateToLoginPage = { navController.navigate(NAV_LOGIN) },
                             onSwitchAccount = { accountNo ->
                                 ArukuPreference.activeBot = accountNo
-                                activeBot.value = Bot.getInstanceOrNull(accountNo).also {
-                                    Log.i(toLogTag("ACTIVE_BOT"), "switch account active bot: $it")
-                                }
+                                activeBot.value = Bot.getInstanceOrNull(accountNo)
                             },
                             onLaunchLoginSuccess = { accountNo ->
                                 if (accountNo == ArukuPreference.activeBot) {
-                                    activeBot.value = Bot.getInstanceOrNull(accountNo).also {
-                                        Log.i(
-                                            toLogTag("ACTIVE_BOT"),
-                                            "launch login success active bot pref: ${ArukuPreference.activeBot}"
-                                        )
-                                    }
+                                    activeBot.value = Bot.getInstance(accountNo)
                                 }
                             }
                         )

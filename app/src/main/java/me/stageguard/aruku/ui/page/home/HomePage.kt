@@ -19,8 +19,7 @@ import me.stageguard.aruku.ui.page.login.CaptchaRequired
 import me.stageguard.aruku.ui.page.login.LoginState
 import me.stageguard.aruku.ui.theme.ArukuTheme
 import me.stageguard.aruku.util.stringResC
-import me.stageguard.aruku.util.toLogTag
-import org.koin.androidx.compose.get
+import org.koin.androidx.compose.koinViewModel
 
 @Composable
 fun HomePage(
@@ -29,13 +28,13 @@ fun HomePage(
     onLaunchLoginSuccess: (Long) -> Unit
 ) {
     val bot = LocalBot.current
-    val viewModel: HomeViewModel = get()
+    val viewModel: HomeViewModel = koinViewModel()
+    Log.i("VIEWMODEL", "creating HomeViewModel: $viewModel")
     LaunchedEffect(bot) {
         viewModel.observeAccountState(bot)
     }
     LaunchedEffect(viewModel.loginState.value) {
         val state = viewModel.loginState.value
-        Log.i(toLogTag("ACTIVE_BOT"), "state: $state")
         if (state is AccountState.Online) onLaunchLoginSuccess(state.bot)
     }
     HomeView(
@@ -44,9 +43,9 @@ fun HomePage(
         viewModel.loginState,
         navigateToLoginPage,
         onSwitchAccount = onSwitchAccount,
-        onRetryCaptchaClick = { accountNo -> viewModel.submitCaptcha(accountNo, null) },
-        onSubmitCaptchaClick = { accountNo, result -> viewModel.submitCaptcha(accountNo, result) },
-        onLoginFailedClick = { viewModel.loginFailed(it) },
+        onRetryCaptcha = { accountNo -> viewModel.submitCaptcha(accountNo, null) },
+        onSubmitCaptcha = { accountNo, result -> viewModel.submitCaptcha(accountNo, result) },
+        onCancelLogin = { viewModel.cancelLogin(it) },
         onHomeNavigate = { _, curr -> viewModel.currentNavSelection.value = homeNavs[curr]!! }
     )
 }
@@ -59,9 +58,9 @@ fun HomeView(
     state: State<AccountState>,
     navigateToLoginPage: () -> Unit,
     onSwitchAccount: (Long) -> Unit,
-    onRetryCaptchaClick: (Long) -> Unit,
-    onSubmitCaptchaClick: (Long, String) -> Unit,
-    onLoginFailedClick: (Long) -> Unit,
+    onRetryCaptcha: (Long) -> Unit,
+    onSubmitCaptcha: (Long, String) -> Unit,
+    onCancelLogin: (Long) -> Unit,
     onHomeNavigate: (HomeNavSelection, HomeNavSelection) -> Unit
 
 ) {
@@ -114,9 +113,9 @@ fun HomeView(
         if (loginState.state is LoginState.CaptchaRequired) {
             CaptchaRequired(
                 state = loginState.state,
-                onRetryCaptchaClick = onRetryCaptchaClick,
-                onSubmitCaptchaClick = onSubmitCaptchaClick,
-                onLoginFailedClick = onLoginFailedClick,
+                onRetryCaptcha = onRetryCaptcha,
+                onSubmitCaptcha = onSubmitCaptcha,
+                onCancelLogin = onCancelLogin,
             )
         }
     }

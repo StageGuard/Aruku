@@ -34,7 +34,7 @@ import me.stageguard.aruku.util.stringResC
 import me.stageguard.aruku.util.toLogTag
 import net.mamoe.mirai.utils.BotConfiguration
 import net.mamoe.mirai.utils.secondsToMillis
-import org.koin.androidx.compose.get
+import org.koin.androidx.compose.koinViewModel
 
 private const val TAG = "LoginView"
 
@@ -42,7 +42,7 @@ private const val TAG = "LoginView"
 fun LoginPage(
     onLoginSuccess: (Long) -> Unit
 ) {
-    val viewModel: LoginViewModel = get()
+    val viewModel: LoginViewModel = koinViewModel()
     LaunchedEffect(viewModel.state.value) {
         Log.i(toLogTag("LoginPageLaunchedEffect"), viewModel.state.value.toString())
         if (viewModel.state.value is LoginState.Success) onLoginSuccess(viewModel.accountInfo.value.accountNo)

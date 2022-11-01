@@ -30,14 +30,14 @@ import me.stageguard.aruku.util.stringResC
 @OptIn(ExperimentalMaterial3Api::class)
 fun CaptchaRequired(
     state: LoginState.CaptchaRequired,
-    onRetryCaptchaClick: (Long) -> Unit,
-    onSubmitCaptchaClick: (Long, String) -> Unit,
-    onLoginFailedClick: (Long) -> Unit
+    onRetryCaptcha: (Long) -> Unit,
+    onSubmitCaptcha: (Long, String) -> Unit,
+    onCancelLogin: (Long) -> Unit
 ) {
     val captchaType = state.type
     val captchaResult = remember { mutableStateOf("") }
     AlertDialog(
-        onDismissRequest = { onRetryCaptchaClick(state.bot) },
+        onDismissRequest = { onRetryCaptcha(state.bot) },
         title = {
             Text(
                 text = R.string.captcha_required.stringResC,
@@ -118,12 +118,12 @@ fun CaptchaRequired(
             }
         },
         confirmButton = {
-            Button(onClick = { onSubmitCaptchaClick(state.bot, captchaResult.value) }) {
+            Button(onClick = { onSubmitCaptcha(state.bot, captchaResult.value) }) {
                 Text(R.string.confirm.stringResC)
             }
         },
         dismissButton = {
-            Button(onClick = { onLoginFailedClick(state.bot) }) {
+            Button(onClick = { onCancelLogin(state.bot) }) {
                 Text(R.string.cancel.stringResC)
             }
         }
