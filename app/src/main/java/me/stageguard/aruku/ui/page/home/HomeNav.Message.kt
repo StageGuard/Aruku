@@ -39,7 +39,12 @@ fun HomeNavMessage(padding: PaddingValues) {
     LazyColumn(Modifier.padding(padding)) {
         viewModel.messages.forEach {
             item {
-                MessageCard(it, modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp).fillMaxWidth())
+                MessageCard(
+                    it,
+                    modifier = Modifier
+                        .padding(horizontal = 10.dp, vertical = 5.dp)
+                        .fillMaxWidth()
+                )
             }
         }
     }
@@ -51,7 +56,9 @@ fun MessageCard(message: SimpleMessagePreview, modifier: Modifier = Modifier) {
         Box(modifier = Modifier.fillMaxWidth()) {
             Row(modifier = Modifier.align(Alignment.CenterStart)) {
                 Card(
-                    modifier = Modifier.padding(12.dp).size(35.dp),
+                    modifier = Modifier
+                        .padding(12.dp)
+                        .size(35.dp),
                     shape = CircleShape,
                     elevation = CardDefaults.cardElevation(2.dp)
                 ) {
@@ -65,7 +72,11 @@ fun MessageCard(message: SimpleMessagePreview, modifier: Modifier = Modifier) {
                         contentScale = ContentScale.Crop
                     )
                 }
-                Column(modifier = Modifier.padding(start = 2.dp).align(Alignment.CenterVertically)) {
+                Column(
+                    modifier = Modifier
+                        .padding(start = 2.dp)
+                        .align(Alignment.CenterVertically)
+                ) {
                     Text(
                         text = message.name,
                         modifier = Modifier,
@@ -92,7 +103,9 @@ fun MessageCard(message: SimpleMessagePreview, modifier: Modifier = Modifier) {
                         minute.run { if (this < 10) "0$this" else this.toString() }
                     }"
                 },
-                modifier = Modifier.align(Alignment.TopEnd).padding(12.dp),
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(12.dp),
                 style = MaterialTheme.typography.bodySmall.copy(
                     fontSize = 10.sp,
                     color = MaterialTheme.colorScheme.outline
@@ -107,7 +120,8 @@ fun MessageCard(message: SimpleMessagePreview, modifier: Modifier = Modifier) {
                     .background(
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                         shape = CircleShape.copy(CornerSize(100))
-                    ).padding(3.dp),
+                    )
+                    .padding(3.dp),
                 style = MaterialTheme.typography.bodySmall.copy(
                     fontSize = 10.sp,
                     color = MaterialTheme.colorScheme.onPrimary,
@@ -122,26 +136,11 @@ fun MessageCard(message: SimpleMessagePreview, modifier: Modifier = Modifier) {
 @Preview
 @Composable
 fun MessageCardPreview() {
-    val mockMessages = listOf(
-        R.drawable.ic_mock_avatar_1 to "MockUserName1",
-        R.drawable.ic_mock_avatar_2 to "MockUserName2",
-        R.drawable.ic_mock_avatar_3 to "MockUserName3",
-        R.drawable.ic_mock_avatar_4 to "MockUserName4",
-        R.drawable.ic_mock_avatar_5 to "MockUserName5",
-        R.drawable.ic_mock_avatar_6 to "MockUserName6",
-        R.drawable.ic_mock_avatar_7 to "MockUserName7",
-        R.drawable.ic_mock_avatar_8 to "MockUserName8",
-        R.drawable.ic_mock_avatar_9 to "MockUserName9",
-        R.drawable.ic_mock_avatar_10 to "MockUserName10",
-        R.drawable.ic_mock_avatar_11 to "MockUserName11",
-        R.drawable.ic_mock_avatar_12 to "MockUserName12",
-        R.drawable.ic_mock_avatar_13 to "MockUserName13",
-        R.drawable.ic_mock_avatar_14 to "MockUserName14",
-        R.drawable.ic_mock_avatar_15 to "MockUserName15",
-        R.drawable.ic_mock_avatar_16 to "MockUserName16",
-        R.drawable.ic_mock_avatar_17 to "MockUserName17",
-        R.drawable.ic_mock_avatar_18 to "MockUserName18",
-    ).shuffled().map {
+    val mockMessages = buildList {
+        for(i in 1..20) {
+            this += R.mipmap.ic_launcher to "MockUserName$i"
+        }
+    }.shuffled().map {
         SimpleMessagePreview(
             ArukuMessageType.GROUP,
             123123L,
@@ -149,7 +148,7 @@ fun MessageCardPreview() {
             it.second,
             "message preview",
             LocalDateTime.now().minusMinutes(Random.Default.nextLong(0L..3600L)),
-            Random.Default.nextInt(0..100)
+            (0..100).random()
         )
     }
 
@@ -157,7 +156,12 @@ fun MessageCardPreview() {
         LazyColumn(modifier = Modifier.width(300.dp)) {
             mockMessages.forEach {
                 item {
-                    MessageCard(it, modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp).fillMaxWidth())
+                    MessageCard(
+                        it,
+                        modifier = Modifier
+                            .padding(horizontal = 10.dp, vertical = 5.dp)
+                            .fillMaxWidth()
+                    )
                 }
             }
         }

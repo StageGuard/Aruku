@@ -8,11 +8,12 @@ plugins {
 
 android {
     compileSdk 33
+    namespace 'me.stageguard.aruku'
 
     defaultConfig {
         applicationId "me.stageguard.aruku"
         minSdk 26
-        targetSdk 32
+        targetSdk 33
         versionCode 1
         versionName "1.0"
 
@@ -65,39 +66,45 @@ android {
 dependencies {
     // jetpack
     implementation 'androidx.core:core-ktx:1.9.0'
-    implementation 'androidx.activity:activity-compose:1.6.0'
-    implementation 'androidx.navigation:navigation-compose:2.5.2'
+    implementation 'androidx.activity:activity-compose:1.6.1'
+    implementation 'androidx.navigation:navigation-compose:2.5.3'
 
     // jetpack compose
     implementation "androidx.compose.ui:ui:$compose_version"
     implementation "androidx.compose.ui:ui-tooling-preview:$compose_version"
-    implementation("androidx.compose.material:material-icons-core:$compose_version")
-    implementation("androidx.compose.material:material-icons-extended:$compose_version")
-    implementation 'androidx.compose.material3:material3:1.0.0-beta02'
-    implementation "androidx.compose.runtime:runtime-livedata:1.2.1"
+    implementation("androidx.compose.material:material-icons-core:1.3.1")
+    implementation("androidx.compose.material:material-icons-extended:1.3.1")
+    implementation "androidx.compose.runtime:runtime-livedata:$compose_version"
+    implementation 'androidx.compose.material3:material3:1.0.1'
 
     // jetpack lifecycle
+    def lifecycle_version = '2.5.1'
     implementation "androidx.lifecycle:lifecycle-runtime-ktx:$lifecycle_version"
     implementation "androidx.lifecycle:lifecycle-viewmodel-compose:$lifecycle_version"
     implementation "androidx.lifecycle:lifecycle-service:$lifecycle_version"
 
     // okkv2 kv store
+    def okkv2_version = '1.1.0'
     implementation "com.github.heyanLE.okkv2:okkv2-core:$okkv2_version"
     implementation "com.github.heyanLE.okkv2:okkv2-mmkv:$okkv2_version"
 
     // jetpack room
+    def room_version = '2.4.3'
     implementation "androidx.room:room-runtime:$room_version"
     implementation "androidx.room:room-ktx:$room_version"
     annotationProcessor "androidx.room:room-compiler:$room_version"
     kapt "androidx.room:room-compiler:$room_version"
 
     // accompanist
+    def accompanist_version = '0.28.0'
     implementation "com.google.accompanist:accompanist-permissions:$accompanist_version"
     implementation "com.google.accompanist:accompanist-systemuicontroller:$accompanist_version"
     implementation "com.google.accompanist:accompanist-navigation-animation:$accompanist_version"
 
     // mirai
     // version 2.13.0-dev-657b414c just supports mocking framework
+//    def mirai_version = '2.14.0-dev-2baba6a1'
+    def mirai_version = '2.13.2'
     runtimeOnly("net.mamoe:mirai-core-android:$mirai_version") {
         exclude module: 'atomicfu', group: 'org.jetbrains.kotlinx'
     }
@@ -108,9 +115,10 @@ dependencies {
     implementation 'org.bouncycastle:bcprov-jdk15on:1.70'
 
     // kotlin
+    def koin_version = '3.3.0'
     implementation 'org.jetbrains.kotlinx:atomicfu:0.18.3'
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-protobuf:1.4.0")
-    implementation 'io.coil-kt:coil-compose:2.2.1'
+    implementation 'io.coil-kt:coil-compose:2.2.2'
     implementation "io.insert-koin:koin-android:$koin_version"
     implementation "io.insert-koin:koin-androidx-compose:$koin_version"
 
@@ -119,9 +127,9 @@ dependencies {
     testImplementation 'junit:junit:4.13.2'
     testImplementation "io.insert-koin:koin-test-junit4:$koin_version"
     androidTestImplementation "io.insert-koin:koin-test:$koin_version"
-    androidTestImplementation 'androidx.test:runner:1.4.0'
-    androidTestImplementation 'androidx.test:rules:1.4.0'
-    androidTestImplementation 'androidx.test.ext:junit:1.1.3'
+    androidTestImplementation 'androidx.test:runner:1.5.1'
+    androidTestImplementation 'androidx.test:rules:1.5.0'
+    androidTestImplementation 'androidx.test.ext:junit:1.1.4'
     androidTestImplementation "androidx.compose.ui:ui-test-junit4:$compose_version"
     androidTestImplementation "net.mamoe:mirai-core-mock:$mirai_version"
     debugImplementation "androidx.compose.ui:ui-tooling:$compose_version"
