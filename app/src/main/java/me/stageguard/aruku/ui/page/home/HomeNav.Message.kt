@@ -1,6 +1,6 @@
 package me.stageguard.aruku.ui.page.home
 
-import android.util.Log
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -27,14 +27,12 @@ import me.stageguard.aruku.ui.theme.ArukuTheme
 import org.koin.androidx.compose.koinViewModel
 import java.time.LocalDateTime
 import kotlin.random.Random
-import kotlin.random.nextInt
 import kotlin.random.nextLong
 
 @Composable
 fun HomeNavMessage(padding: PaddingValues) {
     val bot = LocalBot.current
     val viewModel: HomeViewModel = koinViewModel()
-    Log.i("VIEWMODEL", "creating HomeViewModel: $viewModel")
     LaunchedEffect(bot) {
         bot?.let { viewModel.observeMessagePreview(it) }
     }

@@ -1,12 +1,12 @@
 package me.stageguard.aruku.ui.page.home
 
-import android.util.Log
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedContentScope
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.with
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.*
@@ -29,14 +29,15 @@ fun HomePage(
 ) {
     val bot = LocalBot.current
     val viewModel: HomeViewModel = koinViewModel()
-    Log.i("VIEWMODEL", "creating HomeViewModel: $viewModel")
+    val state = viewModel.loginState.value
+
     LaunchedEffect(bot) {
         viewModel.observeAccountState(bot)
     }
-    LaunchedEffect(viewModel.loginState.value) {
-        val state = viewModel.loginState.value
+    LaunchedEffect(state) {
         if (state is AccountState.Online) onLaunchLoginSuccess(state.bot)
     }
+
     HomeView(
         viewModel.currentNavSelection,
         viewModel.getAccountBasicInfo(),
@@ -66,6 +67,7 @@ fun HomeView(
 ) {
     val botListExpanded = remember { mutableStateOf(false) }
     val currNavPage = remember(HomeNavSelection.MESSAGE) { currentNavSelection }
+    val scrollState = rememberScrollState()
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -125,7 +127,7 @@ fun HomeView(
 
 @Preview
 @Composable
-fun HomeiewPreview() {
+fun HomeViewPreview() {
     val list = remember { mutableStateListOf<BasicAccountInfo>() }
     val state = remember { mutableStateOf(AccountState.Default) }
     val navState = remember { mutableStateOf(homeNavs[HomeNavSelection.MESSAGE]!!) }

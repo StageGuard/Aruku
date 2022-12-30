@@ -5,6 +5,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
+import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.lifecycle.*
@@ -29,18 +30,16 @@ import net.mamoe.mirai.event.ListeningStatus
 import net.mamoe.mirai.event.events.*
 import net.mamoe.mirai.network.CustomLoginFailedException
 import net.mamoe.mirai.network.LoginFailedException
+import net.mamoe.mirai.utils.*
 import net.mamoe.mirai.utils.BotConfiguration.HeartbeatStrategy
 import net.mamoe.mirai.utils.BotConfiguration.MiraiProtocol
-import net.mamoe.mirai.utils.DeviceInfo
-import net.mamoe.mirai.utils.DeviceVerificationRequests
-import net.mamoe.mirai.utils.DeviceVerificationResult
-import net.mamoe.mirai.utils.LoginSolver
 import org.koin.android.ext.android.inject
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.collections.component1
 import kotlin.collections.component2
 import kotlin.collections.set
 import kotlin.properties.ReadOnlyProperty
+import kotlin.random.Random
 import kotlin.reflect.KProperty
 
 class ArukuMiraiService : LifecycleService() {
@@ -272,32 +271,42 @@ class ArukuMiraiService : LifecycleService() {
 
     private fun doInitAfterLogin(bot: Bot) {
 
-        // cache contacts
         lifecycleScope.launch(Dispatchers.IO) {
+            // cache contacts
+            kotlin.run {
+                val (groupDao, friendDao) = database { groups() to friends() }
 
-            val (groupDao, friendDao) = database { groups() to friends() }
+                val (onlineGroups, onlineGroupsIds) = bot.groups.run { this to this.map { it.id } }
+                val (cachedGroups, cachedGroupsIds) = groupDao.getGroups(bot.id).run { this to this.map { it.id } }
 
-            val (onlineGroups, onlineGroupsIds) = bot.groups.run { this to this.map { it.id } }
-            val (cachedGroups, cachedGroupsIds) = groupDao.getGroups(bot.id).run { this to this.map { it.id } }
+                val newGroups = onlineGroups.filter { it.id !in cachedGroupsIds }
+                val deletedGroups = cachedGroups.filter { it.id !in onlineGroupsIds }
 
-            val newGroups = onlineGroups.filter { it.id !in cachedGroupsIds }
-            val deletedGroups = cachedGroups.filter { it.id !in onlineGroupsIds }
+                groupDao.delete(*deletedGroups.toTypedArray())
+                groupDao.update(*(onlineGroups - newGroups.toSet()).map { GroupEntity(bot.id, it.id, it.name) }
+                    .toTypedArray())
+                groupDao.insert(*newGroups.map { GroupEntity(bot.id, it.id, it.name) }.toTypedArray())
 
-            groupDao.delete(*deletedGroups.toTypedArray())
-            groupDao.update(*(onlineGroups - newGroups).map { GroupEntity(bot.id, it.id, it.name) }.toTypedArray())
-            groupDao.insert(*newGroups.map { GroupEntity(bot.id, it.id, it.name) }.toTypedArray())
+                val (onlineFriends, onlineFriendsIds) = bot.friends.run { this to this.map { it.id } }
+                val (cachedFriends, cachedFriendsIds) = friendDao.getFriends(bot.id).run { this to this.map { it.id } }
 
-            val (onlineFriends, onlineFriendsIds) = bot.friends.run { this to this.map { it.id } }
-            val (cachedFriends, cachedFriendsIds) = friendDao.getFriends(bot.id).run { this to this.map { it.id } }
+                val newFriends = onlineFriends.filter { it.id !in cachedFriendsIds }
+                val deletedFriends = cachedFriends.filter { it.id !in onlineFriendsIds }
 
-            val newFriends = onlineFriends.filter { it.id !in cachedFriendsIds }
-            val deletedFriends = cachedFriends.filter { it.id !in onlineFriendsIds }
+                friendDao.delete(*deletedFriends.toTypedArray())
+                friendDao.update(*(onlineFriends - newFriends.toSet()).map {
+                    FriendEntity(bot.id, it.id, it.nick, it.friendGroup.id)
+                }.toTypedArray())
+                friendDao.insert(*newFriends.map { FriendEntity(bot.id, it.id, it.nick, it.friendGroup.id) }
+                    .toTypedArray())
+            }
 
-            friendDao.delete(*deletedFriends.toTypedArray())
-            friendDao.update(*(onlineFriends - newFriends).map {
-                FriendEntity(bot.id, it.id, it.nick, it.friendGroup.id)
-            }.toTypedArray())
-            friendDao.insert(*newFriends.map { FriendEntity(bot.id, it.id, it.nick, it.friendGroup.id) }.toTypedArray())
+            // sync latest history messages
+            kotlin.run {
+                val groups = bot.groups
+                //TODO: roaming supported for group
+
+            }
         }
         lifecycleScope.launch {
             // subscribe messages
@@ -431,7 +440,7 @@ class ArukuMiraiService : LifecycleService() {
                 fileBasedDeviceInfo(deviceInfoFile.absolutePath)
             } else {
                 deviceInfo = {
-                    /*DeviceInfo(
+                    DeviceInfo(
                         display = Build.DISPLAY.toByteArray(),
                         product = Build.PRODUCT.toByteArray(),
                         device = Build.DEVICE.toByteArray(),
@@ -456,10 +465,10 @@ class ArukuMiraiService : LifecycleService() {
                         imsiMd5 = getRandomByteArray(16, Random.Default).md5(),
                         imei = ArukuApplication.INSTANCE.applicationContext.imei,
                         apn = "wifi".toByteArray()
-                    )*/DeviceInfo.random().also {
-                    deviceInfoFile.createNewFile()
-                    deviceInfoFile.writeText(Json.encodeToString(it))
-                }
+                    )/*DeviceInfo.random()*/.also {
+                        deviceInfoFile.createNewFile()
+                        deviceInfoFile.writeText(Json.encodeToString(it))
+                    }
                 }
             }
 
