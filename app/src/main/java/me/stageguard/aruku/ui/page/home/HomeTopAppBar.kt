@@ -77,7 +77,8 @@ fun HomeTopAppBar(
                         }
                     ).align(Alignment.Center)
 
-                    if (account == null) {
+                    val currentAccount = botList.find { it.id == LocalBot.current }
+                    if (currentAccount == null) {
                         Icon(
                             Icons.Outlined.AccountCircle,
                             contentDescription = "account avatar url",
@@ -85,7 +86,7 @@ fun HomeTopAppBar(
                         )
                     } else {
                         AsyncImage(
-                            account.avatarUrl.let {
+                            currentAccount.avatarUrl.let {
                                 ImageRequest.Builder(context)
                                     .data(it)
                                     .crossfade(true)
@@ -105,7 +106,7 @@ fun HomeTopAppBar(
                     AccountListItem(
                         accountNo = bot.id,
                         accountNick = bot.nick,
-                        isActive = account?.id == bot.id,
+                        isActive = account == bot.id,
                         avatarImageRequest = if (bot.avatarUrl != null) {
                             ImageRequest.Builder(context)
                                 .data(bot.avatarUrl)

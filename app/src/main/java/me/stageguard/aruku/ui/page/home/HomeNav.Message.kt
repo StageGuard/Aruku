@@ -1,6 +1,5 @@
 package me.stageguard.aruku.ui.page.home
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -37,10 +36,10 @@ fun HomeNavMessage(padding: PaddingValues) {
         bot?.let { viewModel.observeMessagePreview(it) }
     }
     LazyColumn(Modifier.padding(padding)) {
-        viewModel.messages.forEach {
-            item {
+        viewModel.messages.forEach { msg ->
+            item(key = msg.type to msg.subject) {
                 MessageCard(
-                    it,
+                    msg,
                     modifier = Modifier
                         .padding(horizontal = 10.dp, vertical = 5.dp)
                         .fillMaxWidth()
@@ -137,7 +136,7 @@ fun MessageCard(message: SimpleMessagePreview, modifier: Modifier = Modifier) {
 @Composable
 fun MessageCardPreview() {
     val mockMessages = buildList {
-        for(i in 1..20) {
+        for (i in 1..20) {
             this += R.mipmap.ic_launcher to "MockUserName$i"
         }
     }.shuffled().map {

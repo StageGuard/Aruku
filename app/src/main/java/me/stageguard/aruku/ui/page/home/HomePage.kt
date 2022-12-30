@@ -1,5 +1,6 @@
 package me.stageguard.aruku.ui.page.home
 
+import android.util.Log
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedContentScope
 import androidx.compose.animation.ExperimentalAnimationApi
@@ -19,6 +20,7 @@ import me.stageguard.aruku.ui.page.login.CaptchaRequired
 import me.stageguard.aruku.ui.page.login.LoginState
 import me.stageguard.aruku.ui.theme.ArukuTheme
 import me.stageguard.aruku.util.stringResC
+import me.stageguard.aruku.util.toLogTag
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
@@ -32,6 +34,7 @@ fun HomePage(
     val state = viewModel.loginState.value
 
     LaunchedEffect(bot) {
+        Log.i(toLogTag(), "observeAccountState $bot")
         viewModel.observeAccountState(bot)
     }
     LaunchedEffect(state) {

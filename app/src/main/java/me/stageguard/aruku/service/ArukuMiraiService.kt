@@ -5,7 +5,6 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
-import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.lifecycle.*
@@ -30,16 +29,18 @@ import net.mamoe.mirai.event.ListeningStatus
 import net.mamoe.mirai.event.events.*
 import net.mamoe.mirai.network.CustomLoginFailedException
 import net.mamoe.mirai.network.LoginFailedException
-import net.mamoe.mirai.utils.*
 import net.mamoe.mirai.utils.BotConfiguration.HeartbeatStrategy
 import net.mamoe.mirai.utils.BotConfiguration.MiraiProtocol
+import net.mamoe.mirai.utils.DeviceVerificationRequests
+import net.mamoe.mirai.utils.DeviceVerificationResult
+import net.mamoe.mirai.utils.LoginSolver
 import org.koin.android.ext.android.inject
+import xyz.cssxsh.mirai.device.MiraiDeviceGenerator
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.collections.component1
 import kotlin.collections.component2
 import kotlin.collections.set
 import kotlin.properties.ReadOnlyProperty
-import kotlin.random.Random
 import kotlin.reflect.KProperty
 
 class ArukuMiraiService : LifecycleService() {
@@ -135,6 +136,24 @@ class ArukuMiraiService : LifecycleService() {
             messageConsumers.iterator().forEach { entry ->
                 entry.value.remove(identity)
             }
+        }
+
+        override fun getAvatar(account: Long, type: Int, subject: Long): String? {
+            val bot = Bot.getInstanceOrNull(account)
+            return if (bot != null) when (enumValues<ArukuMessageType>()[type]) {
+                ArukuMessageType.GROUP -> bot.getGroup(subject)?.avatarUrl
+                ArukuMessageType.FRIEND -> bot.getFriend(subject)?.avatarUrl
+                ArukuMessageType.TEMP -> bot.getStranger(subject)?.avatarUrl
+            } else null
+        }
+
+        override fun getNickname(account: Long, type: Int, subject: Long): String? {
+            val bot = Bot.getInstanceOrNull(account)
+            return if (bot != null) when (enumValues<ArukuMessageType>()[type]) {
+                ArukuMessageType.GROUP -> bot.getGroup(subject)?.name
+                ArukuMessageType.FRIEND -> bot.getFriend(subject)?.nick
+                ArukuMessageType.TEMP -> bot.getStranger(subject)?.nick
+            } else null
         }
     }
 
@@ -358,13 +377,13 @@ class ArukuMiraiService : LifecycleService() {
                                 ev.subject.id,
                                 messageType,
                                 ev.time.toLong(),
-                                ev.message.serializeToMiraiCode()
+                                ev.sender.remark + ": " + ev.message.contentToString()
                             )
                         )
                     } else {
                         messagePreviewDao.update(messagePreview.single().apply p@{
                             this@p.time = ev.time.toLong()
-                            this@p.previewMiraiCode = ev.message.serializeToMiraiCode()
+                            this@p.previewContent = ev.sender.remark + ": " + ev.message.contentToString()
                         })
                     }
 
@@ -440,32 +459,7 @@ class ArukuMiraiService : LifecycleService() {
                 fileBasedDeviceInfo(deviceInfoFile.absolutePath)
             } else {
                 deviceInfo = {
-                    DeviceInfo(
-                        display = Build.DISPLAY.toByteArray(),
-                        product = Build.PRODUCT.toByteArray(),
-                        device = Build.DEVICE.toByteArray(),
-                        board = Build.BOARD.toByteArray(),
-                        brand = Build.BRAND.toByteArray(),
-                        model = Build.MODEL.toByteArray(),
-                        bootloader = Build.BOOTLOADER.toByteArray(),
-                        fingerprint = Build.FINGERPRINT.toByteArray(),
-                        bootId = generateUUID(getRandomByteArray(16, Random.Default).md5()).toByteArray(),
-                        procVersion = byteArrayOf(),
-                        baseBand = byteArrayOf(),
-                        version = DeviceInfo.Version(
-                            release = Build.VERSION.RELEASE.toByteArray(),
-                            codename = Build.VERSION.CODENAME.toByteArray(),
-                            sdk = Build.VERSION.SDK_INT
-                        ),
-                        simInfo = "T-Mobile".toByteArray(),
-                        osType = "android".toByteArray(),
-                        macAddress = "02:00:00:00:00:00".toByteArray(),
-                        wifiBSSID = "02:00:00:00:00:00".toByteArray(),
-                        wifiSSID = "<unknown ssid>".toByteArray(),
-                        imsiMd5 = getRandomByteArray(16, Random.Default).md5(),
-                        imei = ArukuApplication.INSTANCE.applicationContext.imei,
-                        apn = "wifi".toByteArray()
-                    )/*DeviceInfo.random()*/.also {
+                    MiraiDeviceGenerator().load(it).also {
                         deviceInfoFile.createNewFile()
                         deviceInfoFile.writeText(Json.encodeToString(it))
                     }
@@ -510,6 +504,9 @@ class ArukuMiraiService : LifecycleService() {
                         fallback.solved()
                     }
                 }
+
+                override val isSliderCaptchaSupported: Boolean
+                    get() = true
             }
         }
     }

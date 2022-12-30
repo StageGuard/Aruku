@@ -115,9 +115,10 @@ class HomeViewModel(
     val messages get() = _messageSequences
 
     // observe account state at home page
-    fun observeAccountState(account: Bot?) {
+    fun observeAccountState(account: Long?) {
+        val bot = if (account != null) Bot.getInstanceOrNull(account) else null
         // no bot provided from LocalBot, maybe first launch login or no account.
-        if (account == null) {
+        if (bot == null) {
             val activeBot = ArukuPreference.activeBot
             // first launch login
             if (activeBot != null) { // state: Logging
@@ -132,28 +133,28 @@ class HomeViewModel(
         } else {
             // bot is provided.
             // if offline, it is either logout manually or appears offline.
-            if (!account.isOnline) {
+            if (!bot.isOnline) {
                 viewModelScope.launch(Dispatchers.IO) {
-                    val dbAccount = database { accounts()[account.id].singleOrNull() }
+                    val dbAccount = database { accounts()[bot.id].singleOrNull() }
                     if (dbAccount == null) {
                         Log.w(toLogTag(), "LocalBot is provided but the bot is not stored in database.")
                         return@launch
                     }
 
                     if (!dbAccount.isOfflineManually) { // state: Logging
-                        loginState.value = AccountState.Login(account.id, LoginState.Logging)
+                        loginState.value = AccountState.Login(bot.id, LoginState.Logging)
 
                         activeAccountLoginSolver?.let { arukuServiceInterface.removeLoginSolver(it.first) }
-                        val currentLoginSolver = account.id to loginSolver
+                        val currentLoginSolver = bot.id to loginSolver
                         arukuServiceInterface.addLoginSolver(currentLoginSolver.first, currentLoginSolver.second)
                         activeAccountLoginSolver = currentLoginSolver
                     } else { // state: Offline
-                        loginState.value = AccountState.Offline(account.id, null)
+                        loginState.value = AccountState.Offline(bot.id, null)
                     }
                 }
             } else { // state: Online
-                loginState.value = AccountState.Online(account.id)
-                account.eventChannel.parentScope(viewModelScope).subscribe<BotOfflineEvent> {
+                loginState.value = AccountState.Online(bot.id)
+                bot.eventChannel.parentScope(viewModelScope).subscribe<BotOfflineEvent> {
                     if (!viewModelScope.isActive) return@subscribe ListeningStatus.STOPPED
                     loginState.value = AccountState.Offline(it.bot.id, it.toString())
                     return@subscribe ListeningStatus.LISTENING
@@ -186,15 +187,16 @@ class HomeViewModel(
     @Composable
     fun getAccountBasicInfo(): List<BasicAccountInfo> {
         val state = _accountList.observeAsState(listOf())
-        return state.value.map {
+
+        return state.value.filter { Bot.getInstanceOrNull(it) != null }.map {
             val b = Bot.getInstance(it)
-            return@map BasicAccountInfo(b.id, b.nick, b.avatarUrl(AvatarSpec.ORIGINAL))
+            BasicAccountInfo(b.id, b.nick, b.avatarUrl(AvatarSpec.ORIGINAL))
         }
     }
 
     // observe message preview changes in message page
-    context(CoroutineScope) fun observeMessagePreview(account: Bot) {
-        val messageFlow = database { messagePreview().getMessages(account.id) }
+    context(CoroutineScope) fun observeMessagePreview(account: Long) {
+        val messageFlow = database { messagePreview().getMessages(account) }
         launch {
             messageFlow.collect { msg ->
                 val subjects = msg.map { it.type to it.subject }
@@ -203,17 +205,10 @@ class HomeViewModel(
                     SimpleMessagePreview(
                         type = it.type,
                         subject = it.subject,
-                        avatarData = when (it.type) {
-                            ArukuMessageType.GROUP -> account.getGroup(it.subject)?.avatarUrl
-                            ArukuMessageType.FRIEND -> account.getFriend(it.subject)?.avatarUrl
-                            ArukuMessageType.TEMP -> account.getStranger(it.subject)?.avatarUrl
-                        },
-                        name = when (it.type) {
-                            ArukuMessageType.GROUP -> account.getGroup(it.subject)?.name
-                            ArukuMessageType.FRIEND -> account.getFriend(it.subject)?.nick
-                            ArukuMessageType.TEMP -> account.getStranger(it.subject)?.nick
-                        } ?: it.subject.toString(),
-                        preview = it.previewMiraiCode,
+                        avatarData = arukuServiceInterface.getAvatar(account, it.type.ordinal, it.subject),
+                        name = arukuServiceInterface.getNickname(account, it.type.ordinal, it.subject)
+                            ?: it.subject.toString(),
+                        preview = it.previewContent,
                         time = LocalDateTime.ofEpochSecond(it.time, 0, ZoneOffset.UTC),
                         unreadCount = 1
                     )

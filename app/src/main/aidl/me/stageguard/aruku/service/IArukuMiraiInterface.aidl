@@ -24,4 +24,6 @@ interface IArukuMiraiInterface {
     void removeLoginSolver(long bot);
     void addMessageEventConsumer(long bot, String identity, in IMessageConsumer consumer);
     void removeMessageEventConsumer(String identity);
+    String getAvatar(long account, int type, long subject);
+    String getNickname(long account, int type, long subject);
 }

@@ -7,7 +7,6 @@ import androidx.navigation.NavController
 import com.google.accompanist.systemuicontroller.SystemUiController
 import me.stageguard.aruku.service.IArukuMiraiInterface
 import me.stageguard.aruku.util.StringLocale
-import net.mamoe.mirai.Bot
 
 val LocalArukuMiraiInterface: ProvidableCompositionLocal<IArukuMiraiInterface> =
     staticCompositionLocalOf { IArukuMiraiInterface.Default() }
@@ -21,4 +20,4 @@ val LocalStringLocale: ProvidableCompositionLocal<StringLocale> =
 val LocalSystemUiController: ProvidableCompositionLocal<SystemUiController> =
     staticCompositionLocalOf { error("No SystemUiController provided.") }
 
-val LocalBot: ProvidableCompositionLocal<Bot?> = compositionLocalOf { null }
+val LocalBot: ProvidableCompositionLocal<Long?> = compositionLocalOf { null }

@@ -25,6 +25,6 @@ data class MessagePreviewEntity(
     @ColumnInfo(name = "type")
     @TypeConverters(ArukuMessageTypeConverter::class) val type: ArukuMessageType,
     @ColumnInfo(name = "time") var time: Long,
-    @ColumnInfo(name = "preview") var previewMiraiCode: String,
+    @ColumnInfo(name = "preview") var previewContent: String,
     @PrimaryKey(autoGenerate = true) @ColumnInfo(name = "_prim_key") val _prim_key: Int = 0,
 )
