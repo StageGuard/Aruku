@@ -40,4 +40,10 @@
     <string name="home_nav_profile">我的</string>
     <string name="verify_captcha_sms">验证码短信已发送到 %1$s\\n请输入接收到的验证码。</string>
     <string name="sms_code">短信验证码</string>
+    <string name="info_moesnackbar_swipe">→ 右划关闭 →</string>
+    <string name="btn_cancel">取消</string>
+    <string name="btn_confirm">确认</string>
+    <string name="list_empty">空</string>
+    <string name="list_loading">加载中</string>
+    <string name="list_failed">加载失败</string>
 </resources>

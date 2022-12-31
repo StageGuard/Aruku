@@ -45,4 +45,10 @@
     <string name="home_nav_profile">Profile</string>
     <string name="verify_captcha_sms">A SMS code has sent to phone %1$s\\n Please enter verification code.</string>
     <string name="sms_code">SMS code</string>
+    <string name="info_moesnackbar_swipe">→ Swipe to dismiss →</string>
+    <string name="btn_cancel">Cancel</string>
+    <string name="btn_confirm">Confirm</string>
+    <string name="list_empty">empty</string>
+    <string name="list_loading">loading</string>
+    <string name="list_failed">load failed</string>
 </resources>

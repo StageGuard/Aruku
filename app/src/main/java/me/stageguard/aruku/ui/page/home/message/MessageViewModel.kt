@@ -1,12 +1,20 @@
 package me.stageguard.aruku.ui.page.home.message
 
-import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
+import androidx.lifecycle.viewModelScope
+import androidx.paging.*
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
+import me.stageguard.aruku.R
 import me.stageguard.aruku.database.ArukuDatabase
+import me.stageguard.aruku.database.message.MessagePreviewEntity
 import me.stageguard.aruku.service.IArukuMiraiInterface
 import me.stageguard.aruku.service.parcel.ArukuMessageType
+import me.stageguard.aruku.util.log
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 
@@ -19,42 +27,66 @@ class MessageViewModel(
     private val database: ArukuDatabase,
 ) : ViewModel() {
 
-    private val _messageSequences = mutableStateListOf<SimpleMessagePreview>()
+    val messages: MutableState<Flow<PagingData<SimpleMessagePreview>>?> = mutableStateOf(null)
 
-    val messages get() =  _messageSequences
-
-    // observe message preview changes in message page
-    context(CoroutineScope) fun observeMessagePreview(account: Long) {
-        val messageFlow = database { messagePreview().getMessages(account) }
-        launch {
-            messageFlow.collect { msg ->
-                val subjects = msg.map { it.type to it.subject }
-                _messageSequences.removeIf { it.type to it.subject in subjects }
-                _messageSequences.addAll(msg.map {
-                    SimpleMessagePreview(
-                        type = it.type,
-                        subject = it.subject,
-                        avatarData = arukuServiceInterface.getAvatar(
-                            account,
-                            it.type.ordinal,
-                            it.subject
-                        ),
-                        name = arukuServiceInterface.getNickname(
-                            account,
-                            it.type.ordinal,
-                            it.subject
-                        )
-                            ?: it.subject.toString(),
-                        preview = it.previewContent,
-                        time = LocalDateTime.ofEpochSecond(it.time, 0, ZoneOffset.UTC),
-                        unreadCount = 1
-                    )
-                })
-                _messageSequences.sortByDescending { it.time }
+    suspend fun initMessage(account: Long) = withContext(Dispatchers.IO) {
+        messages.value = Pager(config = PagingConfig(25), initialKey = 0) {
+            database.messagePreview().getMessagesPaging(account)
+        }.flow.map {
+            it.map {
+                SimpleMessagePreview(
+                    type = it.type,
+                    subject = it.subject,
+                    avatarData = arukuServiceInterface.getAvatar(
+                        account,
+                        it.type.ordinal,
+                        it.subject
+                    ),
+                    name = arukuServiceInterface.getNickname(
+                        account,
+                        it.type.ordinal,
+                        it.subject
+                    ) ?: it.subject.toString(),
+                    preview = it.previewContent,
+                    time = LocalDateTime.ofEpochSecond(it.time, 0, ZoneOffset.UTC),
+                    unreadCount = 1
+                )
             }
-        }
+        }.cachedIn(viewModelScope)
     }
 
+//    suspend fun initMessageTest() = withContext(Dispatchers.IO) {
+//        delay(3000)
+//        repeat(100) {
+//            database.messagePreview().insert(
+//                MessagePreviewEntity(
+//                    account = 123456L + it,
+//                    subject = 789123L + it,
+//                    type = ArukuMessageType.GROUP,
+//                    time = System.currentTimeMillis(),
+//                    previewContent = "message" + System.currentTimeMillis()
+//                )
+//            )
+//        }
+//
+////        delay(3000)
+////        val mock = buildList {
+////            for (i in 1..100) {
+////                this += R.mipmap.ic_launcher to "MockUserName$i"
+////            }
+////        }.shuffled().map { (icon, message) ->
+////            SimpleMessagePreview(
+////                ArukuMessageType.GROUP,
+////                System.nanoTime(),
+////                icon,
+////                message,
+////                "message preview",
+////                LocalDateTime.now().minusMinutes((0L..3600L).random()),
+////                (0..100).random()
+////            )
+////        }
+////        messages.value = flow { PagingData.from(mock) }
+//    }
 
 }
 

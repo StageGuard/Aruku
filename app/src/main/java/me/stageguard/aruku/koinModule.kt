@@ -7,6 +7,8 @@ import me.stageguard.aruku.database.ArukuDatabase
 import me.stageguard.aruku.service.ArukuMiraiService
 import me.stageguard.aruku.ui.activity.unitProp
 import me.stageguard.aruku.ui.page.home.HomeViewModel
+import me.stageguard.aruku.ui.page.home.contact.ContactViewModel
+import me.stageguard.aruku.ui.page.home.message.MessageViewModel
 import me.stageguard.aruku.ui.page.login.LoginViewModel
 import net.mamoe.mirai.BotFactory
 import org.koin.androidx.viewmodel.dsl.viewModel
@@ -17,7 +19,7 @@ val applicationModule = module {
 
     // database and preference
     single { Room.databaseBuilder(get(), ArukuDatabase::class.java, "aruku-db").build() }
-    single { Okkv.Builder().store(MMKVStore(get())).cache(true).build().init() }
+    single { Okkv.Builder().store(MMKVStore(get())).cache(true).build().init().default() }
 
     // service
     single { ArukuMiraiService.Connector(get()) }
@@ -31,4 +33,6 @@ val applicationModule = module {
     // view model
     viewModel { LoginViewModel(get()) }
     viewModel { HomeViewModel(get(), get<ArukuMiraiService.Connector>().bots, get()) }
+    viewModel { MessageViewModel(get(), get()) }
+    viewModel { ContactViewModel(get(), get()) }
 }

@@ -15,6 +15,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import me.stageguard.aruku.R
+import me.stageguard.aruku.ui.page.home.contact.ContactPage
+import me.stageguard.aruku.ui.page.home.profile.ProfilePage
 import me.stageguard.aruku.ui.theme.ArukuTheme
 import me.stageguard.aruku.util.stringResC
 
@@ -47,13 +49,13 @@ val homeNaves = mapOf(
         selection = HomeNavSelection.CONTACT,
         icon = Icons.Default.Contacts,
         label = R.string.home_nav_contact,
-        content = { Text("!23123", modifier = Modifier.padding(it)) }
+        content = { ContactPage(it) }
     ),
     HomeNavSelection.PROFILE to HomeNav(
         selection = HomeNavSelection.PROFILE,
         icon = Icons.Default.AccountCircle,
         label = R.string.home_nav_profile,
-        content = { Text("46456", modifier = Modifier.padding(it)) }
+        content = { ProfilePage(it) }
     )
 )
 
@@ -62,7 +64,8 @@ data class HomeNav(
     val icon: ImageVector,
     @StringRes val label: Int,
     val content: @Composable (PaddingValues) -> Unit,
-    val topBar: (@Composable () -> Unit)? = null,
+    val topBar: (@Composable (PaddingValues) -> Unit)? = null,
+    val overly: (@Composable () -> Unit)? = null,
 )
 
 @Preview

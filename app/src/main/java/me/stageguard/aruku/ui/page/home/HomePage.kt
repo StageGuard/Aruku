@@ -95,7 +95,6 @@ fun HomeView(
         bottomBar = {
             HomeNavigationBar(currNavPage.value.selection, onHomeNavigate)
         }
-
     ) { padding ->
         AnimatedContent(
             targetState = currNavPage,

@@ -3,11 +3,13 @@ package me.stageguard.aruku.ui.page.home
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
@@ -17,37 +19,53 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.paging.compose.collectAsLazyPagingItems
+import androidx.paging.compose.items
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import me.stageguard.aruku.R
 import me.stageguard.aruku.service.parcel.ArukuMessageType
 import me.stageguard.aruku.ui.LocalBot
+import me.stageguard.aruku.ui.common.EmptyListWhitePage
+import me.stageguard.aruku.ui.common.FastScrollToTopFab
 import me.stageguard.aruku.ui.page.home.message.MessageViewModel
 import me.stageguard.aruku.ui.page.home.message.SimpleMessagePreview
 import me.stageguard.aruku.ui.theme.ArukuTheme
+import me.stageguard.aruku.util.formatHHmm
+import me.stageguard.aruku.util.log
 import org.koin.androidx.compose.koinViewModel
 import java.time.LocalDateTime
-import kotlin.random.Random
-import kotlin.random.nextLong
 
 @Composable
 fun HomeNavMessage(padding: PaddingValues) {
     val bot = LocalBot.current
-    val viewModel: MessageViewModel = koinViewModel()
-    LaunchedEffect(bot) {
-        bot?.let { viewModel.observeMessagePreview(it) }
-    }
-    LazyColumn(Modifier.padding(padding)) {
-        viewModel.messages.forEach { msg ->
-            item(key = msg.type to msg.subject) {
-                MessageCard(
-                    msg,
-                    modifier = Modifier
-                        .padding(horizontal = 10.dp, vertical = 5.dp)
-                        .fillMaxWidth()
-                )
+    val vm: MessageViewModel = koinViewModel()
+//    LaunchedEffect(bot) { vm.initMessageTest() }
+    LaunchedEffect(bot) { if (bot != null) vm.initMessage(bot) }
+
+    val messages = vm.messages.value?.collectAsLazyPagingItems()
+    val listState = rememberLazyListState()
+
+    Box {
+        EmptyListWhitePage(data = messages) {
+            messages?.refresh()
+        }
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.padding(padding),
+            verticalArrangement = Arrangement.spacedBy(5.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            contentPadding = PaddingValues(5.dp)
+        ) {
+            if (messages != null) {
+                items(messages) {
+                    if (it != null) {
+                        MessageCard(message = it)
+                    }
+                }
             }
         }
+        FastScrollToTopFab(listState)
     }
 }
 
@@ -97,13 +115,7 @@ fun MessageCard(message: SimpleMessagePreview, modifier: Modifier = Modifier) {
                 }
             }
             Text(
-                text = message.time.run {
-                    "${
-                        hour.run { if (this < 10) "0$this" else this.toString() }
-                    }:${
-                        minute.run { if (this < 10) "0$this" else this.toString() }
-                    }"
-                },
+                text = message.time.formatHHmm(),
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(12.dp),
@@ -141,14 +153,14 @@ fun MessageCardPreview() {
         for (i in 1..20) {
             this += R.mipmap.ic_launcher to "MockUserName$i"
         }
-    }.shuffled().map {
+    }.shuffled().map { (icon, message) ->
         SimpleMessagePreview(
             ArukuMessageType.GROUP,
             123123L,
-            it.first,
-            it.second,
+            icon,
+            message,
             "message preview",
-            LocalDateTime.now().minusMinutes(Random.Default.nextLong(0L..3600L)),
+            LocalDateTime.now().minusMinutes((0L..3600L).random()),
             (0..100).random()
         )
     }
