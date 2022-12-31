@@ -50,7 +50,7 @@ fun HomePage(
         onRetryCaptcha = { accountNo -> viewModel.submitCaptcha(accountNo, null) },
         onSubmitCaptcha = { accountNo, result -> viewModel.submitCaptcha(accountNo, result) },
         onCancelLogin = { viewModel.cancelLogin(it) },
-        onHomeNavigate = { _, curr -> viewModel.currentNavSelection.value = homeNavs[curr]!! }
+        onHomeNavigate = { _, curr -> viewModel.currentNavSelection.value = homeNaves[curr]!! }
     )
 }
 
@@ -109,7 +109,7 @@ fun HomeView(
                 return@trans slideIntoContainer(direction, spec) with slideOutOfContainer(direction, spec)
             }
         ) { targetState ->
-            targetState.value.composable(padding)
+            targetState.value.content(padding)
         }
     }
 
@@ -133,7 +133,7 @@ fun HomeView(
 fun HomeViewPreview() {
     val list = remember { mutableStateListOf<BasicAccountInfo>() }
     val state = remember { mutableStateOf(AccountState.Default) }
-    val navState = remember { mutableStateOf(homeNavs[HomeNavSelection.MESSAGE]!!) }
+    val navState = remember { mutableStateOf(homeNaves[HomeNavSelection.MESSAGE]!!) }
     ArukuTheme {
         HomeView(
             navState, botList = list, state = state,

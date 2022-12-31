@@ -53,7 +53,8 @@ class HomeViewModel(
                     )
                 )
             }
-            val captchaResult = runBlocking(viewModelScope.coroutineContext) { captchaChannel.receive() }
+            val captchaResult =
+                runBlocking(viewModelScope.coroutineContext) { captchaChannel.receive() }
             loginState.value = AccountState.Login(bot, LoginState.Logging)
             return captchaResult
         }
@@ -62,10 +63,14 @@ class HomeViewModel(
             loginState.value = if (url == null) {
                 AccountState.Offline(bot, "Slider captcha url is null.")
             } else {
-                AccountState.Login(bot, LoginState.CaptchaRequired(bot, CaptchaType.Slider(bot, url)))
+                AccountState.Login(
+                    bot,
+                    LoginState.CaptchaRequired(bot, CaptchaType.Slider(bot, url))
+                )
             }
 
-            val captchaResult = runBlocking(viewModelScope.coroutineContext) { captchaChannel.receive() }
+            val captchaResult =
+                runBlocking(viewModelScope.coroutineContext) { captchaChannel.receive() }
             loginState.value = AccountState.Login(bot, LoginState.Logging)
             return captchaResult
         }
@@ -74,19 +79,27 @@ class HomeViewModel(
             loginState.value = if (url == null) {
                 AccountState.Offline(bot, "UnsafeDeviceLogin captcha url is null.")
             } else {
-                AccountState.Login(bot, LoginState.CaptchaRequired(bot, CaptchaType.UnsafeDevice(bot, url)))
+                AccountState.Login(
+                    bot,
+                    LoginState.CaptchaRequired(bot, CaptchaType.UnsafeDevice(bot, url))
+                )
             }
 
-            val captchaResult = runBlocking(viewModelScope.coroutineContext) { captchaChannel.receive() }
+            val captchaResult =
+                runBlocking(viewModelScope.coroutineContext) { captchaChannel.receive() }
             loginState.value = AccountState.Login(bot, LoginState.Logging)
             return captchaResult
         }
 
         override fun onSolveSMSRequest(bot: Long, phone: String?): String? {
             loginState.value =
-                AccountState.Login(bot, LoginState.CaptchaRequired(bot, CaptchaType.SMSRequest(bot, phone ?: "-")))
+                AccountState.Login(
+                    bot,
+                    LoginState.CaptchaRequired(bot, CaptchaType.SMSRequest(bot, phone ?: "-"))
+                )
 
-            val captchaResult = runBlocking(viewModelScope.coroutineContext) { captchaChannel.receive() }
+            val captchaResult =
+                runBlocking(viewModelScope.coroutineContext) { captchaChannel.receive() }
             loginState.value = AccountState.Login(bot, LoginState.Logging)
             return captchaResult
         }
@@ -105,14 +118,12 @@ class HomeViewModel(
         }
     }
     private var activeAccountLoginSolver: Pair<Long, ILoginSolver>? = null
-    private val _messageSequences = mutableStateListOf<SimpleMessagePreview>()
 
-    val currentNavSelection = mutableStateOf(homeNavs[HomeNavSelection.MESSAGE]!!)
+    val currentNavSelection = mutableStateOf(homeNaves[HomeNavSelection.MESSAGE]!!)
 
     // represents state of current account
     // it is only changed at [observeAccountState] and [loginSolver]
     val loginState = mutableStateOf<AccountState>(AccountState.Default)
-    val messages get() = _messageSequences
 
     // observe account state at home page
     fun observeAccountState(account: Long?) {
@@ -137,7 +148,10 @@ class HomeViewModel(
                 viewModelScope.launch(Dispatchers.IO) {
                     val dbAccount = database { accounts()[bot.id].singleOrNull() }
                     if (dbAccount == null) {
-                        Log.w(toLogTag(), "LocalBot is provided but the bot is not stored in database.")
+                        Log.w(
+                            toLogTag(),
+                            "LocalBot is provided but the bot is not stored in database."
+                        )
                         return@launch
                     }
 
@@ -146,7 +160,10 @@ class HomeViewModel(
 
                         activeAccountLoginSolver?.let { arukuServiceInterface.removeLoginSolver(it.first) }
                         val currentLoginSolver = bot.id to loginSolver
-                        arukuServiceInterface.addLoginSolver(currentLoginSolver.first, currentLoginSolver.second)
+                        arukuServiceInterface.addLoginSolver(
+                            currentLoginSolver.first,
+                            currentLoginSolver.second
+                        )
                         activeAccountLoginSolver = currentLoginSolver
                     } else { // state: Offline
                         loginState.value = AccountState.Offline(bot.id, null)
@@ -194,29 +211,6 @@ class HomeViewModel(
         }
     }
 
-    // observe message preview changes in message page
-    context(CoroutineScope) fun observeMessagePreview(account: Long) {
-        val messageFlow = database { messagePreview().getMessages(account) }
-        launch {
-            messageFlow.collect { msg ->
-                val subjects = msg.map { it.type to it.subject }
-                _messageSequences.removeIf { it.type to it.subject in subjects }
-                _messageSequences.addAll(msg.map {
-                    SimpleMessagePreview(
-                        type = it.type,
-                        subject = it.subject,
-                        avatarData = arukuServiceInterface.getAvatar(account, it.type.ordinal, it.subject),
-                        name = arukuServiceInterface.getNickname(account, it.type.ordinal, it.subject)
-                            ?: it.subject.toString(),
-                        preview = it.previewContent,
-                        time = LocalDateTime.ofEpochSecond(it.time, 0, ZoneOffset.UTC),
-                        unreadCount = 1
-                    )
-                })
-                _messageSequences.sortByDescending { it.time }
-            }
-        }
-    }
 }
 
 enum class HomeNavSelection(val id: Int) {
@@ -236,14 +230,4 @@ data class BasicAccountInfo(
     val id: Long,
     val nick: String,
     val avatarUrl: String?
-)
-
-data class SimpleMessagePreview(
-    val type: ArukuMessageType,
-    val subject: Long,
-    val avatarData: Any?,
-    val name: String,
-    val preview: String,
-    val time: LocalDateTime,
-    val unreadCount: Int
 )

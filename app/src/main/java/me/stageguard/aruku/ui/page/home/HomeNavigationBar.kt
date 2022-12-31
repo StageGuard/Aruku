@@ -24,12 +24,10 @@ fun HomeNavigationBar(
     onNavigate: (HomeNavSelection, HomeNavSelection) -> Unit
 ) {
     NavigationBar {
-        homeNavs.forEach { (k, v) ->
+        homeNaves.forEach { (k, v) ->
             NavigationBarItem(
                 selected = selection == k,
-                onClick = {
-                    onNavigate(selection, k)
-                },
+                onClick = { onNavigate(selection, k) },
                 icon = { Icon(v.icon, v.label.stringResC) },
                 label = { Text(v.label.stringResC, style = MaterialTheme.typography.labelSmall) },
                 alwaysShowLabel = false
@@ -38,35 +36,33 @@ fun HomeNavigationBar(
     }
 }
 
-val homeNavs = mapOf(
+val homeNaves = mapOf(
     HomeNavSelection.MESSAGE to HomeNav(
-        HomeNavSelection.MESSAGE,
-        Icons.Default.Message,
-        R.string.home_nav_message
-    ) {
-        HomeNavMessage(it)
-    },
+        selection = HomeNavSelection.MESSAGE,
+        icon = Icons.Default.Message,
+        label = R.string.home_nav_message,
+        content = { HomeNavMessage(it) }
+    ),
     HomeNavSelection.CONTACT to HomeNav(
-        HomeNavSelection.CONTACT,
-        Icons.Default.Contacts,
-        R.string.home_nav_contact
-    ) {
-        Text("!23123", modifier = Modifier.padding(it))
-    },
+        selection = HomeNavSelection.CONTACT,
+        icon = Icons.Default.Contacts,
+        label = R.string.home_nav_contact,
+        content = { Text("!23123", modifier = Modifier.padding(it)) }
+    ),
     HomeNavSelection.PROFILE to HomeNav(
-        HomeNavSelection.PROFILE,
-        Icons.Default.AccountCircle,
-        R.string.home_nav_profile
-    ) {
-        Text("46456", modifier = Modifier.padding(it))
-    },
+        selection = HomeNavSelection.PROFILE,
+        icon = Icons.Default.AccountCircle,
+        label = R.string.home_nav_profile,
+        content = { Text("46456", modifier = Modifier.padding(it)) }
+    )
 )
 
 data class HomeNav(
     val selection: HomeNavSelection,
     val icon: ImageVector,
     @StringRes val label: Int,
-    val composable: @Composable (PaddingValues) -> Unit
+    val content: @Composable (PaddingValues) -> Unit,
+    val topBar: (@Composable () -> Unit)? = null,
 )
 
 @Preview

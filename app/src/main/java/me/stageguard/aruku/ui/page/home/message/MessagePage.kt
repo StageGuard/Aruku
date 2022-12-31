@@ -22,6 +22,8 @@ import coil.request.ImageRequest
 import me.stageguard.aruku.R
 import me.stageguard.aruku.service.parcel.ArukuMessageType
 import me.stageguard.aruku.ui.LocalBot
+import me.stageguard.aruku.ui.page.home.message.MessageViewModel
+import me.stageguard.aruku.ui.page.home.message.SimpleMessagePreview
 import me.stageguard.aruku.ui.theme.ArukuTheme
 import org.koin.androidx.compose.koinViewModel
 import java.time.LocalDateTime
@@ -31,7 +33,7 @@ import kotlin.random.nextLong
 @Composable
 fun HomeNavMessage(padding: PaddingValues) {
     val bot = LocalBot.current
-    val viewModel: HomeViewModel = koinViewModel()
+    val viewModel: MessageViewModel = koinViewModel()
     LaunchedEffect(bot) {
         bot?.let { viewModel.observeMessagePreview(it) }
     }
