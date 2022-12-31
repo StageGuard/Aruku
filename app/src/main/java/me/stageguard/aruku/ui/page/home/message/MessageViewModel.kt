@@ -55,19 +55,20 @@ class MessageViewModel(
         }.cachedIn(viewModelScope)
     }
 
-//    suspend fun initMessageTest() = withContext(Dispatchers.IO) {
-//        delay(3000)
-//        repeat(100) {
-//            database.messagePreview().insert(
-//                MessagePreviewEntity(
-//                    account = 123456L + it,
-//                    subject = 789123L + it,
-//                    type = ArukuMessageType.GROUP,
-//                    time = System.currentTimeMillis(),
-//                    previewContent = "message" + System.currentTimeMillis()
-//                )
-//            )
-//        }
+    suspend fun initMessageTest() = withContext(Dispatchers.IO) {
+        delay(3000)
+        repeat(100) {
+            database.messagePreview().insert(
+                MessagePreviewEntity(
+                    account = 3129693328,
+                    subject = 789123L + it,
+                    type = ArukuMessageType.GROUP,
+                    time = System.currentTimeMillis(),
+                    previewContent = "message" + System.currentTimeMillis()
+                )
+            )
+        }
+    }
 //
 ////        delay(3000)
 ////        val mock = buildList {

@@ -17,3 +17,8 @@ fun ContactPage(padding: PaddingValues) {
 
     Text("!23123", modifier = Modifier.padding(padding))
 }
+
+@Composable
+fun ContactItem() {
+
+}

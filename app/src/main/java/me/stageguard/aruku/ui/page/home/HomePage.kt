@@ -56,7 +56,7 @@ fun HomePage(
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class)
 @Composable
-fun HomeView(
+private fun HomeView(
     currentNavSelection: State<HomeNav>,
     botList: List<BasicAccountInfo>,
     state: State<AccountState>,
@@ -66,11 +66,10 @@ fun HomeView(
     onSubmitCaptcha: (Long, String) -> Unit,
     onCancelLogin: (Long) -> Unit,
     onHomeNavigate: (HomeNavSelection, HomeNavSelection) -> Unit
-
 ) {
     val botListExpanded = remember { mutableStateOf(false) }
     val currNavPage = remember(HomeNavSelection.MESSAGE) { currentNavSelection }
-    val scrollState = rememberScrollState()
+//    val scrollState = rememberScrollState()
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -79,8 +78,7 @@ fun HomeView(
             HomeTopAppBar(
                 botList = botList,
                 botListExpanded = botListExpanded,
-                showAvatarProgressIndicator = state.value is AccountState.Login,
-                activeAccountOnline = state.value is AccountState.Online,
+                state = state,
                 title = currNavPage.value.label.stringResC,
                 modifier = Modifier,
                 onAvatarClick = {

@@ -10,14 +10,14 @@ import me.stageguard.aruku.service.parcel.ArukuMessageType
 @Entity(
     tableName = "message_record",
     indices = [Index("account_id", "subject", "type")],
-    foreignKeys = [
-        ForeignKey(
-            entity = AccountEntity::class,
-            parentColumns = arrayOf("account_no"),
-            childColumns = arrayOf("account_id"),
-            onDelete = ForeignKey.CASCADE
-        )
-    ]
+//    foreignKeys = [
+//        ForeignKey(
+//            entity = AccountEntity::class,
+//            parentColumns = arrayOf("account_no"),
+//            childColumns = arrayOf("account_id"),
+//            onDelete = ForeignKey.CASCADE
+//        )
+//    ]
 )
 data class MessageRecordEntity(
     @ColumnInfo(name = "account_id") val account: Long,

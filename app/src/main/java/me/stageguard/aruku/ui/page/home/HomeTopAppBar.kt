@@ -7,10 +7,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.AddCircleOutline
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -25,6 +22,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import me.stageguard.aruku.R
 import me.stageguard.aruku.ui.LocalBot
+import me.stageguard.aruku.ui.page.home.account.AccountAvatar
 import me.stageguard.aruku.ui.theme.ArukuTheme
 import me.stageguard.aruku.ui.theme.ColorAccountOffline
 import me.stageguard.aruku.ui.theme.ColorAccountOnline
@@ -36,18 +34,19 @@ fun HomeTopAppBar(
     botList: List<BasicAccountInfo>,
     botListExpanded: MutableState<Boolean>,
     title: String,
-    showAvatarProgressIndicator: Boolean,
-    activeAccountOnline: Boolean,
+    state: State<AccountState>,
     modifier: Modifier = Modifier,
     onAvatarClick: () -> Unit,
     onSwitchAccount: (Long) -> Unit,
     onAddAccountClick: () -> Unit,
 ) {
-    val account = LocalBot.current
-    val context = LocalContext.current
-    LargeTopAppBar(
+//    val avatarProgressIndicator by remember { derivedStateOf { state.value is AccountState.Login } }
+//    val activeAccountOnline by remember { derivedStateOf { state.value is AccountState.Online } }
+//    val account = LocalBot.current
+//    val context = LocalContext.current
+    TopAppBar(
         modifier = modifier,
-        colors = TopAppBarDefaults.largeTopAppBarColors(),
+        colors = TopAppBarDefaults.topAppBarColors(),
         title = {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -61,132 +60,11 @@ fun HomeTopAppBar(
             }
         },
         actions = {
-            IconButton(
-                onClick = onAvatarClick,
-            ) {
-                Box(
-                    modifier = Modifier.size(45.dp)
-                ) {
-                    if (showAvatarProgressIndicator) CircularProgressIndicator(modifier = Modifier.fillMaxWidth())
-
-                    val accountImageShape = Modifier.size(40.dp).border(
-                        width = ProgressIndicatorDefaults.CircularStrokeWidth,
-                        shape = CircleShape,
-                        color = if (showAvatarProgressIndicator) Color.Transparent else {
-                            if (activeAccountOnline) ColorAccountOnline else ColorAccountOffline
-                        }
-                    ).align(Alignment.Center)
-
-                    val currentAccount = botList.find { it.id == LocalBot.current }
-                    if (currentAccount == null) {
-                        Icon(
-                            Icons.Outlined.AccountCircle,
-                            contentDescription = "account avatar url",
-                            modifier = accountImageShape
-                        )
-                    } else {
-                        AsyncImage(
-                            currentAccount.avatarUrl.let {
-                                ImageRequest.Builder(context)
-                                    .data(it)
-                                    .crossfade(true)
-                                    .build()
-                            },
-                            contentDescription = "account avatar url",
-                            modifier = accountImageShape
-                        )
-                    }
-                }
-            }
-            DropdownMenu(
-                expanded = botListExpanded.value,
-                onDismissRequest = { botListExpanded.value = false }
-            ) {
-                botList.forEach { bot ->
-                    AccountListItem(
-                        accountNo = bot.id,
-                        accountNick = bot.nick,
-                        isActive = account == bot.id,
-                        avatarImageRequest = if (bot.avatarUrl != null) {
-                            ImageRequest.Builder(context)
-                                .data(bot.avatarUrl)
-                                .crossfade(true)
-                                .build()
-                        } else null,
-                        onSwitchAccount = {
-                            botListExpanded.value = !botListExpanded.value
-                            onSwitchAccount(bot.id)
-                        }
-                    )
-                }
-                DropdownMenuItem(
-                    text = {
-                        Row(modifier = Modifier.padding(horizontal = 10.dp)) {
-                            Icon(
-                                Icons.Outlined.AddCircleOutline,
-                                contentDescription = "add account",
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .padding(2.5.dp)
-                                    .align(Alignment.CenterVertically)
-                                    .clip(CircleShape),
-                                //placeholder = Icons.Filled.NoAccounts
-                            )
-                            Text(
-                                R.string.add_account.stringResC,
-                                modifier = Modifier.padding(start = 15.dp).align(Alignment.CenterVertically)
-                            )
-                        }
-                    },
-                    onClick = {
-                        botListExpanded.value = !botListExpanded.value
-                        onAddAccountClick()
-                    }
-                )
-            }
+            AccountAvatar(accountState = state, botList = botList)
         }
     )
 }
 
-@Composable
-fun AccountListItem(
-    accountNo: Long,
-    accountNick: String,
-    isActive: Boolean,
-    avatarImageRequest: ImageRequest? = null,
-    onSwitchAccount: (Long) -> Unit
-) {
-    DropdownMenuItem(
-        text = {
-            Row(modifier = Modifier.padding(horizontal = 10.dp)) {
-                AsyncImage(
-                    avatarImageRequest,
-                    contentDescription = "account avatar",
-                    modifier = Modifier
-                        .size(40.dp)
-                        .padding(2.5.dp)
-                        .align(Alignment.CenterVertically)
-                        .clip(CircleShape),
-                    //placeholder = Icons.Filled.NoAccounts
-                )
-                Column(
-                    modifier = Modifier.padding(start = 15.dp).padding(vertical = 10.dp)
-                        .align(Alignment.CenterVertically)
-                ) {
-                    Text(
-                        accountNick,
-                        modifier = Modifier.padding(bottom = 1.dp)
-                    )
-                    Text(
-                        accountNo.toString(),
-                        modifier = Modifier.padding(top = 1.dp)
-                    )
-                }
-            }
-        },
-        onClick = { onSwitchAccount(accountNo) }
-    )
-}
 
 @Preview
 @Composable
@@ -200,10 +78,11 @@ fun HomeTopAppBarPreview() {
                 BasicAccountInfo(1145141919, "WhichWho", null),
             ),
             botListExpanded = expanded,
-            showAvatarProgressIndicator = true,
+            state = mutableStateOf(AccountState.Default),
+//            showAvatarProgressIndicator = true,
             onAvatarClick = { expanded.value = !expanded.value },
             onSwitchAccount = {},
-            activeAccountOnline = true,
+//            activeAccountOnline = true,
             title = "123title"
         ) {}
     }

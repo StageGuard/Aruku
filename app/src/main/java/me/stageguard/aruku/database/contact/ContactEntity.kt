@@ -8,14 +8,14 @@ import me.stageguard.aruku.database.account.AccountEntity
 @Entity(
     tableName = "friend",
     indices = [Index("account_id", "friend_id")],
-    foreignKeys = [
-        ForeignKey(
-            entity = AccountEntity::class,
-            parentColumns = arrayOf("account_no"),
-            childColumns = arrayOf("account_id"),
-            onDelete = ForeignKey.CASCADE
-        )
-    ]
+//    foreignKeys = [
+//        ForeignKey(
+//            entity = AccountEntity::class,
+//            parentColumns = arrayOf("account_no"),
+//            childColumns = arrayOf("account_id"),
+//            onDelete = ForeignKey.CASCADE
+//        )
+//    ]
 )
 data class FriendEntity(
     @ColumnInfo(name = "account_id") val account: Long,

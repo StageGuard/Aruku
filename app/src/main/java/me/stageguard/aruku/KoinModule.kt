@@ -7,6 +7,7 @@ import me.stageguard.aruku.database.ArukuDatabase
 import me.stageguard.aruku.service.ArukuMiraiService
 import me.stageguard.aruku.ui.activity.unitProp
 import me.stageguard.aruku.ui.page.home.HomeViewModel
+import me.stageguard.aruku.ui.page.home.account.AccountAvatarViewModel
 import me.stageguard.aruku.ui.page.home.contact.ContactViewModel
 import me.stageguard.aruku.ui.page.home.message.MessageViewModel
 import me.stageguard.aruku.ui.page.login.LoginViewModel
@@ -18,7 +19,11 @@ val applicationModule = module {
     single<BotFactory> { BotFactory }
 
     // database and preference
-    single { Room.databaseBuilder(get(), ArukuDatabase::class.java, "aruku-db").build() }
+    single {
+        Room.databaseBuilder(get(), ArukuDatabase::class.java, "aruku-db")
+            .fallbackToDestructiveMigration()
+            .build()
+    }
     single { Okkv.Builder().store(MMKVStore(get())).cache(true).build().init().default() }
 
     // service
@@ -35,4 +40,5 @@ val applicationModule = module {
     viewModel { HomeViewModel(get(), get<ArukuMiraiService.Connector>().bots, get()) }
     viewModel { MessageViewModel(get(), get()) }
     viewModel { ContactViewModel(get(), get()) }
+    viewModel { AccountAvatarViewModel() }
 }
