@@ -110,6 +110,10 @@ dependencies {
     runtimeOnly files("libs/mirai-core-android-2.14.0.jar")
     api files("libs/mirai-core-api-android-2.14.0.jar")
     implementation files("libs/mirai-core-utils-android-2.14.0.jar")
+    implementation "io.ktor:ktor-client-core:2.2.1"
+    implementation "io.ktor:ktor-server-core:2.2.1"
+    implementation "io.ktor:ktor-client-okhttp:2.2.1"
+    implementation "io.ktor:ktor-server-netty:2.2.1"
 
 
     implementation 'org.bouncycastle:bcpkix-jdk15on:1.70'
