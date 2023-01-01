@@ -5,16 +5,15 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.paging.*
-import kotlinx.coroutines.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
-import me.stageguard.aruku.R
+import kotlinx.coroutines.withContext
 import me.stageguard.aruku.database.ArukuDatabase
 import me.stageguard.aruku.database.message.MessagePreviewEntity
 import me.stageguard.aruku.service.IArukuMiraiInterface
 import me.stageguard.aruku.service.parcel.ArukuMessageType
-import me.stageguard.aruku.util.log
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 
@@ -32,8 +31,8 @@ class MessageViewModel(
     suspend fun initMessage(account: Long) = withContext(Dispatchers.IO) {
         messages.value = Pager(config = PagingConfig(25), initialKey = 0) {
             database.messagePreview().getMessagesPaging(account)
-        }.flow.map {
-            it.map {
+        }.flow.map { data ->
+            data.map {
                 SimpleMessagePreview(
                     type = it.type,
                     subject = it.subject,

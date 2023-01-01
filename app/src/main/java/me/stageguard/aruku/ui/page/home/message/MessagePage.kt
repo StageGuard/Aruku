@@ -9,7 +9,6 @@ import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
@@ -32,7 +31,6 @@ import me.stageguard.aruku.ui.page.home.message.MessageViewModel
 import me.stageguard.aruku.ui.page.home.message.SimpleMessagePreview
 import me.stageguard.aruku.ui.theme.ArukuTheme
 import me.stageguard.aruku.util.formatHHmm
-import me.stageguard.aruku.util.log
 import org.koin.androidx.compose.koinViewModel
 import java.time.LocalDateTime
 
@@ -77,7 +75,7 @@ fun MessageCard(message: SimpleMessagePreview, modifier: Modifier = Modifier) {
                 Card(
                     modifier = Modifier
                         .padding(12.dp)
-                        .size(35.dp),
+                        .size(45.dp),
                     shape = CircleShape,
                     elevation = CardDefaults.cardElevation(2.dp)
                 ) {
@@ -100,7 +98,7 @@ fun MessageCard(message: SimpleMessagePreview, modifier: Modifier = Modifier) {
                         text = message.name,
                         modifier = Modifier,
                         style = MaterialTheme.typography.bodySmall.copy(
-                            fontSize = 14.sp,
+                            fontSize = 16.sp,
                             fontWeight = FontWeight.SemiBold
                         )
                     )
@@ -108,7 +106,7 @@ fun MessageCard(message: SimpleMessagePreview, modifier: Modifier = Modifier) {
                         text = message.preview,
                         modifier = Modifier,
                         style = MaterialTheme.typography.bodySmall.copy(
-                            fontSize = 12.sp,
+                            fontSize = 14.sp,
                             color = MaterialTheme.colorScheme.outline
                         )
                     )
@@ -118,9 +116,9 @@ fun MessageCard(message: SimpleMessagePreview, modifier: Modifier = Modifier) {
                 text = message.time.formatHHmm(),
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(12.dp),
+                    .padding(14.dp),
                 style = MaterialTheme.typography.bodySmall.copy(
-                    fontSize = 10.sp,
+                    fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.outline
                 )
             )
@@ -128,7 +126,7 @@ fun MessageCard(message: SimpleMessagePreview, modifier: Modifier = Modifier) {
                 text = message.unreadCount.toString(),
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(11.dp)
+                    .padding(14.dp)
                     .defaultMinSize(minWidth = 20.dp, minHeight = 20.dp)
                     .background(
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
