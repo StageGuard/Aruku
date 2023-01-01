@@ -1,13 +1,13 @@
 package me.stageguard.aruku.service
 
 import android.app.*
-import android.content.ComponentName
-import android.content.Context
 import android.content.Intent
-import android.content.ServiceConnection
 import android.os.IBinder
 import android.util.Log
-import androidx.lifecycle.*
+import androidx.lifecycle.LifecycleService
+import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.Observer
+import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.*
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -27,21 +27,15 @@ import net.mamoe.mirai.Bot
 import net.mamoe.mirai.BotFactory
 import net.mamoe.mirai.event.ListeningStatus
 import net.mamoe.mirai.event.events.*
-import net.mamoe.mirai.network.CustomLoginFailedException
 import net.mamoe.mirai.network.LoginFailedException
 import net.mamoe.mirai.utils.BotConfiguration.HeartbeatStrategy
 import net.mamoe.mirai.utils.BotConfiguration.MiraiProtocol
-import net.mamoe.mirai.utils.DeviceVerificationRequests
-import net.mamoe.mirai.utils.DeviceVerificationResult
-import net.mamoe.mirai.utils.LoginSolver
 import org.koin.android.ext.android.inject
 import xyz.cssxsh.mirai.device.MiraiDeviceGenerator
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.collections.component1
 import kotlin.collections.component2
 import kotlin.collections.set
-import kotlin.properties.ReadOnlyProperty
-import kotlin.reflect.KProperty
 
 class ArukuMiraiService : LifecycleService() {
     companion object {
@@ -466,102 +460,7 @@ class ArukuMiraiService : LifecycleService() {
                 }
             }
 
-            loginSolver = object : LoginSolver() {
-                override suspend fun onSolvePicCaptcha(bot: Bot, data: ByteArray): String {
-                    return loginSolvers[bot.id]?.onSolvePicCaptcha(bot.id, data) ?: throw object :
-                        CustomLoginFailedException(false, "no login solver for bot ${bot.id}") {}
-                }
-
-                override suspend fun onSolveSliderCaptcha(bot: Bot, url: String): String {
-                    return loginSolvers[bot.id]?.onSolveSliderCaptcha(bot.id, url) ?: throw object :
-                        CustomLoginFailedException(false, "no login solver for bot ${bot.id}") {}
-                }
-
-                @Deprecated(
-                    "Please use onSolveDeviceVerification instead",
-                    replaceWith = ReplaceWith("onSolveDeviceVerification(bot, url, null)"),
-                    level = DeprecationLevel.WARNING
-                )
-                override suspend fun onSolveUnsafeDeviceLoginVerify(bot: Bot, url: String): String {
-                    return loginSolvers[bot.id]?.onSolveUnsafeDeviceLoginVerify(bot.id, url) ?: throw object :
-                        CustomLoginFailedException(false, "no login solver for bot ${bot.id}") {}
-                }
-
-                override suspend fun onSolveDeviceVerification(
-                    bot: Bot,
-                    requests: DeviceVerificationRequests
-                ): DeviceVerificationResult {
-                    val sms = requests.sms
-                    return if (sms != null) {
-                        sms.requestSms()
-                        val result = loginSolvers[bot.id]?.onSolveSMSRequest(bot.id, sms.countryCode + sms.phoneNumber)
-                            ?: throw object : CustomLoginFailedException(false, "no login solver for bot ${bot.id}") {}
-                        sms.solved(result)
-                    } else {
-                        val fallback = requests.fallback!!
-                        loginSolvers[bot.id]?.onSolveUnsafeDeviceLoginVerify(bot.id, fallback.url)
-                            ?: throw object : CustomLoginFailedException(false, "no login solver for bot ${bot.id}") {}
-                        fallback.solved()
-                    }
-                }
-
-                override val isSliderCaptchaSupported: Boolean
-                    get() = true
-            }
-        }
-    }
-
-    class Connector(
-        private val context: Context
-    ) : ServiceConnection, LifecycleEventObserver, ReadOnlyProperty<Any?, IArukuMiraiInterface> {
-        private lateinit var _delegate: IArukuMiraiInterface
-        val connected: MutableLiveData<Boolean> = MutableLiveData(false)
-
-        private val _bots: MutableList<Long> = mutableListOf()
-        private val _botsLiveData: MutableLiveData<List<Long>> = MutableLiveData()
-
-        val bots: LiveData<List<Long>> = _botsLiveData
-
-        override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
-            Log.d(toLogTag(), "service is connected: $name")
-            _delegate = IArukuMiraiInterface.Stub.asInterface(service)
-            connected.value = true
-
-            _delegate.addBotListObserver(toString(), object : IBotListObserver.Stub() {
-                override fun onChange(newList: LongArray?) {
-                    val l = newList?.toList() ?: listOf()
-                    _bots.removeIf { it !in l }
-                    l.forEach { if (it !in _bots) _bots.add(it) }
-                    _botsLiveData.value = _bots
-                }
-            })
-        }
-
-        override fun onServiceDisconnected(name: ComponentName?) {
-            Log.d(toLogTag(), "service is disconnected: $name")
-            connected.value = false
-            _delegate.removeBotListObserver(toString())
-        }
-
-        override fun onStateChanged(source: LifecycleOwner, event: Lifecycle.Event) {
-            when (event) {
-                Lifecycle.Event.ON_CREATE -> {
-                    val bindResult = context.bindService(
-                        Intent(context, ArukuMiraiService::class.java), this, Context.BIND_ABOVE_CLIENT
-                    )
-                    if (!bindResult) Log.e(toLogTag(), "Cannot bind ArukuMiraiService.")
-                }
-
-                Lifecycle.Event.ON_DESTROY -> {
-                    context.unbindService(this)
-                }
-
-                else -> {}
-            }
-        }
-
-        override fun getValue(thisRef: Any?, property: KProperty<*>): IArukuMiraiInterface {
-            return _delegate
+            loginSolver = ArukuLoginSolver(loginSolvers.weakReference())
         }
     }
 }

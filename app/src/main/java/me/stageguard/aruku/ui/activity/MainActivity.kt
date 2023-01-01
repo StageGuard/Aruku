@@ -24,7 +24,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
 import me.stageguard.aruku.preference.ArukuPreference
-import me.stageguard.aruku.service.ArukuMiraiService
+import me.stageguard.aruku.service.ArukuServiceConnector
 import me.stageguard.aruku.service.IArukuMiraiInterface
 import me.stageguard.aruku.ui.*
 import me.stageguard.aruku.ui.common.MoeSnackBar
@@ -45,7 +45,7 @@ class MainActivity : ComponentActivity() {
         const val NAV_LOGIN = "login"
     }
 
-    private val serviceConnector: ArukuMiraiService.Connector by inject()
+    private val serviceConnector: ArukuServiceConnector by inject()
     private val serviceInterface: IArukuMiraiInterface by inject()
 
     private val activeBot = mutableStateOf<Long?>(null)

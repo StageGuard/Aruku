@@ -4,7 +4,7 @@ import androidx.room.Room
 import com.heyanle.okkv2.MMKVStore
 import com.heyanle.okkv2.core.Okkv
 import me.stageguard.aruku.database.ArukuDatabase
-import me.stageguard.aruku.service.ArukuMiraiService
+import me.stageguard.aruku.service.ArukuServiceConnector
 import me.stageguard.aruku.ui.activity.unitProp
 import me.stageguard.aruku.ui.page.home.HomeViewModel
 import me.stageguard.aruku.ui.page.home.account.AccountAvatarViewModel
@@ -27,9 +27,9 @@ val applicationModule = module {
     single { Okkv.Builder().store(MMKVStore(get())).cache(true).build().init().default() }
 
     // service
-    single { ArukuMiraiService.Connector(get()) }
+    single { ArukuServiceConnector(get()) }
     factory {
-        val connector: ArukuMiraiService.Connector = get()
+        val connector: ArukuServiceConnector = get()
         if (connector.connected.value == true)
             connector.getValue(Unit, ::unitProp)
         else null
@@ -37,7 +37,7 @@ val applicationModule = module {
 
     // view model
     viewModel { LoginViewModel(get()) }
-    viewModel { HomeViewModel(get(), get<ArukuMiraiService.Connector>().bots, get()) }
+    viewModel { HomeViewModel(get(), get<ArukuServiceConnector>().bots, get()) }
     viewModel { MessageViewModel(get(), get()) }
     viewModel { ContactViewModel(get(), get()) }
     viewModel { AccountAvatarViewModel() }
