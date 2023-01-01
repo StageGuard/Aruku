@@ -25,7 +25,7 @@ class TestArukuApplication : Application() {
         startKoin {
             androidLogger()
             androidContext(this@TestArukuApplication)
-            modules(testBotFactoryModule)
+//            modules(testBotFactoryModule)
         }
 
         startService(Intent(this, ArukuMiraiService::class.java))

@@ -11,7 +11,7 @@ import me.stageguard.aruku.util.StringLocale
 val LocalArukuMiraiInterface: ProvidableCompositionLocal<IArukuMiraiInterface> =
     staticCompositionLocalOf { IArukuMiraiInterface.Default() }
 
-val LocalMainNavProvider: ProvidableCompositionLocal<NavController> =
+val LocalNavController: ProvidableCompositionLocal<NavController> =
     staticCompositionLocalOf { error("No MainActivity NavController provided.") }
 
 val LocalStringLocale: ProvidableCompositionLocal<StringLocale> =

@@ -4,7 +4,7 @@
     <string name="messages">消息</string>
     <string name="login_message">登录</string>
     <string name="login_desc">登录以解锁更多功能</string>
-    <string name="qq_account">QQ 账号</string>
+    <string name="qq_account">账号</string>
     <string name="qq_password">密码</string>
     <string name="advanced_options">高级选项</string>
     <string name="auto_reconnect">自动重连</string>
