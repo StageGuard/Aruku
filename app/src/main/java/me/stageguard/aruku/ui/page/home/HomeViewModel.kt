@@ -3,23 +3,33 @@ package me.stageguard.aruku.ui.page.home
 import android.graphics.BitmapFactory
 import android.util.Log
 import android.widget.Toast
+import androidx.annotation.StringRes
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Contacts
+import androidx.compose.material.icons.filled.Message
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.livedata.observeAsState
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.*
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import me.stageguard.aruku.ArukuApplication
 import me.stageguard.aruku.R
 import me.stageguard.aruku.database.ArukuDatabase
 import me.stageguard.aruku.preference.ArukuPreference
 import me.stageguard.aruku.service.IArukuMiraiInterface
 import me.stageguard.aruku.service.ILoginSolver
-import me.stageguard.aruku.service.parcel.ArukuMessageType
+import me.stageguard.aruku.ui.page.home.contact.ContactPage
+import me.stageguard.aruku.ui.page.home.profile.ProfilePage
 import me.stageguard.aruku.ui.page.login.CaptchaType
 import me.stageguard.aruku.ui.page.login.LoginState
 import me.stageguard.aruku.util.stringRes
@@ -28,8 +38,6 @@ import net.mamoe.mirai.Bot
 import net.mamoe.mirai.contact.AvatarSpec
 import net.mamoe.mirai.event.ListeningStatus
 import net.mamoe.mirai.event.events.BotOfflineEvent
-import java.time.LocalDateTime
-import java.time.ZoneOffset
 
 class HomeViewModel(
     private val arukuServiceInterface: IArukuMiraiInterface,
@@ -210,7 +218,6 @@ class HomeViewModel(
             BasicAccountInfo(b.id, b.nick, b.avatarUrl(AvatarSpec.ORIGINAL))
         }
     }
-
 }
 
 enum class HomeNavSelection(val id: Int) {
@@ -218,6 +225,36 @@ enum class HomeNavSelection(val id: Int) {
     CONTACT(1),
     PROFILE(2)
 }
+
+val homeNaves = mapOf(
+    HomeNavSelection.MESSAGE to HomeNav(
+        selection = HomeNavSelection.MESSAGE,
+        icon = Icons.Default.Message,
+        label = R.string.home_nav_message,
+        content = { HomeNavMessage(it) }
+    ),
+    HomeNavSelection.CONTACT to HomeNav(
+        selection = HomeNavSelection.CONTACT,
+        icon = Icons.Default.Contacts,
+        label = R.string.home_nav_contact,
+        content = { ContactPage(it) }
+    ),
+    HomeNavSelection.PROFILE to HomeNav(
+        selection = HomeNavSelection.PROFILE,
+        icon = Icons.Default.AccountCircle,
+        label = R.string.home_nav_profile,
+        content = { ProfilePage(it) }
+    )
+)
+
+data class HomeNav(
+    val selection: HomeNavSelection,
+    val icon: ImageVector,
+    @StringRes val label: Int,
+    val content: @Composable (PaddingValues) -> Unit,
+    val topBar: (@Composable (PaddingValues) -> Unit)? = null,
+    val overly: (@Composable () -> Unit)? = null,
+)
 
 sealed class AccountState(val bot: Long) {
     object Default : AccountState(-1)

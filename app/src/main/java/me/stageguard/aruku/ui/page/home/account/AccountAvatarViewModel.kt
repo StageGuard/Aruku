@@ -9,16 +9,7 @@ import androidx.lifecycle.ViewModel
  */
 class AccountAvatarViewModel : ViewModel() {
 
-    val dropDownExpend = mutableStateOf(false)
+    val accountMenuExpanded = mutableStateOf(false)
 
-    fun onSwitchAccount(bot: Long) {
-        dropDownExpend.value = false
-        // TODO
-    }
-
-    fun onAddAccount() {
-        dropDownExpend.value = false
-        // TODO
-    }
 
 }

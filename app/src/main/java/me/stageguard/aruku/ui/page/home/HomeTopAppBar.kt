@@ -15,13 +15,11 @@ import me.stageguard.aruku.ui.theme.ArukuTheme
 @Composable
 fun HomeTopAppBar(
     botList: List<BasicAccountInfo>,
-    botListExpanded: MutableState<Boolean>,
     title: String,
     state: State<AccountState>,
     modifier: Modifier = Modifier,
-    onAvatarClick: () -> Unit,
     onSwitchAccount: (Long) -> Unit,
-    onAddAccountClick: () -> Unit,
+    onAddAccount: () -> Unit,
 ) {
 //    val avatarProgressIndicator by remember { derivedStateOf { state.value is AccountState.Login } }
 //    val activeAccountOnline by remember { derivedStateOf { state.value is AccountState.Online } }
@@ -43,7 +41,12 @@ fun HomeTopAppBar(
             }
         },
         actions = {
-            AccountAvatar(accountState = state, botList = botList)
+            AccountAvatar(
+                accountState = state,
+                botList = botList,
+                onSwitchAccount = onSwitchAccount,
+                onAddAccount = onAddAccount
+            )
         }
     )
 }
@@ -61,13 +64,12 @@ fun HomeTopAppBarPreview() {
                 BasicAccountInfo(9876543210, "GuardStage", null),
                 BasicAccountInfo(1145141919, "WhichWho", null),
             ),
-            botListExpanded = expanded,
             state = state,
 //            showAvatarProgressIndicator = true,
-            onAvatarClick = { expanded.value = !expanded.value },
+            onAddAccount = { expanded.value = !expanded.value },
             onSwitchAccount = {},
 //            activeAccountOnline = true,
             title = "123title"
-        ) {}
+        )
     }
 }

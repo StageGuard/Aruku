@@ -32,14 +32,23 @@ import me.stageguard.aruku.util.stringResC
 @Composable
 fun AccountAvatar(
     accountState: State<AccountState>,
-    botList: List<BasicAccountInfo>
+    botList: List<BasicAccountInfo>,
+    onAddAccount: () -> Unit,
+    onSwitchAccount: (Long) -> Unit
 ) {
 
     val showProgress by remember { derivedStateOf { accountState.value is AccountState.Login } }
     val online by remember { derivedStateOf { accountState.value is AccountState.Online } }
     val bot = LocalBot.current
+    val viewModel = viewModel<AccountAvatarViewModel>()
 
-    IconButton(onClick = { /*onAvatarClick*/ }) {
+    IconButton(onClick = {
+        if (botList.isEmpty()) {
+            onAddAccount()
+        } else {
+            viewModel.accountMenuExpanded.value = true
+        }
+    }) {
         Box(Modifier.size(45.dp), contentAlignment = Alignment.Center) {
             if (showProgress) CircularProgressIndicator(modifier = Modifier.fillMaxWidth())
             val currentAccount by remember { derivedStateOf { botList.find { it.id == bot } } }
@@ -78,25 +87,42 @@ fun AccountAvatar(
         }
     }
 
-    AccountMenu(botList)
+    AccountMenu(
+        botList,
+        viewModel.accountMenuExpanded,
+        onClickAccountItem = {
+            viewModel.accountMenuExpanded.value = false
+            onSwitchAccount(it)
+        },
+        onDismissAccountMenu = { viewModel.accountMenuExpanded.value = false },
+        onClickAddAccount = {
+            viewModel.accountMenuExpanded.value = false
+            onAddAccount()
+        }
+    )
 
 }
 
 @Composable
-private fun AccountMenu(botList: List<BasicAccountInfo>) {
-
-    val vm = viewModel<AccountAvatarViewModel>()
-    var botListExpanded by remember { vm.dropDownExpend }
+private fun AccountMenu(
+    botList: List<BasicAccountInfo>,
+    expanded: State<Boolean>,
+    onClickAccountItem: (Long) -> Unit,
+    onDismissAccountMenu: () -> Unit,
+    onClickAddAccount: () -> Unit,
+) {
+    val botListExpanded by remember { expanded }
 
     DropdownMenu(
         expanded = botListExpanded,
-        onDismissRequest = { botListExpanded = false }
+        onDismissRequest = onDismissAccountMenu
     ) {
         botList.forEach { bot ->
             AccountListItem(
                 accountNo = bot.id,
                 accountNick = bot.nick,
-                avatarImage = bot.avatarUrl
+                avatarImage = bot.avatarUrl,
+                onClickAccountItem = onClickAccountItem,
             )
         }
         DropdownMenuItem(
@@ -120,16 +146,18 @@ private fun AccountMenu(botList: List<BasicAccountInfo>) {
                     )
                 }
             },
-            onClick = { vm.onAddAccount() }
+            onClick = onClickAddAccount
         )
     }
 }
 
 @Composable
-private fun AccountListItem(accountNo: Long, accountNick: String, avatarImage: Any?) {
-
-    val vm = viewModel<AccountAvatarViewModel>()
-
+private fun AccountListItem(
+    accountNo: Long,
+    accountNick: String,
+    avatarImage: Any?,
+    onClickAccountItem: (Long) -> Unit,
+) {
     DropdownMenuItem(
         text = {
             Row(modifier = Modifier.padding(horizontal = 10.dp)) {
@@ -162,6 +190,6 @@ private fun AccountListItem(accountNo: Long, accountNick: String, avatarImage: A
                 }
             }
         },
-        onClick = { vm.onSwitchAccount(accountNo) }
+        onClick = { onClickAccountItem(accountNo) }
     )
 }
