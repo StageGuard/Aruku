@@ -1,4 +1,4 @@
-package me.stageguard.aruku.util
+package me.stageguard.aruku.service
 
 import android.util.Log
 import net.mamoe.mirai.utils.MiraiLogger

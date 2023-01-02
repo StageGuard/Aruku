@@ -9,13 +9,14 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.Observer
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.*
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import me.stageguard.aruku.ArukuApplication
 import me.stageguard.aruku.R
 import me.stageguard.aruku.database.ArukuDatabase
-import me.stageguard.aruku.database.contact.FriendEntity
-import me.stageguard.aruku.database.contact.GroupEntity
+import me.stageguard.aruku.database.contact.toFriendEntity
+import me.stageguard.aruku.database.contact.toGroupEntity
 import me.stageguard.aruku.database.message.MessagePreviewEntity
 import me.stageguard.aruku.service.parcel.AccountInfo
 import me.stageguard.aruku.service.parcel.ArukuMessage
@@ -25,6 +26,8 @@ import me.stageguard.aruku.ui.activity.MainActivity
 import me.stageguard.aruku.util.*
 import net.mamoe.mirai.Bot
 import net.mamoe.mirai.BotFactory
+import net.mamoe.mirai.contact.Friend
+import net.mamoe.mirai.contact.Group
 import net.mamoe.mirai.event.ListeningStatus
 import net.mamoe.mirai.event.events.*
 import net.mamoe.mirai.network.LoginFailedException
@@ -283,9 +286,11 @@ class ArukuMiraiService : LifecycleService() {
     }
 
     private fun doInitAfterLogin(bot: Bot) {
+        val syncContactLock = Mutex(true)
 
         lifecycleScope.launch(Dispatchers.IO) {
             // cache contacts
+            Log.i(this@ArukuMiraiService.toLogTag("CONTACT"), "syncing contacts to database.")
             kotlin.run {
                 val (groupDao, friendDao) = database { groups() to friends() }
 
@@ -296,9 +301,8 @@ class ArukuMiraiService : LifecycleService() {
                 val deletedGroups = cachedGroups.filter { it.id !in onlineGroupsIds }
 
                 groupDao.delete(*deletedGroups.toTypedArray())
-                groupDao.update(*(onlineGroups - newGroups.toSet()).map { GroupEntity(bot.id, it.id, it.name) }
-                    .toTypedArray())
-                groupDao.insert(*newGroups.map { GroupEntity(bot.id, it.id, it.name) }.toTypedArray())
+                groupDao.update(*(onlineGroups - newGroups.toSet()).map(Group::toGroupEntity).toTypedArray())
+                groupDao.insert(*newGroups.map(Group::toGroupEntity).toTypedArray())
 
                 val (onlineFriends, onlineFriendsIds) = bot.friends.run { this to this.map { it.id } }
                 val (cachedFriends, cachedFriendsIds) = friendDao.getFriends(bot.id).run { this to this.map { it.id } }
@@ -307,88 +311,154 @@ class ArukuMiraiService : LifecycleService() {
                 val deletedFriends = cachedFriends.filter { it.id !in onlineFriendsIds }
 
                 friendDao.delete(*deletedFriends.toTypedArray())
-                friendDao.update(*(onlineFriends - newFriends.toSet()).map {
-                    FriendEntity(bot.id, it.id, it.nick, it.friendGroup.id)
-                }.toTypedArray())
-                friendDao.insert(*newFriends.map { FriendEntity(bot.id, it.id, it.nick, it.friendGroup.id) }
-                    .toTypedArray())
+                friendDao.update(*(onlineFriends - newFriends.toSet()).map(Friend::toFriendEntity).toTypedArray())
+                friendDao.insert(*newFriends.map(Friend::toFriendEntity).toTypedArray())
             }
-
-            // sync latest history messages
-            kotlin.run {
-                val groups = bot.groups
-                //TODO: roaming supported for group
-
-            }
+            Log.i(this@ArukuMiraiService.toLogTag("CONTACT"), "sync contacts complete.")
+            syncContactLock.unlock()
         }
         lifecycleScope.launch {
             // subscribe messages
-            bot.eventChannel.subscribe<MessageEvent>(coroutineContext = CoroutineExceptionHandler { _, throwable ->
-                if (throwable is IllegalStateException && throwable.toString()
-                        .matches(Regex("UNKNOWN_MESSAGE_EVENT_TYPE"))
-                ) {
-                    Log.w(
-                        this@ArukuMiraiService.toLogTag(),
-                        "Unknown message type while listening ${bot.id}"
-                    )
-                } else {
-                    Log.e(
-                        this@ArukuMiraiService.toLogTag(),
-                        "Error while subscribing message of ${bot.id}",
-                        throwable
-                    )
-                }
-            }) { ev ->
-                if (!this@ArukuMiraiService.lifecycleScope.isActive) return@subscribe ListeningStatus.STOPPED
-
-                val messageType = when (ev) {
-                    is GroupMessageEvent -> ArukuMessageType.GROUP
-                    is FriendMessageEvent -> ArukuMessageType.FRIEND
-                    is GroupTempMessageEvent -> ArukuMessageType.TEMP
-                    else -> error("UNKNOWN_MESSAGE_EVENT_TYPE")
-                }
-                val parcelMessageEvent = ArukuMessageEvent(
-                    account = ev.bot.id,
-                    subject = ev.subject.id,
-                    sender = ev.sender.id,
-                    senderName = ev.senderName,
-                    message = ArukuMessage(
-                        source = ev.source,
-                        messages = ev.message
-                    ),
-                    type = messageType
-                )
-                database {
-                    // insert message event to records
-                    messageRecords().insert(parcelMessageEvent.into())
-                    // update message preview
-                    val messagePreviewDao = messagePreview()
-                    val messagePreview = messagePreviewDao.getExactMessagePreview(ev.bot.id, ev.subject.id, messageType)
-                    if (messagePreview.isEmpty()) {
-                        messagePreviewDao.insert(
-                            MessagePreviewEntity(
-                                ev.bot.id,
-                                ev.subject.id,
-                                messageType,
-                                ev.time.toLong(),
-                                ev.sender.remark + ": " + ev.message.contentToString()
-                            )
+            bot.eventChannel.parentScope(lifecycleScope)
+                .subscribe<MessageEvent>(coroutineContext = CoroutineExceptionHandler { _, throwable ->
+                    if (throwable is IllegalStateException && throwable.toString()
+                            .matches(Regex("UNKNOWN_MESSAGE_EVENT_TYPE"))
+                    ) {
+                        Log.w(
+                            this@ArukuMiraiService.toLogTag("MESSAGE"),
+                            "Unknown message type while listening ${bot.id}"
                         )
                     } else {
-                        messagePreviewDao.update(messagePreview.single().apply p@{
-                            this@p.time = ev.time.toLong()
-                            this@p.previewContent = ev.sender.remark + ": " + ev.message.contentToString()
-                        })
+                        Log.e(
+                            this@ArukuMiraiService.toLogTag("MESSAGE"),
+                            "Error while subscribing message of ${bot.id}",
+                            throwable
+                        )
+                    }
+                }) { event ->
+                    if (!this@ArukuMiraiService.lifecycleScope.isActive) return@subscribe ListeningStatus.STOPPED
+
+                    val messageType = when (event) {
+                        is GroupMessageEvent -> ArukuMessageType.GROUP
+                        is FriendMessageEvent -> ArukuMessageType.FRIEND
+                        is GroupTempMessageEvent -> ArukuMessageType.TEMP
+                        else -> error("UNKNOWN_MESSAGE_EVENT_TYPE")
+                    }
+                    val parcelMessageEvent = ArukuMessageEvent(
+                        account = event.bot.id,
+                        subject = event.subject.id,
+                        sender = event.sender.id,
+                        senderName = event.senderName,
+                        message = ArukuMessage(
+                            source = event.source,
+                            messages = event.message
+                        ),
+                        type = messageType
+                    )
+                    database {
+                        // insert message event to records
+                        messageRecords().insert(parcelMessageEvent.into())
+                        // update message preview
+                        val messagePreviewDao = messagePreview()
+                        val messagePreview =
+                            messagePreviewDao.getExactMessagePreview(event.bot.id, event.subject.id, messageType)
+                        if (messagePreview.isEmpty()) {
+                            messagePreviewDao.insert(
+                                MessagePreviewEntity(
+                                    event.bot.id,
+                                    event.subject.id,
+                                    messageType,
+                                    event.time.toLong(),
+                                    event.sender.remark + ": " + event.message.contentToString()
+                                )
+                            )
+                        } else {
+                            messagePreviewDao.update(messagePreview.single().apply p@{
+                                this@p.time = event.time.toLong()
+                                this@p.previewContent = event.sender.remark + ": " + event.message.contentToString()
+                            })
+                        }
+
                     }
 
+                    messageConsumers[event.bot.id]?.let { consumers ->
+                        consumers.forEach { (_, consumer) ->
+                            consumer.consume(parcelMessageEvent)
+                        }
+                    }
+
+                    return@subscribe ListeningStatus.LISTENING
                 }
 
-                messageConsumers[ev.bot.id]?.let { consumers ->
-                    consumers.forEach { (_, consumer) ->
-                        consumer.consume(parcelMessageEvent)
+            // subscribe contact changes
+            bot.eventChannel.parentScope(lifecycleScope).subscribe<BotEvent> { event ->
+                if (!this@ArukuMiraiService.lifecycleScope.isActive) return@subscribe ListeningStatus.STOPPED
+                if (
+                    event !is FriendAddEvent &&
+                    event !is FriendDeleteEvent &&
+                    event !is BotJoinGroupEvent &&
+                    event !is BotLeaveEvent &&
+                    event !is StrangerRelationChangeEvent.Friended
+                ) return@subscribe ListeningStatus.LISTENING
+
+                syncContactLock.lock()
+                when (event) {
+                    is FriendAddEvent, is StrangerRelationChangeEvent.Friended -> {
+                        val friend =
+                            if (event is FriendAddEvent) event.friend else (event as StrangerRelationChangeEvent.Friended).friend
+
+                        val friendDao = database { friends() }
+                        val existing = friendDao.getFriend(event.bot.id, friend.id)
+                        if (existing.isEmpty()) {
+                            friendDao.insert(friend.toFriendEntity())
+                        } else {
+                            friendDao.update(existing.single().apply e@{
+                                this@e.name = friend.nick
+                                this@e.group = friend.friendGroup.id
+                            })
+                        }
+                        Log.i(
+                            this@ArukuMiraiService.toLogTag("CONTACT"),
+                            "friend added via event, friend=${friend}"
+                        )
+                    }
+
+                    is FriendDeleteEvent -> {
+                        val friendDao = database { friends() }
+                        friendDao.deleteViaId(event.bot.id, event.friend.id)
+                        Log.i(
+                            this@ArukuMiraiService.toLogTag("CONTACT"),
+                            "friend deleted via event, friend=${event.friend}"
+                        )
+                    }
+
+                    is BotJoinGroupEvent -> {
+                        val groupDao = database { groups() }
+                        val existing = groupDao.getGroup(event.bot.id, event.groupId)
+                        if (existing.isEmpty()) {
+                            groupDao.insert(event.group.toGroupEntity())
+                        } else {
+                            groupDao.update(existing.single().apply e@{
+                                this@e.name = event.group.name
+                            })
+                        }
+                        Log.i(
+                            this@ArukuMiraiService.toLogTag("CONTACT"),
+                            "group added via event, friend=${event.group}"
+                        )
+                    }
+
+                    is BotLeaveEvent -> {
+                        val groupDao = database { groups() }
+                        groupDao.deleteViaId(event.bot.id, event.groupId)
+                        Log.i(
+                            this@ArukuMiraiService.toLogTag("CONTACT"),
+                            "group deleted via event, friend=${event.group}"
+                        )
                     }
                 }
 
+                syncContactLock.unlock()
                 return@subscribe ListeningStatus.LISTENING
             }
         }
@@ -461,6 +531,7 @@ class ArukuMiraiService : LifecycleService() {
             }
 
             loginSolver = ArukuLoginSolver(loginSolvers.weakReference())
+            enableContactCache()
         }
     }
 }
