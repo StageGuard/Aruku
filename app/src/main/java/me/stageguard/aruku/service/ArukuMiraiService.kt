@@ -165,7 +165,7 @@ class ArukuMiraiService : LifecycleService() {
         if (ArukuApplication.initialized.get()) {
             lifecycleScope.launch(Dispatchers.IO) {
                 database { accounts().getAll() }.filter { !it.isOfflineManually }.forEach { account ->
-                    Log.i(toLogTag(), "reading account data $account")
+                    Log.i(toLogTag(), "reading account data ${account.accountNo}")
                     val existingBot = bots.value?.get(account.accountNo)
                     if (existingBot == null) {
                         bots.value?.set(account.accountNo, createBot(account.into(), pushToDatabase = false))
@@ -255,6 +255,29 @@ class ArukuMiraiService : LifecycleService() {
                     if (throwable is LoginFailedException) {
                         Log.e(toLogTag(), "login $accountNo failed.", throwable)
                         loginSolvers[accountNo]?.onLoginFailed(accountNo, throwable.killBot, throwable.message)
+                    } else if (throwable is IllegalStateException) {
+                        if (throwable.toString()
+                                .contains(Regex("create a new Bot instance", RegexOption.IGNORE_CASE))
+                        ) {
+                            Log.w(toLogTag(), "bot closed, recreating new bot instance and logging.")
+                            removeBot(accountNo)
+                            lifecycleScope.launch(Dispatchers.IO + CoroutineExceptionHandler { _, innerThrowable ->
+                                Log.e(toLogTag(), "uncaught exception while logging $accountNo.", innerThrowable)
+                                loginSolvers[accountNo]?.onLoginFailed(accountNo, true, innerThrowable.message)
+                                removeBot(accountNo)
+
+                            }) {
+                                val account = database.accounts()[accountNo].singleOrNull()
+                                if (account != null && !account.isOfflineManually) {
+                                    addBot(account.into(), notifyPost = true)
+                                    login(accountNo)
+                                }
+                            }
+                        } else {
+                            Log.e(toLogTag(), "uncaught exception while logging $accountNo.", throwable)
+                            loginSolvers[accountNo]?.onLoginFailed(accountNo, true, throwable.message)
+                            removeBot(accountNo)
+                        }
                     } else {
                         Log.e(toLogTag(), "uncaught exception while logging $accountNo.", throwable)
                         loginSolvers[accountNo]?.onLoginFailed(accountNo, true, throwable.message)
