@@ -11,6 +11,8 @@ import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
@@ -38,16 +40,20 @@ import java.time.LocalDateTime
 @Composable
 fun HomeNavMessage(padding: PaddingValues) {
     val bot = LocalBot.current
-    val vm: MessageViewModel = koinViewModel()
+    val viewModel: MessageViewModel = koinViewModel()
 //    LaunchedEffect(bot) { vm.initMessageTest() }
-    LaunchedEffect(bot) { if (bot != null) vm.initMessage(bot) }
+    LaunchedEffect(bot) { if (bot != null) viewModel.initMessage(bot) }
 
-    val messages = vm.messages.value?.collectAsLazyPagingItems()
+    val messages = viewModel.messages.value?.collectAsLazyPagingItems()
     val listState = rememberLazyListState()
 
+    val currentFirstVisibleIndex = remember { mutableStateOf(listState.firstVisibleItemIndex) }
     LaunchedEffect(messages?.itemSnapshotList) {
         val first = messages?.itemSnapshotList?.firstOrNull()
-        if (first != null) listState.animateScrollToItem(0)
+        if (first != null && listState.firstVisibleItemIndex > currentFirstVisibleIndex.value) {
+            listState.animateScrollToItem((listState.firstVisibleItemIndex - 1).coerceAtLeast(0))
+        }
+        currentFirstVisibleIndex.value = listState.firstVisibleItemIndex
     }
 
     Box {

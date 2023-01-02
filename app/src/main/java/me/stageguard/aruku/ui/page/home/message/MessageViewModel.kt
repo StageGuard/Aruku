@@ -31,7 +31,7 @@ class MessageViewModel(
     val messages: State<Flow<PagingData<SimpleMessagePreview>>?> get() = _messages
 
     suspend fun initMessage(account: Long) = withContext(Dispatchers.IO) {
-        _messages.value = Pager(config = PagingConfig(25), initialKey = 0) {
+        _messages.value = Pager(config = PagingConfig(12/* based on dpi=360, height=2160 */), initialKey = 0) {
             database.messagePreview().getMessagesPaging(account)
         }.flow.map { data ->
             data.map {
