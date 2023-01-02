@@ -29,7 +29,7 @@ fun Navigation() {
 
     val activeBot = remember { mutableStateOf<Long?>(null) }
     LaunchedEffect(Unit) {
-        Log.i(toLogTag(), "setActiveBot ${ArukuPreference.activeBot}")
+        Log.i(toLogTag("Navigation"), "setActiveBot ${ArukuPreference.activeBot}")
         activeBot.value = ArukuPreference.activeBot
     }
 

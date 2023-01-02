@@ -28,6 +28,7 @@ import net.mamoe.mirai.Bot
 import net.mamoe.mirai.BotFactory
 import net.mamoe.mirai.contact.Friend
 import net.mamoe.mirai.contact.Group
+import net.mamoe.mirai.contact.nameCardOrNick
 import net.mamoe.mirai.event.ListeningStatus
 import net.mamoe.mirai.event.events.*
 import net.mamoe.mirai.network.LoginFailedException
@@ -165,7 +166,7 @@ class ArukuMiraiService : LifecycleService() {
         if (ArukuApplication.initialized.get()) {
             lifecycleScope.launch(Dispatchers.IO) {
                 database { accounts().getAll() }.filter { !it.isOfflineManually }.forEach { account ->
-                    Log.i(toLogTag(), "reading account data ${account.accountNo}")
+                    Log.i(this@ArukuMiraiService.toLogTag(), "reading account data ${account.accountNo}")
                     val existingBot = bots.value?.get(account.accountNo)
                     if (existingBot == null) {
                         bots.value?.set(account.accountNo, createBot(account.into(), pushToDatabase = false))
@@ -313,7 +314,7 @@ class ArukuMiraiService : LifecycleService() {
 
         lifecycleScope.launch(Dispatchers.IO) {
             // cache contacts
-            Log.i(this@ArukuMiraiService.toLogTag("CONTACT"), "syncing contacts to database.")
+            Log.i(toLogTag("Contact"), "syncing contacts to database.")
             kotlin.run {
                 val (groupDao, friendDao) = database { groups() to friends() }
 
@@ -337,7 +338,7 @@ class ArukuMiraiService : LifecycleService() {
                 friendDao.update(*(onlineFriends - newFriends.toSet()).map(Friend::toFriendEntity).toTypedArray())
                 friendDao.insert(*newFriends.map(Friend::toFriendEntity).toTypedArray())
             }
-            Log.i(this@ArukuMiraiService.toLogTag("CONTACT"), "sync contacts complete.")
+            Log.i(toLogTag("Contact"), "sync contacts complete.")
             syncContactLock.unlock()
         }
         lifecycleScope.launch {
@@ -345,18 +346,11 @@ class ArukuMiraiService : LifecycleService() {
             bot.eventChannel.parentScope(lifecycleScope)
                 .subscribe<MessageEvent>(coroutineContext = CoroutineExceptionHandler { _, throwable ->
                     if (throwable is IllegalStateException && throwable.toString()
-                            .matches(Regex("UNKNOWN_MESSAGE_EVENT_TYPE"))
+                            .contains(Regex("UNKNOWN_MESSAGE_EVENT_TYPE"))
                     ) {
-                        Log.w(
-                            this@ArukuMiraiService.toLogTag("MESSAGE"),
-                            "Unknown message type while listening ${bot.id}"
-                        )
+                        Log.w(toLogTag("Message"), "Unknown message type while listening ${bot.id}")
                     } else {
-                        Log.e(
-                            this@ArukuMiraiService.toLogTag("MESSAGE"),
-                            "Error while subscribing message of ${bot.id}",
-                            throwable
-                        )
+                        Log.e(toLogTag("Message"), "Error while subscribing message of ${bot.id}", throwable)
                     }
                 }) { event ->
                     if (!this@ArukuMiraiService.lifecycleScope.isActive) return@subscribe ListeningStatus.STOPPED
@@ -392,7 +386,7 @@ class ArukuMiraiService : LifecycleService() {
                                     event.subject.id,
                                     messageType,
                                     event.time.toLong(),
-                                    event.sender.remark + ": " + event.message.contentToString()
+                                    event.sender.nameCardOrNick + ": " + event.message.contentToString()
                                 )
                             )
                         } else {
@@ -441,7 +435,7 @@ class ArukuMiraiService : LifecycleService() {
                             })
                         }
                         Log.i(
-                            this@ArukuMiraiService.toLogTag("CONTACT"),
+                            this@ArukuMiraiService.toLogTag("Contact"),
                             "friend added via event, friend=${friend}"
                         )
                     }
@@ -450,7 +444,7 @@ class ArukuMiraiService : LifecycleService() {
                         val friendDao = database { friends() }
                         friendDao.deleteViaId(event.bot.id, event.friend.id)
                         Log.i(
-                            this@ArukuMiraiService.toLogTag("CONTACT"),
+                            this@ArukuMiraiService.toLogTag("Contact"),
                             "friend deleted via event, friend=${event.friend}"
                         )
                     }
@@ -466,7 +460,7 @@ class ArukuMiraiService : LifecycleService() {
                             })
                         }
                         Log.i(
-                            this@ArukuMiraiService.toLogTag("CONTACT"),
+                            this@ArukuMiraiService.toLogTag("Contact"),
                             "group added via event, friend=${event.group}"
                         )
                     }
@@ -475,7 +469,7 @@ class ArukuMiraiService : LifecycleService() {
                         val groupDao = database { groups() }
                         groupDao.deleteViaId(event.bot.id, event.groupId)
                         Log.i(
-                            this@ArukuMiraiService.toLogTag("CONTACT"),
+                            this@ArukuMiraiService.toLogTag("Contact"),
                             "group deleted via event, friend=${event.group}"
                         )
                     }
