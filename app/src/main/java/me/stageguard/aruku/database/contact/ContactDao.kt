@@ -12,7 +12,7 @@ abstract class GroupDao : BaseDao<GroupEntity> {
     abstract fun getGroups(account: Long): List<GroupEntity>
 
     @Query("select * from `group` where account_id=:account")
-    abstract fun geGroupsPaging(account: Long): PagingSource<Int, GroupEntity>
+    abstract fun getGroupsPaging(account: Long): PagingSource<Int, GroupEntity>
 
     @Query("select * from `group` where account_id=:account")
     abstract fun getGroupsFlow(account: Long): Flow<List<GroupEntity>>
