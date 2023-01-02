@@ -1,5 +1,7 @@
-package me.stageguard.aruku.ui.page.home
+package me.stageguard.aruku.ui.page.home.message
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -27,13 +29,12 @@ import me.stageguard.aruku.service.parcel.ArukuMessageType
 import me.stageguard.aruku.ui.LocalBot
 import me.stageguard.aruku.ui.common.EmptyListWhitePage
 import me.stageguard.aruku.ui.common.FastScrollToTopFab
-import me.stageguard.aruku.ui.page.home.message.MessageViewModel
-import me.stageguard.aruku.ui.page.home.message.SimpleMessagePreview
 import me.stageguard.aruku.ui.theme.ArukuTheme
 import me.stageguard.aruku.util.formatHHmm
 import org.koin.androidx.compose.koinViewModel
 import java.time.LocalDateTime
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HomeNavMessage(padding: PaddingValues) {
     val bot = LocalBot.current
@@ -43,6 +44,11 @@ fun HomeNavMessage(padding: PaddingValues) {
 
     val messages = vm.messages.value?.collectAsLazyPagingItems()
     val listState = rememberLazyListState()
+
+    LaunchedEffect(messages?.itemSnapshotList) {
+        val first = messages?.itemSnapshotList?.firstOrNull()
+        if (first != null) listState.animateScrollToItem(0)
+    }
 
     Box {
         EmptyListWhitePage(data = messages) {
@@ -56,9 +62,12 @@ fun HomeNavMessage(padding: PaddingValues) {
             contentPadding = PaddingValues(5.dp)
         ) {
             if (messages != null) {
-                items(messages) {
+                items(messages, key = { it.type to it.subject }) {
                     if (it != null) {
-                        MessageCard(message = it)
+                        MessageCard(
+                            message = it,
+                            modifier = Modifier.animateItemPlacement().animateContentSize()
+                        )
                     }
                 }
             }

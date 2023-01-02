@@ -1,6 +1,7 @@
 package me.stageguard.aruku.ui.page.home.message
 
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -26,10 +27,11 @@ class MessageViewModel(
     private val database: ArukuDatabase,
 ) : ViewModel() {
 
-    val messages: MutableState<Flow<PagingData<SimpleMessagePreview>>?> = mutableStateOf(null)
+    private val _messages: MutableState<Flow<PagingData<SimpleMessagePreview>>?> = mutableStateOf(null)
+    val messages: State<Flow<PagingData<SimpleMessagePreview>>?> get() = _messages
 
     suspend fun initMessage(account: Long) = withContext(Dispatchers.IO) {
-        messages.value = Pager(config = PagingConfig(25), initialKey = 0) {
+        _messages.value = Pager(config = PagingConfig(25), initialKey = 0) {
             database.messagePreview().getMessagesPaging(account)
         }.flow.map { data ->
             data.map {
