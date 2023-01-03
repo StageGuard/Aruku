@@ -31,7 +31,7 @@ import me.stageguard.aruku.service.parcel.AccountInfo
 import me.stageguard.aruku.ui.common.SingleItemLazyColumn
 import me.stageguard.aruku.ui.theme.ArukuTheme
 import me.stageguard.aruku.util.stringResC
-import me.stageguard.aruku.util.toLogTag
+import me.stageguard.aruku.util.tag
 import net.mamoe.mirai.utils.BotConfiguration
 import net.mamoe.mirai.utils.secondsToMillis
 import org.koin.androidx.compose.koinViewModel
@@ -44,7 +44,7 @@ fun LoginPage(
 ) {
     val viewModel: LoginViewModel = koinViewModel()
     LaunchedEffect(viewModel.state.value) {
-        Log.i(toLogTag("LoginPageLaunchedEffect"), viewModel.state.value.toString())
+        Log.i(tag("LoginPageLaunchedEffect"), viewModel.state.value.toString())
         if (viewModel.state.value is LoginState.Success) onLoginSuccess(viewModel.accountInfo.value.accountNo)
     }
 

@@ -35,7 +35,7 @@ import me.stageguard.aruku.ui.page.home.profile.HomeProfilePage
 import me.stageguard.aruku.ui.page.login.CaptchaType
 import me.stageguard.aruku.ui.page.login.LoginState
 import me.stageguard.aruku.util.stringRes
-import me.stageguard.aruku.util.toLogTag
+import me.stageguard.aruku.util.tag
 import net.mamoe.mirai.Bot
 import net.mamoe.mirai.contact.AvatarSpec
 import net.mamoe.mirai.event.ListeningStatus
@@ -138,13 +138,13 @@ class HomeViewModel(
     // observe account state at home page
     fun observeAccountState(account: Long?) {
         val bot = if (account != null) Bot.getInstanceOrNull(account) else null
-        Log.i(toLogTag(), "observeAccountState $bot")
+        Log.i(tag(), "observeAccountState $bot")
         // no bot provided from LocalBot, maybe first launch login or no account.
         if (bot == null) {
             val activeBot = ArukuPreference.activeBot
             // first launch login
             if (activeBot != null) { // state: Logging
-                Log.i(toLogTag(), "First launch and observing background account login state.")
+                Log.i(tag(), "First launch and observing background account login state.")
                 _loginState.value = AccountState.Login(activeBot, LoginState.Logging)
 
                 activeAccountLoginSolver?.let { arukuServiceInterface.removeLoginSolver(it.first) }
@@ -159,12 +159,12 @@ class HomeViewModel(
                 viewModelScope.launch(Dispatchers.IO) {
                     val dbAccount = database { accounts()[bot.id].singleOrNull() }
                     if (dbAccount == null) {
-                        Log.w(toLogTag(), "LocalBot is provided but the account is not found in database.")
+                        Log.w(tag(), "LocalBot is provided but the account is not found in database.")
                         return@launch
                     }
 
                     if (!dbAccount.isOfflineManually) { // state: Logging
-                        Log.i(toLogTag(), "Bot is now logging.")
+                        Log.i(tag(), "Bot is now logging.")
                         _loginState.value = AccountState.Login(bot.id, LoginState.Logging)
 
                         activeAccountLoginSolver?.let { arukuServiceInterface.removeLoginSolver(it.first) }
@@ -179,7 +179,7 @@ class HomeViewModel(
                     }
                 }
             } else { // state: Online
-                Log.i(toLogTag(), "Bot is online.")
+                Log.i(tag(), "Bot is online.")
                 _loginState.value = AccountState.Online(bot.id)
                 bot.eventChannel.parentScope(viewModelScope).subscribe<BotOfflineEvent> {
                     if (!viewModelScope.isActive) return@subscribe ListeningStatus.STOPPED

@@ -4,7 +4,7 @@ import android.app.Application
 import android.content.Intent
 import android.util.Log
 import me.stageguard.aruku.service.ArukuMiraiService
-import me.stageguard.aruku.util.toLogTag
+import me.stageguard.aruku.util.tag
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
@@ -37,7 +37,7 @@ class TestArukuApplication : Application() {
             Security.removeProvider(BouncyCastleProvider.PROVIDER_NAME)
             Security.addProvider(BouncyCastleProvider())
         } catch (t: Throwable) {
-            Log.w(toLogTag(), "Cannot replace original bouncy castle provider.", t)
+            Log.w(tag(), "Cannot replace original bouncy castle provider.", t)
         }
     }
 }

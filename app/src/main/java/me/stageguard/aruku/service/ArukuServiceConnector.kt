@@ -7,7 +7,7 @@ import android.content.ServiceConnection
 import android.os.IBinder
 import android.util.Log
 import androidx.lifecycle.*
-import me.stageguard.aruku.util.toLogTag
+import me.stageguard.aruku.util.tag
 import kotlin.properties.ReadOnlyProperty
 import kotlin.reflect.KProperty
 
@@ -23,7 +23,7 @@ class ArukuServiceConnector(
     val bots: LiveData<List<Long>> = _botsLiveData
 
     override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
-        Log.d(toLogTag(), "service is connected: $name")
+        Log.d(tag(), "service is connected: $name")
         _delegate = IArukuMiraiInterface.Stub.asInterface(service)
         connected.value = true
 
@@ -38,7 +38,7 @@ class ArukuServiceConnector(
     }
 
     override fun onServiceDisconnected(name: ComponentName?) {
-        Log.d(toLogTag(), "service is disconnected: $name")
+        Log.d(tag(), "service is disconnected: $name")
         connected.value = false
         _delegate.removeBotListObserver(toString())
     }
@@ -49,14 +49,14 @@ class ArukuServiceConnector(
                 val bindResult = context.bindService(
                     Intent(context, ArukuMiraiService::class.java), this, Context.BIND_ABOVE_CLIENT
                 )
-                if (!bindResult) Log.e(toLogTag(), "Cannot bind ArukuMiraiService.")
+                if (!bindResult) Log.e(tag(), "Cannot bind ArukuMiraiService.")
             }
 
             Lifecycle.Event.ON_DESTROY -> {
                 try {
                     context.unbindService(this)
                 } catch (ex: IllegalArgumentException) {
-                    Log.w(toLogTag(), "unable to unregister service.")
+                    Log.w(tag(), "unable to unregister service.")
                 }
             }
 

@@ -15,7 +15,7 @@ import me.stageguard.aruku.ui.common.animatedComposable
 import me.stageguard.aruku.ui.page.chat.ChatPage
 import me.stageguard.aruku.ui.page.home.HomePage
 import me.stageguard.aruku.ui.page.login.LoginPage
-import me.stageguard.aruku.util.toLogTag
+import me.stageguard.aruku.util.tag
 
 /**
  * Created by LoliBall on 2023/1/1 19:32.
@@ -31,7 +31,7 @@ fun Navigation() {
 
     val activeBot = remember { mutableStateOf<Long?>(null) }
     LaunchedEffect(Unit) {
-        Log.i(toLogTag("Navigation"), "setActiveBot ${ArukuPreference.activeBot}")
+        Log.i(tag("Navigation"), "setActiveBot ${ArukuPreference.activeBot}")
         activeBot.value = ArukuPreference.activeBot
     }
 

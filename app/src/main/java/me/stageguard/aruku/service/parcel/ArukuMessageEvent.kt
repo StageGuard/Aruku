@@ -7,7 +7,7 @@ import kotlinx.parcelize.Parcelize
 import kotlinx.parcelize.RawValue
 import me.stageguard.aruku.database.message.MessageRecordEntity
 import me.stageguard.aruku.util.Into
-import me.stageguard.aruku.util.toLogTag
+import me.stageguard.aruku.util.tag
 import net.mamoe.mirai.message.data.MessageChain
 import net.mamoe.mirai.message.data.MessageSource
 
@@ -21,7 +21,7 @@ data class ArukuMessageEvent(
     val message: ArukuMessage
 ) : Parcelable, Into<MessageRecordEntity> {
     fun readFromParcel(parcel: Parcel) {
-        Log.i(toLogTag(), "read from parcel: $parcel")
+        Log.i(tag(), "read from parcel: $parcel")
     }
 
     override fun into(): MessageRecordEntity {

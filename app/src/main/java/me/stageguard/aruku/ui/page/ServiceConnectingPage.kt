@@ -21,10 +21,10 @@ import me.stageguard.aruku.R
 import me.stageguard.aruku.service.ArukuMiraiService
 import me.stageguard.aruku.ui.theme.ArukuTheme
 import me.stageguard.aruku.util.stringResC
-import me.stageguard.aruku.util.toLogTag
+import me.stageguard.aruku.util.tag
 import java.lang.ref.WeakReference
 
-private val TAG = Unit.toLogTag("ServiceConnectingPage")
+private val TAG = Unit.tag("ServiceConnectingPage")
 
 @Composable
 fun ServiceConnectingPage(connectorRef: WeakReference<ServiceConnection>) {
