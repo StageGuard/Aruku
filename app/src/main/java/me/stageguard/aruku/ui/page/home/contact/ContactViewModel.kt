@@ -49,7 +49,7 @@ class ContactViewModel(
                     SimpleContactData(
                         it.id,
                         it.name,
-                        arukuServiceInterface.getAvatar(account, ArukuMessageType.GROUP.ordinal, it.id)
+                        arukuServiceInterface.getAvatar(account, ArukuMessageType.FRIEND.ordinal, it.id)
                     )
                 }
             }.cachedIn(viewModelScope)
