@@ -1,6 +1,5 @@
 package me.stageguard.aruku.ui.page.home
 
-import android.util.Log
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedContentScope
 import androidx.compose.animation.ExperimentalAnimationApi
@@ -19,7 +18,6 @@ import me.stageguard.aruku.ui.page.login.CaptchaRequired
 import me.stageguard.aruku.ui.page.login.LoginState
 import me.stageguard.aruku.ui.theme.ArukuTheme
 import me.stageguard.aruku.util.stringResC
-import me.stageguard.aruku.util.toLogTag
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
@@ -30,20 +28,19 @@ fun HomePage(
 ) {
     val bot = LocalBot.current
     val viewModel: HomeViewModel = koinViewModel()
-    val state = viewModel.loginState.value
+    val state = viewModel.loginState
 
     LaunchedEffect(bot) {
-        Log.i(toLogTag(), "observeAccountState $bot")
         viewModel.observeAccountState(bot)
     }
-    LaunchedEffect(state) {
-        if (state is AccountState.Online) onLaunchLoginSuccess(state.bot)
+    LaunchedEffect(state.value) {
+        if (state.value is AccountState.Online) onLaunchLoginSuccess(state.value.bot)
     }
 
     HomeView(
         viewModel.currentNavSelection,
         viewModel.getAccountBasicInfo(),
-        viewModel.loginState,
+        state,
         navigateToLoginPage = navigateToLoginPage,
         onSwitchAccount = onSwitchAccount,
         onRetryCaptcha = { accountNo -> viewModel.submitCaptcha(accountNo, null) },

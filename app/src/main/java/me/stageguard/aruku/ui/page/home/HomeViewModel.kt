@@ -10,6 +10,7 @@ import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Contacts
 import androidx.compose.material.icons.filled.Message
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.graphics.asImageBitmap
@@ -45,11 +46,15 @@ class HomeViewModel(
     private val _accountList: LiveData<List<Long>>,
     private val database: ArukuDatabase,
 ) : ViewModel() {
+    // represents state of current account
+    // it is only changed at [observeAccountState] and [loginSolver]
+    private val _loginState = mutableStateOf<AccountState>(AccountState.Default)
+    val loginState: State<AccountState> get() = _loginState
 
     private val captchaChannel = Channel<String?>()
     private val loginSolver = object : ILoginSolver.Stub() {
         override fun onSolvePicCaptcha(bot: Long, data: ByteArray?): String? {
-            loginState.value = if (data == null) {
+            _loginState.value = if (data == null) {
                 AccountState.Offline(bot, "Picture captcha data is null.")
             } else {
                 AccountState.Login(
@@ -64,12 +69,12 @@ class HomeViewModel(
             }
             val captchaResult =
                 runBlocking(viewModelScope.coroutineContext) { captchaChannel.receive() }
-            loginState.value = AccountState.Login(bot, LoginState.Logging)
+            _loginState.value = AccountState.Login(bot, LoginState.Logging)
             return captchaResult
         }
 
         override fun onSolveSliderCaptcha(bot: Long, url: String?): String? {
-            loginState.value = if (url == null) {
+            _loginState.value = if (url == null) {
                 AccountState.Offline(bot, "Slider captcha url is null.")
             } else {
                 AccountState.Login(
@@ -80,12 +85,12 @@ class HomeViewModel(
 
             val captchaResult =
                 runBlocking(viewModelScope.coroutineContext) { captchaChannel.receive() }
-            loginState.value = AccountState.Login(bot, LoginState.Logging)
+            _loginState.value = AccountState.Login(bot, LoginState.Logging)
             return captchaResult
         }
 
         override fun onSolveUnsafeDeviceLoginVerify(bot: Long, url: String?): String? {
-            loginState.value = if (url == null) {
+            _loginState.value = if (url == null) {
                 AccountState.Offline(bot, "UnsafeDeviceLogin captcha url is null.")
             } else {
                 AccountState.Login(
@@ -96,12 +101,12 @@ class HomeViewModel(
 
             val captchaResult =
                 runBlocking(viewModelScope.coroutineContext) { captchaChannel.receive() }
-            loginState.value = AccountState.Login(bot, LoginState.Logging)
+            _loginState.value = AccountState.Login(bot, LoginState.Logging)
             return captchaResult
         }
 
         override fun onSolveSMSRequest(bot: Long, phone: String?): String? {
-            loginState.value =
+            _loginState.value =
                 AccountState.Login(
                     bot,
                     LoginState.CaptchaRequired(bot, CaptchaType.SMSRequest(bot, phone ?: "-"))
@@ -109,16 +114,16 @@ class HomeViewModel(
 
             val captchaResult =
                 runBlocking(viewModelScope.coroutineContext) { captchaChannel.receive() }
-            loginState.value = AccountState.Login(bot, LoginState.Logging)
+            _loginState.value = AccountState.Login(bot, LoginState.Logging)
             return captchaResult
         }
 
         override fun onLoginSuccess(bot: Long) {
-            loginState.value = AccountState.Online(bot)
+            _loginState.value = AccountState.Online(bot)
         }
 
         override fun onLoginFailed(bot: Long, botKilled: Boolean, cause: String?) {
-            loginState.value = AccountState.Login(bot, LoginState.Failed(bot, cause.toString()))
+            _loginState.value = AccountState.Login(bot, LoginState.Failed(bot, cause.toString()))
             Toast.makeText(
                 ArukuApplication.INSTANCE.applicationContext,
                 R.string.login_failed_please_retry.stringRes(bot.toString()),
@@ -130,20 +135,17 @@ class HomeViewModel(
 
     val currentNavSelection = mutableStateOf(homeNaves[HomeNavSelection.MESSAGE]!!)
 
-    // represents state of current account
-    // it is only changed at [observeAccountState] and [loginSolver]
-    val loginState = mutableStateOf<AccountState>(AccountState.Default)
-
     // observe account state at home page
     fun observeAccountState(account: Long?) {
         val bot = if (account != null) Bot.getInstanceOrNull(account) else null
+        Log.i(toLogTag(), "observeAccountState $bot")
         // no bot provided from LocalBot, maybe first launch login or no account.
         if (bot == null) {
             val activeBot = ArukuPreference.activeBot
             // first launch login
             if (activeBot != null) { // state: Logging
                 Log.i(toLogTag(), "First launch and observing background account login state.")
-                loginState.value = AccountState.Login(activeBot, LoginState.Logging)
+                _loginState.value = AccountState.Login(activeBot, LoginState.Logging)
 
                 activeAccountLoginSolver?.let { arukuServiceInterface.removeLoginSolver(it.first) }
                 val currentLoginSolver = activeBot to loginSolver
@@ -157,15 +159,13 @@ class HomeViewModel(
                 viewModelScope.launch(Dispatchers.IO) {
                     val dbAccount = database { accounts()[bot.id].singleOrNull() }
                     if (dbAccount == null) {
-                        Log.w(
-                            toLogTag(),
-                            "LocalBot is provided but the bot is not stored in database."
-                        )
+                        Log.w(toLogTag(), "LocalBot is provided but the account is not found in database.")
                         return@launch
                     }
 
                     if (!dbAccount.isOfflineManually) { // state: Logging
-                        loginState.value = AccountState.Login(bot.id, LoginState.Logging)
+                        Log.i(toLogTag(), "Bot is now logging.")
+                        _loginState.value = AccountState.Login(bot.id, LoginState.Logging)
 
                         activeAccountLoginSolver?.let { arukuServiceInterface.removeLoginSolver(it.first) }
                         val currentLoginSolver = bot.id to loginSolver
@@ -175,14 +175,15 @@ class HomeViewModel(
                         )
                         activeAccountLoginSolver = currentLoginSolver
                     } else { // state: Offline
-                        loginState.value = AccountState.Offline(bot.id, null)
+                        _loginState.value = AccountState.Offline(bot.id, null)
                     }
                 }
             } else { // state: Online
-                loginState.value = AccountState.Online(bot.id)
+                Log.i(toLogTag(), "Bot is online.")
+                _loginState.value = AccountState.Online(bot.id)
                 bot.eventChannel.parentScope(viewModelScope).subscribe<BotOfflineEvent> {
                     if (!viewModelScope.isActive) return@subscribe ListeningStatus.STOPPED
-                    loginState.value = AccountState.Offline(it.bot.id, it.toString())
+                    _loginState.value = AccountState.Offline(it.bot.id, it.toString())
                     return@subscribe ListeningStatus.LISTENING
                 }
             }
@@ -190,12 +191,12 @@ class HomeViewModel(
     }
 
     fun submitCaptcha(accountNo: Long, result: String? = null) {
-        loginState.value = AccountState.Login(accountNo, LoginState.Logging)
+        _loginState.value = AccountState.Login(accountNo, LoginState.Logging)
         captchaChannel.trySend(result)
     }
 
     fun cancelLogin(accountNo: Long) {
-        loginState.value = AccountState.Offline(accountNo, null)
+        _loginState.value = AccountState.Offline(accountNo, null)
         viewModelScope.launch {
             val accountDao = database { accounts() }
             val dbAccount = accountDao[accountNo].singleOrNull()
