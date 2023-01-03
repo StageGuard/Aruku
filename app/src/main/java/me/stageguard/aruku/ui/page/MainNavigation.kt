@@ -1,16 +1,17 @@
 package me.stageguard.aruku.ui.page
 
 import android.util.Log
+import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.runtime.*
 import androidx.navigation.NavType
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.google.accompanist.navigation.animation.AnimatedNavHost
+import com.google.accompanist.navigation.animation.rememberAnimatedNavController
 import kotlinx.coroutines.delay
 import me.stageguard.aruku.preference.ArukuPreference
 import me.stageguard.aruku.ui.LocalBot
 import me.stageguard.aruku.ui.LocalNavController
+import me.stageguard.aruku.ui.common.animatedComposable
 import me.stageguard.aruku.ui.page.chat.ChatPage
 import me.stageguard.aruku.ui.page.home.HomePage
 import me.stageguard.aruku.ui.page.login.LoginPage
@@ -24,6 +25,7 @@ const val NAV_HOME = "home"
 const val NAV_LOGIN = "login"
 const val NAV_CHAT = "chat"
 
+@OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun Navigation() {
 
@@ -33,10 +35,10 @@ fun Navigation() {
         activeBot.value = ArukuPreference.activeBot
     }
 
-    val navController = rememberNavController()
+    val navController = rememberAnimatedNavController()
     CompositionLocalProvider(LocalNavController provides navController) {
-        NavHost(navController, startDestination = NAV_HOME) {
-            composable(NAV_HOME) {
+        AnimatedNavHost(navController, startDestination = NAV_HOME) {
+            animatedComposable(NAV_HOME) {
                 CompositionLocalProvider(LocalBot provides activeBot.value) {
                     HomePage(
                         navigateToLoginPage = { navController.navigate(NAV_LOGIN) },
@@ -52,14 +54,14 @@ fun Navigation() {
                     )
                 }
             }
-            composable(NAV_LOGIN) {
+            animatedComposable(NAV_LOGIN) {
                 LoginPage(onLoginSuccess = { accountNo ->
                     ArukuPreference.activeBot = accountNo
                     activeBot.value = accountNo
                     navController.popBackStack()
                 })
             }
-            composable(
+            animatedComposable(
                 route = "$NAV_CHAT/{target}",
                 arguments = listOf(navArgument("target") { type = NavType.StringType }),
             ) {
