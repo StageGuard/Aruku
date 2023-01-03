@@ -10,6 +10,6 @@ import androidx.compose.runtime.Composable
  * https://github.com/WhichWho
  */
 @Composable
-fun ProfilePage(padding: PaddingValues) {
+fun HomeProfilePage(padding: PaddingValues) {
     Text("46456", modifier = androidx.compose.ui.Modifier.padding(padding))
 }

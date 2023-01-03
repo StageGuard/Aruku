@@ -19,6 +19,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -38,7 +39,7 @@ import java.time.LocalDateTime
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun HomeNavMessage(padding: PaddingValues) {
+fun HomeMessagePage(padding: PaddingValues) {
     val bot = LocalBot.current
     val viewModel: MessageViewModel = koinViewModel()
 //    LaunchedEffect(bot) { vm.initMessageTest() }
@@ -84,7 +85,7 @@ fun HomeNavMessage(padding: PaddingValues) {
 
 @Composable
 fun MessageCard(message: SimpleMessagePreview, modifier: Modifier = Modifier) {
-    ElevatedCard(modifier = modifier, elevation = CardDefaults.cardElevation(4.dp)) {
+    ElevatedCard(modifier = modifier, elevation = CardDefaults.elevatedCardElevation(4.dp)) {
         Box(modifier = Modifier.fillMaxWidth()) {
             Row(modifier = Modifier.align(Alignment.CenterStart)) {
                 Card(
@@ -114,16 +115,21 @@ fun MessageCard(message: SimpleMessagePreview, modifier: Modifier = Modifier) {
                         modifier = Modifier,
                         style = MaterialTheme.typography.bodySmall.copy(
                             fontSize = 16.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
+                            fontWeight = FontWeight.Bold
+                        ),
+                        overflow = TextOverflow.Ellipsis,
+                        maxLines = 1
                     )
                     Text(
                         text = message.preview,
                         modifier = Modifier,
                         style = MaterialTheme.typography.bodySmall.copy(
                             fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.outline
-                        )
+                            color = MaterialTheme.colorScheme.outline,
+                            fontWeight = FontWeight.SemiBold
+                        ),
+                        overflow = TextOverflow.Ellipsis,
+                        maxLines = 1
                     )
                 }
             }

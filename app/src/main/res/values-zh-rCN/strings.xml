@@ -46,4 +46,6 @@
     <string name="list_empty">空</string>
     <string name="list_loading">加载中</string>
     <string name="list_failed">加载失败</string>
+    <string name="contact_tab_friend">好友</string>
+    <string name="contact_tab_group">群组</string>
 </resources>

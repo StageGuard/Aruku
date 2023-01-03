@@ -51,4 +51,6 @@
     <string name="list_empty">empty</string>
     <string name="list_loading">loading</string>
     <string name="list_failed">load failed</string>
+    <string name="contact_tab_friend">Friend</string>
+    <string name="contact_tab_group">Group</string>
 </resources>

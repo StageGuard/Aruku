@@ -28,8 +28,9 @@ import me.stageguard.aruku.database.ArukuDatabase
 import me.stageguard.aruku.preference.ArukuPreference
 import me.stageguard.aruku.service.IArukuMiraiInterface
 import me.stageguard.aruku.service.ILoginSolver
-import me.stageguard.aruku.ui.page.home.contact.ContactPage
-import me.stageguard.aruku.ui.page.home.profile.ProfilePage
+import me.stageguard.aruku.ui.page.home.contact.HomeContactPage
+import me.stageguard.aruku.ui.page.home.message.HomeMessagePage
+import me.stageguard.aruku.ui.page.home.profile.HomeProfilePage
 import me.stageguard.aruku.ui.page.login.CaptchaType
 import me.stageguard.aruku.ui.page.login.LoginState
 import me.stageguard.aruku.util.stringRes
@@ -231,19 +232,19 @@ val homeNaves = mapOf(
         selection = HomeNavSelection.MESSAGE,
         icon = Icons.Default.Message,
         label = R.string.home_nav_message,
-        content = { HomeNavMessage(it) }
+        content = { HomeMessagePage(it) }
     ),
     HomeNavSelection.CONTACT to HomeNav(
         selection = HomeNavSelection.CONTACT,
         icon = Icons.Default.Contacts,
         label = R.string.home_nav_contact,
-        content = { ContactPage(it) }
+        content = { HomeContactPage(it) }
     ),
     HomeNavSelection.PROFILE to HomeNav(
         selection = HomeNavSelection.PROFILE,
         icon = Icons.Default.AccountCircle,
         label = R.string.home_nav_profile,
-        content = { ProfilePage(it) }
+        content = { HomeProfilePage(it) }
     )
 )
 
