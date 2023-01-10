@@ -7,7 +7,13 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import me.stageguard.aruku.service.IArukuMiraiInterface
 import me.stageguard.aruku.service.ILoginSolver
@@ -34,76 +40,88 @@ class LoginViewModel(
         )
     }
 
-    val state: MutableState<LoginState> = mutableStateOf(LoginState.Default)
+    private val _state: MutableStateFlow<LoginState> = MutableStateFlow(LoginState.Default)
+    val state: StateFlow<LoginState> = _state.asStateFlow()
+
     private val captchaChannel = Channel<String?>()
 
     private val loginSolver = object : ILoginSolver.Stub() {
         override fun onSolvePicCaptcha(bot: Long, data: ByteArray?): String? {
-            state.value = if (data == null) {
-                LoginState.Failed(bot, "Picture captcha data is null.")
-            } else {
-                LoginState.CaptchaRequired(
-                    bot, CaptchaType.Picture(
-                        bot,
-                        BitmapFactory.decodeByteArray(data, 0, data.size).asImageBitmap()
+            viewModelScope.updateState(
+                if (data == null) {
+                    LoginState.Failed(bot, "Picture captcha data is null.")
+                } else {
+                    LoginState.CaptchaRequired(
+                        bot, CaptchaType.Picture(
+                            bot,
+                            BitmapFactory.decodeByteArray(data, 0, data.size).asImageBitmap()
+                        )
                     )
-                )
-            }
+                }
+            )
             return runBlocking(viewModelScope.coroutineContext) { captchaChannel.receive() }
         }
 
         override fun onSolveSliderCaptcha(bot: Long, url: String?): String? {
-            state.value = if (url == null) {
-                LoginState.Failed(bot, "Slider captcha url is null.")
-            } else {
-                LoginState.CaptchaRequired(bot, CaptchaType.Slider(bot, url))
-            }
+            viewModelScope.updateState(
+                if (url == null) {
+                    LoginState.Failed(bot, "Slider captcha url is null.")
+                } else {
+                    LoginState.CaptchaRequired(bot, CaptchaType.Slider(bot, url))
+                }
+            )
             return runBlocking(viewModelScope.coroutineContext) { captchaChannel.receive() }
         }
 
         override fun onSolveUnsafeDeviceLoginVerify(bot: Long, url: String?): String? {
-            state.value = if (url == null) {
-                LoginState.Failed(bot, "UnsafeDeviceLogin captcha url is null.")
-            } else {
-                LoginState.CaptchaRequired(bot, CaptchaType.UnsafeDevice(bot, url))
-            }
+            viewModelScope.updateState(
+                if (url == null) {
+                    LoginState.Failed(bot, "UnsafeDeviceLogin captcha url is null.")
+                } else {
+                    LoginState.CaptchaRequired(bot, CaptchaType.UnsafeDevice(bot, url))
+                }
+            )
             return runBlocking(viewModelScope.coroutineContext) { captchaChannel.receive() }
         }
 
         override fun onSolveSMSRequest(bot: Long, phone: String?): String? {
-            state.value = LoginState.CaptchaRequired(bot, CaptchaType.SMSRequest(bot, phone))
+            viewModelScope.updateState(LoginState.CaptchaRequired(bot, CaptchaType.SMSRequest(bot, phone)))
             return runBlocking(viewModelScope.coroutineContext) { captchaChannel.receive() }
         }
 
         override fun onLoginSuccess(bot: Long) {
-            state.value = LoginState.Success(bot)
+            viewModelScope.updateState(LoginState.Success(bot))
         }
 
         override fun onLoginFailed(bot: Long, botKilled: Boolean, cause: String?) {
-            state.value = LoginState.Failed(bot, cause.toString())
+            viewModelScope.updateState(LoginState.Failed(bot, cause.toString()))
         }
 
     }
 
     fun doLogin(accountNo: Long) {
-        state.value = LoginState.Logging
+        viewModelScope.updateState(LoginState.Logging)
         arukuServiceInterface.addLoginSolver(accountNo, loginSolver)
         arukuServiceInterface.addBot(accountInfo.value, true)
     }
 
     fun retryCaptcha() {
-        state.value = LoginState.Logging
+        viewModelScope.updateState(LoginState.Logging)
         captchaChannel.trySend(null)
     }
 
     fun submitCaptcha(result: String) {
-        state.value = LoginState.Logging
+        viewModelScope.updateState(LoginState.Logging)
         captchaChannel.trySend(result)
     }
 
     fun removeBotAndClearState(accountNo: Long) {
-        state.value = LoginState.Default
+        viewModelScope.updateState(LoginState.Default)
         arukuServiceInterface.removeBot(accountNo)
+    }
+
+    private fun CoroutineScope.updateState(s: LoginState) {
+        launch { _state.update { s } }
     }
 }
 

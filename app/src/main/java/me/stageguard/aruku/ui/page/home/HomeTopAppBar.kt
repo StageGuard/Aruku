@@ -16,7 +16,7 @@ import me.stageguard.aruku.ui.theme.ArukuTheme
 fun HomeTopAppBar(
     botList: List<BasicAccountInfo>,
     title: String,
-    state: State<AccountState>,
+    state: AccountState,
     modifier: Modifier = Modifier,
     onSwitchAccount: (Long) -> Unit,
     onAddAccount: () -> Unit,
@@ -56,7 +56,7 @@ fun HomeTopAppBar(
 @Composable
 fun HomeTopAppBarPreview() {
     val expanded = remember { mutableStateOf(true) }
-    val state = remember { mutableStateOf(AccountState.Default) }
+    val state by remember { mutableStateOf(AccountState.Default) }
     ArukuTheme {
         HomeTopAppBar(
             botList = listOf(

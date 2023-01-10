@@ -1,6 +1,5 @@
 package me.stageguard.aruku.ui.page.chat
 
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.MaterialTheme
@@ -10,13 +9,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
+import me.stageguard.aruku.service.parcel.ArukuContact
+import me.stageguard.aruku.ui.LocalBot
 import me.stageguard.aruku.ui.common.ArrowBack
+import org.koin.androidx.compose.koinViewModel
+import org.koin.core.parameter.parametersOf
 
 /**
  * Created by LoliBall on 2023/1/1 19:30.
@@ -24,7 +22,13 @@ import me.stageguard.aruku.ui.common.ArrowBack
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChatPage(target: Int) {
+fun ChatPage(contact: ArukuContact) {
+    val bot = LocalBot.current
+    val chatViewModel: ChatViewModel = koinViewModel { parametersOf(contact) }
+
+    LaunchedEffect(bot) {
+        if (bot != null) chatViewModel.initChatInfoState(bot)
+    }
 
     Scaffold(
         modifier = Modifier
@@ -34,7 +38,11 @@ fun ChatPage(target: Int) {
         topBar = {
             TopAppBar(
                 navigationIcon = { ArrowBack() },
-                title = { TitleBar(target) },
+                title = {
+                    TitleBar(
+                        name = chatViewModel.subjectName.value
+                    )
+                },
                 actions = { TopActions() }
             )
         },
@@ -51,7 +59,10 @@ fun ChatPage(target: Int) {
 }
 
 @Composable
-private fun TitleBar(target: Int) {
+private fun TitleBar(
+    name: String,
+    lastSeenTime: String = "last seen recently",
+) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Start
@@ -69,8 +80,8 @@ private fun TitleBar(target: Int) {
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.Start
         ) {
-            Text(text = target.toString(), style = MaterialTheme.typography.body1) // TODO
-            Text(text = "last seen time", style = MaterialTheme.typography.subtitle1) // TODO
+            Text(text = name, style = MaterialTheme.typography.body1) // TODO
+            Text(text = lastSeenTime, style = MaterialTheme.typography.subtitle1) // TODO
         }
     }
 }

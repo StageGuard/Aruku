@@ -5,7 +5,9 @@ import com.heyanle.okkv2.MMKVStore
 import com.heyanle.okkv2.core.Okkv
 import me.stageguard.aruku.database.ArukuDatabase
 import me.stageguard.aruku.service.ArukuServiceConnector
+import me.stageguard.aruku.service.parcel.ArukuContact
 import me.stageguard.aruku.ui.activity.unitProp
+import me.stageguard.aruku.ui.page.chat.ChatViewModel
 import me.stageguard.aruku.ui.page.home.HomeViewModel
 import me.stageguard.aruku.ui.page.home.account.AccountAvatarViewModel
 import me.stageguard.aruku.ui.page.home.contact.ContactViewModel
@@ -41,4 +43,8 @@ val applicationModule = module {
     viewModel { MessageViewModel(get(), get()) }
     viewModel { ContactViewModel(get(), get()) }
     viewModel { AccountAvatarViewModel() }
+    viewModel { params ->
+        val contact: ArukuContact = params.get()
+        ChatViewModel(get(), get(), params.get())
+    }
 }

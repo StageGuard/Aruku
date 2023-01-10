@@ -5,6 +5,7 @@ import me.stageguard.aruku.service.parcel.AccountInfo;
 import me.stageguard.aruku.service.IBotListObserver;
 import me.stageguard.aruku.service.ILoginSolver;
 import me.stageguard.aruku.service.IMessageConsumer;
+import me.stageguard.aruku.service.parcel.ArukuContact;
 
 // Declare any non-default types here with import statements
 
@@ -24,6 +25,6 @@ interface IArukuMiraiInterface {
     void removeLoginSolver(long bot);
     void addMessageEventConsumer(long bot, String identity, in IMessageConsumer consumer);
     void removeMessageEventConsumer(String identity);
-    String getAvatar(long account, int type, long subject);
-    String getNickname(long account, int type, long subject);
+    String getAvatarUrl(long account, in ArukuContact contact);
+    String getNickname(long account, in ArukuContact contact);
 }

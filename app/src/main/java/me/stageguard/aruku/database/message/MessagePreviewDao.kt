@@ -5,15 +5,15 @@ import androidx.room.Dao
 import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 import me.stageguard.aruku.database.BaseDao
-import me.stageguard.aruku.service.parcel.ArukuMessageType
+import me.stageguard.aruku.service.parcel.ArukuContactType
 
 @Dao
 abstract class MessagePreviewDao : BaseDao<MessagePreviewEntity> {
     @Query("select * from message_preview where account_id=:account and type=:type order by time desc")
-    abstract fun getMessages(account: Long, type: ArukuMessageType): Flow<List<MessagePreviewEntity>>
+    abstract fun getMessages(account: Long, type: ArukuContactType): Flow<List<MessagePreviewEntity>>
 
     @Query("select * from message_preview where account_id=:account and type=:type order by time desc limit :limit")
-    abstract fun getMessages(account: Long, type: ArukuMessageType, limit: Int): Flow<List<MessagePreviewEntity>>
+    abstract fun getMessages(account: Long, type: ArukuContactType, limit: Int): Flow<List<MessagePreviewEntity>>
 
     @Query("select * from message_preview where account_id=:account order by time desc")
     abstract fun getMessages(account: Long): Flow<List<MessagePreviewEntity>>
@@ -25,18 +25,18 @@ abstract class MessagePreviewDao : BaseDao<MessagePreviewEntity> {
     abstract fun getExactMessagePreview(
         account: Long,
         subject: Long,
-        type: ArukuMessageType
+        type: ArukuContactType
     ): List<MessagePreviewEntity>
 
     fun getFriendMessages(account: Long): Flow<List<MessagePreviewEntity>> =
-        getMessages(account, ArukuMessageType.FRIEND)
+        getMessages(account, ArukuContactType.FRIEND)
 
     fun getFriendMessages(account: Long, limit: Int): Flow<List<MessagePreviewEntity>> =
-        getMessages(account, ArukuMessageType.FRIEND, limit)
+        getMessages(account, ArukuContactType.FRIEND, limit)
 
     fun getGroupMessages(account: Long): Flow<List<MessagePreviewEntity>> =
-        getMessages(account, ArukuMessageType.GROUP)
+        getMessages(account, ArukuContactType.GROUP)
 
     fun getGroupMessages(account: Long, limit: Int): Flow<List<MessagePreviewEntity>> =
-        getMessages(account, ArukuMessageType.GROUP, limit)
+        getMessages(account, ArukuContactType.GROUP, limit)
 }

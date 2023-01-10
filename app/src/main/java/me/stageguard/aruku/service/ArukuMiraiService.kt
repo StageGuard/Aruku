@@ -18,10 +18,7 @@ import me.stageguard.aruku.database.ArukuDatabase
 import me.stageguard.aruku.database.contact.toFriendEntity
 import me.stageguard.aruku.database.contact.toGroupEntity
 import me.stageguard.aruku.database.message.MessagePreviewEntity
-import me.stageguard.aruku.service.parcel.AccountInfo
-import me.stageguard.aruku.service.parcel.ArukuMessage
-import me.stageguard.aruku.service.parcel.ArukuMessageEvent
-import me.stageguard.aruku.service.parcel.ArukuMessageType
+import me.stageguard.aruku.service.parcel.*
 import me.stageguard.aruku.ui.activity.MainActivity
 import me.stageguard.aruku.util.*
 import net.mamoe.mirai.Bot
@@ -136,21 +133,21 @@ class ArukuMiraiService : LifecycleService() {
             }
         }
 
-        override fun getAvatar(account: Long, type: Int, subject: Long): String? {
+        override fun getAvatarUrl(account: Long, contact: ArukuContact): String? {
             val bot = Bot.getInstanceOrNull(account)
-            return if (bot != null) when (enumValues<ArukuMessageType>()[type]) {
-                ArukuMessageType.GROUP -> bot.getGroup(subject)?.avatarUrl
-                ArukuMessageType.FRIEND -> bot.getFriend(subject)?.avatarUrl
-                ArukuMessageType.TEMP -> bot.getStranger(subject)?.avatarUrl
+            return if (bot != null) when (contact.type) {
+                ArukuContactType.GROUP -> bot.getGroup(contact.subject)?.avatarUrl
+                ArukuContactType.FRIEND -> bot.getFriend(contact.subject)?.avatarUrl
+                ArukuContactType.TEMP -> bot.getStranger(contact.subject)?.avatarUrl
             } else null
         }
 
-        override fun getNickname(account: Long, type: Int, subject: Long): String? {
+        override fun getNickname(account: Long, contact: ArukuContact): String? {
             val bot = Bot.getInstanceOrNull(account)
-            return if (bot != null) when (enumValues<ArukuMessageType>()[type]) {
-                ArukuMessageType.GROUP -> bot.getGroup(subject)?.name
-                ArukuMessageType.FRIEND -> bot.getFriend(subject)?.nick
-                ArukuMessageType.TEMP -> bot.getStranger(subject)?.nick
+            return if (bot != null) when (contact.type) {
+                ArukuContactType.GROUP -> bot.getGroup(contact.subject)?.name
+                ArukuContactType.FRIEND -> bot.getFriend(contact.subject)?.nick
+                ArukuContactType.TEMP -> bot.getStranger(contact.subject)?.nick
             } else null
         }
     }
@@ -356,9 +353,9 @@ class ArukuMiraiService : LifecycleService() {
                     if (!this@ArukuMiraiService.lifecycleScope.isActive) return@subscribe ListeningStatus.STOPPED
 
                     val messageType = when (event) {
-                        is GroupMessageEvent -> ArukuMessageType.GROUP
-                        is FriendMessageEvent -> ArukuMessageType.FRIEND
-                        is GroupTempMessageEvent -> ArukuMessageType.TEMP
+                        is GroupMessageEvent -> ArukuContactType.GROUP
+                        is FriendMessageEvent -> ArukuContactType.FRIEND
+                        is GroupTempMessageEvent -> ArukuContactType.TEMP
                         else -> error("UNKNOWN_MESSAGE_EVENT_TYPE")
                     }
                     val parcelMessageEvent = ArukuMessageEvent(

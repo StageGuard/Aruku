@@ -14,7 +14,8 @@ import kotlinx.coroutines.withContext
 import me.stageguard.aruku.database.ArukuDatabase
 import me.stageguard.aruku.database.message.MessagePreviewEntity
 import me.stageguard.aruku.service.IArukuMiraiInterface
-import me.stageguard.aruku.service.parcel.ArukuMessageType
+import me.stageguard.aruku.service.parcel.ArukuContact
+import me.stageguard.aruku.service.parcel.ArukuContactType
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 
@@ -38,16 +39,9 @@ class MessageViewModel(
                 SimpleMessagePreview(
                     type = it.type,
                     subject = it.subject,
-                    avatarData = arukuServiceInterface.getAvatar(
-                        account,
-                        it.type.ordinal,
-                        it.subject
-                    ),
-                    name = arukuServiceInterface.getNickname(
-                        account,
-                        it.type.ordinal,
-                        it.subject
-                    ) ?: it.subject.toString(),
+                    avatarData = arukuServiceInterface.getAvatarUrl(account, ArukuContact(it.type, it.subject)),
+                    name = arukuServiceInterface.getNickname(account, ArukuContact(it.type, it.subject))
+                        ?: it.subject.toString(),
                     preview = it.previewContent,
                     time = LocalDateTime.ofEpochSecond(it.time, 0, ZoneOffset.UTC),
                     unreadCount = 1
@@ -63,7 +57,7 @@ class MessageViewModel(
                 MessagePreviewEntity(
                     account = 3129693328,
                     subject = 789123L + it,
-                    type = ArukuMessageType.GROUP,
+                    type = ArukuContactType.GROUP,
                     time = System.currentTimeMillis(),
                     previewContent = "message" + System.currentTimeMillis()
                 )
@@ -94,7 +88,7 @@ class MessageViewModel(
 
 
 data class SimpleMessagePreview(
-    val type: ArukuMessageType,
+    val type: ArukuContactType,
     val subject: Long,
     val avatarData: Any?,
     val name: String,

@@ -43,13 +43,16 @@ fun LoginPage(
     onLoginSuccess: (Long) -> Unit
 ) {
     val viewModel: LoginViewModel = koinViewModel()
+    val coroutineScope = rememberCoroutineScope()
+
+    val loginState = viewModel.state.collectAsState(context = coroutineScope.coroutineContext)
     LaunchedEffect(viewModel.state.value) {
         Log.i(tag("LoginPageLaunchedEffect"), viewModel.state.value.toString())
         if (viewModel.state.value is LoginState.Success) onLoginSuccess(viewModel.accountInfo.value.accountNo)
     }
 
     LoginView(accountInfo = viewModel.accountInfo,
-        state = viewModel.state,
+        state = loginState,
         onLoginClick = { viewModel.doLogin(it) },
         onLoginFailedClick = { viewModel.removeBotAndClearState(it) },
         onRetryCaptchaClick = { viewModel.retryCaptcha() },

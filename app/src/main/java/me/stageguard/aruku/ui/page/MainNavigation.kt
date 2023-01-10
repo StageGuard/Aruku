@@ -3,12 +3,12 @@ package me.stageguard.aruku.ui.page
 import android.util.Log
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.runtime.*
-import androidx.navigation.NavType
+import androidx.navigation.NavType.ParcelableType
 import androidx.navigation.navArgument
 import com.google.accompanist.navigation.animation.AnimatedNavHost
 import com.google.accompanist.navigation.animation.rememberAnimatedNavController
-import kotlinx.coroutines.delay
 import me.stageguard.aruku.preference.ArukuPreference
+import me.stageguard.aruku.service.parcel.ArukuContact
 import me.stageguard.aruku.ui.LocalBot
 import me.stageguard.aruku.ui.LocalNavController
 import me.stageguard.aruku.ui.common.animatedComposable
@@ -36,23 +36,23 @@ fun Navigation() {
     }
 
     val navController = rememberAnimatedNavController()
-    CompositionLocalProvider(LocalNavController provides navController) {
+    CompositionLocalProvider(
+        LocalNavController provides navController,
+        LocalBot provides activeBot.value
+    ) {
         AnimatedNavHost(navController, startDestination = NAV_HOME) {
             animatedComposable(NAV_HOME) {
-                CompositionLocalProvider(LocalBot provides activeBot.value) {
-                    HomePage(
-                        navigateToLoginPage = { navController.navigate(NAV_LOGIN) },
-                        onSwitchAccount = { accountNo ->
-                            ArukuPreference.activeBot = accountNo
+                HomePage(
+                    onSwitchAccount = { accountNo ->
+                        ArukuPreference.activeBot = accountNo
+                        activeBot.value = accountNo
+                    },
+                    onLaunchLoginSuccess = { accountNo ->
+                        if (accountNo == ArukuPreference.activeBot) {
                             activeBot.value = accountNo
-                        },
-                        onLaunchLoginSuccess = { accountNo ->
-                            if (accountNo == ArukuPreference.activeBot) {
-                                activeBot.value = accountNo
-                            }
                         }
-                    )
-                }
+                    }
+                )
             }
             animatedComposable(NAV_LOGIN) {
                 LoginPage(onLoginSuccess = { accountNo ->
@@ -62,16 +62,17 @@ fun Navigation() {
                 })
             }
             animatedComposable(
-                route = "$NAV_CHAT/{target}",
-                arguments = listOf(navArgument("target") { type = NavType.StringType }),
-            ) {
-                val target = it.arguments?.getString("target")?.toIntOrNull() ?: -1
-                ChatPage(target)
+                route = "$NAV_CHAT/{contact}",
+                arguments = listOf(navArgument("contact") {
+                    type = ParcelableType(ArukuContact::class.java)
+                    nullable = false
+                }),
+            ) { entry ->
+                val arguments = entry.arguments ?: throw IllegalArgumentException("no bundle passed into chat page.")
+                val contact = arguments.getParcelable("contact", ArukuContact::class.java)
+                    ?: throw IllegalArgumentException("no contact info in bundle of chat page.")
+                ChatPage(contact)
             }
-        }
-        LaunchedEffect(Unit) {
-            delay(3000)
-            navController.navigate("$NAV_CHAT/123")
         }
     }
 }

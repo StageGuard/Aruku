@@ -28,7 +28,7 @@ import androidx.paging.compose.items
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import me.stageguard.aruku.R
-import me.stageguard.aruku.service.parcel.ArukuMessageType
+import me.stageguard.aruku.service.parcel.ArukuContactType
 import me.stageguard.aruku.ui.LocalBot
 import me.stageguard.aruku.ui.common.EmptyListWhitePage
 import me.stageguard.aruku.ui.common.FastScrollToTopFab
@@ -174,7 +174,7 @@ fun MessageCardPreview() {
         }
     }.shuffled().map { (icon, message) ->
         SimpleMessagePreview(
-            ArukuMessageType.GROUP,
+            ArukuContactType.GROUP,
             123123L,
             icon,
             message,

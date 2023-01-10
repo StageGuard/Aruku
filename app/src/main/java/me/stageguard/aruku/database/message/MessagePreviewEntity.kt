@@ -3,8 +3,7 @@ package me.stageguard.aruku.database.message
 import androidx.room.*
 import kotlinx.serialization.Serializable
 import me.stageguard.aruku.database.ArukuMessageTypeConverter
-import me.stageguard.aruku.database.account.AccountEntity
-import me.stageguard.aruku.service.parcel.ArukuMessageType
+import me.stageguard.aruku.service.parcel.ArukuContactType
 
 @Serializable
 @Entity(
@@ -23,7 +22,7 @@ data class MessagePreviewEntity(
     @ColumnInfo(name = "account_id") val account: Long,
     @ColumnInfo(name = "subject") val subject: Long,
     @ColumnInfo(name = "type")
-    @TypeConverters(ArukuMessageTypeConverter::class) val type: ArukuMessageType,
+    @TypeConverters(ArukuMessageTypeConverter::class) val type: ArukuContactType,
     @ColumnInfo(name = "time") var time: Long,
     @ColumnInfo(name = "preview") var previewContent: String,
     @PrimaryKey(autoGenerate = true) @ColumnInfo(name = "_prim_key") val _prim_key: Int = 0,

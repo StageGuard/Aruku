@@ -14,7 +14,7 @@ import net.mamoe.mirai.message.data.MessageSource
 @Parcelize
 data class ArukuMessageEvent(
     val account: Long,
-    val type: ArukuMessageType,
+    val type: ArukuContactType,
     val subject: Long,
     val sender: Long, // maybe friend, group or group member
     val senderName: String,
@@ -46,6 +46,12 @@ data class ArukuMessage(
 ) : Parcelable
 
 @Parcelize
-enum class ArukuMessageType : Parcelable {
+data class ArukuContact(
+    val type: ArukuContactType,
+    val subject: Long,
+) : Parcelable
+
+@Parcelize
+enum class ArukuContactType : Parcelable {
     FRIEND, GROUP, TEMP
 }

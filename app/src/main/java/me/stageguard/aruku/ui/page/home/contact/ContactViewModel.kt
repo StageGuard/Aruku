@@ -7,13 +7,15 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.paging.*
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import me.stageguard.aruku.database.ArukuDatabase
 import me.stageguard.aruku.service.IArukuMiraiInterface
-import me.stageguard.aruku.service.parcel.ArukuMessageType
+import me.stageguard.aruku.service.parcel.ArukuContact
+import me.stageguard.aruku.service.parcel.ArukuContactType
 
 /**
  * Created by LoliBall on 2022/12/31 17:13.
@@ -28,7 +30,7 @@ class ContactViewModel(
     val groups: State<Flow<PagingData<SimpleContactData>>?> get() = _groups
     val friends: State<Flow<PagingData<SimpleContactData>>?> get() = _friends
 
-    suspend fun initContacts(account: Long) {
+    context(CoroutineScope) suspend fun initContacts(account: Long) {
         withContext(Dispatchers.IO) {
             _groups.value = Pager(config = PagingConfig(15), initialKey = 0) {
                 database.groups().getGroupsPaging(account)
@@ -37,7 +39,7 @@ class ContactViewModel(
                     SimpleContactData(
                         it.id,
                         it.name,
-                        arukuServiceInterface.getAvatar(account, ArukuMessageType.GROUP.ordinal, it.id)
+                        arukuServiceInterface.getAvatarUrl(account, ArukuContact(ArukuContactType.GROUP, it.id))
                     )
                 }
             }.cachedIn(viewModelScope)
@@ -49,7 +51,7 @@ class ContactViewModel(
                     SimpleContactData(
                         it.id,
                         it.name,
-                        arukuServiceInterface.getAvatar(account, ArukuMessageType.FRIEND.ordinal, it.id)
+                        arukuServiceInterface.getAvatarUrl(account, ArukuContact(ArukuContactType.FRIEND, it.id))
                     )
                 }
             }.cachedIn(viewModelScope)

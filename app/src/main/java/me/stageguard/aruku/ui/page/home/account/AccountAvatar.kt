@@ -31,14 +31,14 @@ import me.stageguard.aruku.util.stringResC
  */
 @Composable
 fun AccountAvatar(
-    accountState: State<AccountState>,
+    accountState: AccountState,
     botList: List<BasicAccountInfo>,
     onAddAccount: () -> Unit,
     onSwitchAccount: (Long) -> Unit
 ) {
 
-    val showProgress by remember { derivedStateOf { accountState.value is AccountState.Login } }
-    val online by remember { derivedStateOf { accountState.value is AccountState.Online } }
+    val showProgress by remember { derivedStateOf { accountState is AccountState.Login } }
+    val online by remember { derivedStateOf { accountState is AccountState.Online } }
     val bot = LocalBot.current
     val viewModel = viewModel<AccountAvatarViewModel>()
 
