@@ -22,17 +22,19 @@ import me.stageguard.aruku.R
  * https://github.com/WhichWho
  */
 @Composable
-fun WhitePage(message: String, image: Any? = R.mipmap.load_error, modifier: Modifier = Modifier) {
+fun WhitePage(message: String, image: Any? = null, modifier: Modifier = Modifier) {
     Box(
         modifier = Modifier.then(modifier),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current).data(image).build(),
-                contentDescription = message
-            )
-            Spacer(modifier = Modifier.height(20.dp))
+            if (image != null) {
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current).data(image).build(),
+                    contentDescription = message
+                )
+                Spacer(modifier = Modifier.height(20.dp))
+            }
             Text(
                 text = message,
                 color = Color.Gray.copy(alpha = 0.6f),

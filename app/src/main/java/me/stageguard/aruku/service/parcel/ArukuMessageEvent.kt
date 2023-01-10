@@ -5,6 +5,9 @@ import android.os.Parcelable
 import android.util.Log
 import kotlinx.parcelize.Parcelize
 import kotlinx.parcelize.RawValue
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import me.stageguard.aruku.database.message.MessageRecordEntity
 import me.stageguard.aruku.util.Into
 import me.stageguard.aruku.util.tag
@@ -46,10 +49,15 @@ data class ArukuMessage(
 ) : Parcelable
 
 @Parcelize
+@Serializable
 data class ArukuContact(
     val type: ArukuContactType,
     val subject: Long,
-) : Parcelable
+) : Parcelable {
+    fun toNavArg(): String {
+        return Json.encodeToString(this)
+    }
+}
 
 @Parcelize
 enum class ArukuContactType : Parcelable {

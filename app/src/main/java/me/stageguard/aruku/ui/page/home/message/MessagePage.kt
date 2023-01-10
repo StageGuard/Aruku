@@ -3,18 +3,17 @@ package me.stageguard.aruku.ui.page.home.message
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -23,23 +22,34 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.paging.LoadState
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.items
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.valentinilk.shimmer.Shimmer
+import com.valentinilk.shimmer.ShimmerBounds
+import com.valentinilk.shimmer.rememberShimmer
+import com.valentinilk.shimmer.shimmer
 import me.stageguard.aruku.R
+import me.stageguard.aruku.service.parcel.ArukuContact
 import me.stageguard.aruku.service.parcel.ArukuContactType
 import me.stageguard.aruku.ui.LocalBot
-import me.stageguard.aruku.ui.common.EmptyListWhitePage
 import me.stageguard.aruku.ui.common.FastScrollToTopFab
+import me.stageguard.aruku.ui.common.WhitePage
 import me.stageguard.aruku.ui.theme.ArukuTheme
 import me.stageguard.aruku.util.formatHHmm
+import me.stageguard.aruku.util.stringResC
+import net.mamoe.mirai.utils.Either
+import net.mamoe.mirai.utils.Either.Companion.ifLeft
+import net.mamoe.mirai.utils.Either.Companion.onLeft
+import net.mamoe.mirai.utils.Either.Companion.onRight
 import org.koin.androidx.compose.koinViewModel
 import java.time.LocalDateTime
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun HomeMessagePage(padding: PaddingValues) {
+fun HomeMessagePage(padding: PaddingValues, onContactClick: (ArukuContact) -> Unit) {
     val bot = LocalBot.current
     val viewModel: MessageViewModel = koinViewModel()
 //    LaunchedEffect(bot) { vm.initMessageTest() }
@@ -47,6 +57,8 @@ fun HomeMessagePage(padding: PaddingValues) {
 
     val messages = viewModel.messages.value?.collectAsLazyPagingItems()
     val listState = rememberLazyListState()
+    val shimmer = rememberShimmer(shimmerBounds = ShimmerBounds.View)
+    val rOnContactClick by rememberUpdatedState(onContactClick)
 
     val currentFirstVisibleIndex = remember { mutableStateOf(listState.firstVisibleItemIndex) }
     LaunchedEffect(messages?.itemSnapshotList) {
@@ -58,35 +70,51 @@ fun HomeMessagePage(padding: PaddingValues) {
     }
 
     Box {
-        EmptyListWhitePage(data = messages) {
-            messages?.refresh()
-        }
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.padding(padding),
-            verticalArrangement = Arrangement.spacedBy(5.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            contentPadding = PaddingValues(5.dp)
-        ) {
-            if (messages != null) {
-                items(messages, key = { it.type to it.subject }) {
-                    if (it != null) {
-                        MessageCard(
-                            message = it,
-                            modifier = Modifier.animateItemPlacement().animateContentSize()
-                        )
+        if (messages != null) {
+            if (messages.loadState.refresh !is LoadState.Error) {
+                if (messages.loadState.refresh !is LoadState.NotLoading || messages.itemCount > 0) {
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier.padding(padding),
+                        verticalArrangement = Arrangement.spacedBy(5.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        contentPadding = PaddingValues(5.dp)
+                    ) {
+                        if (messages.itemCount > 0) {
+                            items(messages, key = { it.contact }) {
+                                if (it != null) {
+                                    MessageCard(
+                                        data = Either<Shimmer, SimpleMessagePreview>(it),
+                                        modifier = Modifier.animateItemPlacement().animateContentSize().clickable {
+                                            rOnContactClick(it.contact)
+                                        }
+                                    )
+                                }
+                            }
+                        } else {
+                            items(10) {
+                                MessageCard(data = Either(shimmer))
+                            }
+                        }
                     }
+                } else {
+                    WhitePage(R.string.list_empty.stringResC)
                 }
+            } else {
+                WhitePage(R.string.list_failed.stringResC)
             }
+        } else {
+            WhitePage(R.string.list_empty.stringResC)
         }
+
         FastScrollToTopFab(listState)
     }
 }
 
 @Composable
-fun MessageCard(message: SimpleMessagePreview, modifier: Modifier = Modifier) {
+fun MessageCard(data: MessagePreviewOrShimmer, modifier: Modifier = Modifier) {
     ElevatedCard(modifier = modifier, elevation = CardDefaults.elevatedCardElevation(4.dp)) {
-        Box(modifier = Modifier.fillMaxWidth()) {
+        Box(modifier = Modifier.fillMaxWidth().apply m@{ data.ifLeft { s -> this@m.shimmer(s) } }) {
             Row(modifier = Modifier.align(Alignment.CenterStart)) {
                 Card(
                     modifier = Modifier
@@ -95,72 +123,121 @@ fun MessageCard(message: SimpleMessagePreview, modifier: Modifier = Modifier) {
                     shape = CircleShape,
                     elevation = CardDefaults.cardElevation(2.dp)
                 ) {
-                    AsyncImage(
-                        ImageRequest.Builder(LocalContext.current)
-                            .data(message.avatarData)
-                            .crossfade(true)
-                            .build(),
-                        "message avatar",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
+                    data.onRight { m ->
+                        AsyncImage(
+                            ImageRequest.Builder(LocalContext.current)
+                                .data(m.avatarData)
+                                .crossfade(true)
+                                .build(),
+                            "message avatar",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    }.onLeft { s ->
+                        Box(
+                            modifier = Modifier.fillMaxSize().shimmer(s).background(
+                                color = MaterialTheme.colorScheme.secondary,
+                                shape = CircleShape
+                            )
+                        )
+                    }
                 }
                 Column(
                     modifier = Modifier
                         .padding(start = 2.dp)
                         .align(Alignment.CenterVertically)
                 ) {
-                    Text(
-                        text = message.name,
-                        modifier = Modifier,
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold
-                        ),
-                        overflow = TextOverflow.Ellipsis,
-                        maxLines = 1
-                    )
-                    Text(
-                        text = message.preview,
-                        modifier = Modifier,
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.outline,
-                            fontWeight = FontWeight.SemiBold
-                        ),
-                        overflow = TextOverflow.Ellipsis,
-                        maxLines = 1
-                    )
+                    data.onRight { m ->
+                        Text(
+                            text = m.name,
+                            modifier = Modifier,
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
+                            ),
+                            overflow = TextOverflow.Ellipsis,
+                            maxLines = 1
+                        )
+                    }.onLeft { s ->
+                        Box(
+                            modifier = Modifier.size(120.dp, 16.dp).shimmer(s).background(
+                                color = MaterialTheme.colorScheme.secondary,
+                                shape = RectangleShape
+                            )
+                        )
+                        Spacer(modifier = modifier.size(100.dp, 5.dp))
+                    }
+                    data.onRight { m ->
+                        Text(
+                            text = m.preview,
+                            modifier = Modifier,
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.outline,
+                                fontWeight = FontWeight.SemiBold
+                            ),
+                            overflow = TextOverflow.Ellipsis,
+                            maxLines = 1
+                        )
+                    }.onLeft { s ->
+                        Box(
+                            modifier = Modifier.size(120.dp, 14.dp).shimmer(s)
+                                .shimmer(s).background(
+                                    color = MaterialTheme.colorScheme.secondary,
+                                    shape = RectangleShape
+                                )
+                        )
+                    }
                 }
             }
-            Text(
-                text = message.time.formatHHmm(),
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(14.dp),
-                style = MaterialTheme.typography.bodySmall.copy(
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.outline
-                )
-            )
-            Text(
-                text = message.unreadCount.toString(),
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(14.dp)
-                    .defaultMinSize(minWidth = 20.dp, minHeight = 20.dp)
-                    .background(
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        shape = CircleShape.copy(CornerSize(100))
+            data.onRight { m ->
+                Text(
+                    text = m.time.formatHHmm(),
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(14.dp),
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.outline
                     )
-                    .padding(3.dp),
-                style = MaterialTheme.typography.bodySmall.copy(
-                    fontSize = 10.sp,
-                    color = MaterialTheme.colorScheme.onPrimary,
-                    fontWeight = FontWeight.Bold
-                ),
-                textAlign = TextAlign.Center
-            )
+                )
+            }.onLeft { s ->
+                Box(
+                    modifier = Modifier.align(Alignment.TopEnd).padding(14.dp).size(35.dp, 12.dp)
+                        .shimmer(s).background(
+                            color = MaterialTheme.colorScheme.secondary,
+                            shape = RectangleShape
+                        )
+                )
+            }
+            data.onRight { m ->
+                Text(
+                    text = m.unreadCount.toString(),
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(14.dp)
+                        .defaultMinSize(minWidth = 20.dp, minHeight = 20.dp)
+                        .background(
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            shape = CircleShape.copy(CornerSize(100))
+                        )
+                        .padding(3.dp),
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = 10.sp,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        fontWeight = FontWeight.Bold
+                    ),
+                    textAlign = TextAlign.Center
+                )
+            }.onLeft { s ->
+                Box(
+                    modifier = Modifier.align(Alignment.BottomEnd)
+                        .padding(14.dp).size(20.dp, 20.dp).shimmer(s).background(
+                            color = MaterialTheme.colorScheme.secondary,
+                            shape = CircleShape.copy(CornerSize(100))
+                        )
+                )
+            }
         }
     }
 }
@@ -169,13 +246,12 @@ fun MessageCard(message: SimpleMessagePreview, modifier: Modifier = Modifier) {
 @Composable
 fun MessageCardPreview() {
     val mockMessages = buildList {
-        for (i in 1..20) {
+        for (i in 1..10) {
             this += R.mipmap.ic_launcher to "MockUserName$i"
         }
     }.shuffled().map { (icon, message) ->
         SimpleMessagePreview(
-            ArukuContactType.GROUP,
-            123123L,
+            ArukuContact(ArukuContactType.GROUP, 123123L),
             icon,
             message,
             "message preview",
@@ -183,13 +259,24 @@ fun MessageCardPreview() {
             (0..100).random()
         )
     }
+    val shimmer = rememberShimmer(ShimmerBounds.View)
 
     ArukuTheme {
         LazyColumn(modifier = Modifier.width(300.dp)) {
+            repeat(3) {
+                item {
+                    MessageCard(
+                        Either(shimmer),
+                        modifier = Modifier
+                            .padding(horizontal = 10.dp, vertical = 5.dp)
+                            .fillMaxWidth()
+                    )
+                }
+            }
             mockMessages.forEach {
                 item {
                     MessageCard(
-                        it,
+                        Either<Shimmer, SimpleMessagePreview>(it),
                         modifier = Modifier
                             .padding(horizontal = 10.dp, vertical = 5.dp)
                             .fillMaxWidth()

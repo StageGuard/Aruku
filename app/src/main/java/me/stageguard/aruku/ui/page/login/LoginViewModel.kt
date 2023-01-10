@@ -12,7 +12,6 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import me.stageguard.aruku.service.IArukuMiraiInterface
@@ -121,7 +120,9 @@ class LoginViewModel(
     }
 
     private fun CoroutineScope.updateState(s: LoginState) {
-        launch { _state.update { s } }
+        launch {
+            _state.emit(s)
+        }
     }
 }
 

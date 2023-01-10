@@ -22,13 +22,14 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import me.stageguard.aruku.ArukuApplication
 import me.stageguard.aruku.R
 import me.stageguard.aruku.database.ArukuDatabase
 import me.stageguard.aruku.preference.ArukuPreference
 import me.stageguard.aruku.service.IArukuMiraiInterface
 import me.stageguard.aruku.service.ILoginSolver
+import me.stageguard.aruku.ui.LocalNavController
+import me.stageguard.aruku.ui.page.NAV_CHAT
 import me.stageguard.aruku.ui.page.home.contact.HomeContactPage
 import me.stageguard.aruku.ui.page.home.message.HomeMessagePage
 import me.stageguard.aruku.ui.page.home.profile.HomeProfilePage
@@ -229,7 +230,9 @@ class HomeViewModel(
     }
 
     private fun CoroutineScope.updateLoginState(s: AccountState) {
-        launch { _loginState.update { s } }
+        launch {
+            _loginState.emit(s)
+        }
     }
 }
 
@@ -244,7 +247,12 @@ val homeNaves = mapOf(
         selection = HomeNavSelection.MESSAGE,
         icon = Icons.Default.Message,
         label = R.string.home_nav_message,
-        content = { HomeMessagePage(it) }
+        content = {
+            val navController = LocalNavController.current
+            HomeMessagePage(it) { contact ->
+                navController.navigate("$NAV_CHAT/${contact.toNavArg()}")
+            }
+        }
     ),
     HomeNavSelection.CONTACT to HomeNav(
         selection = HomeNavSelection.CONTACT,

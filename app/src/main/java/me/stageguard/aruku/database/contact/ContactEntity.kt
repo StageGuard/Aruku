@@ -27,7 +27,14 @@ data class FriendEntity(
     @PrimaryKey(autoGenerate = true) @ColumnInfo(name = "_prim_key") val _prim_key: Int = 0,
 )
 
-fun Friend.toFriendEntity() = FriendEntity(bot.id, id, nick, friendGroup.id)
+fun Friend.toFriendEntity() = FriendEntity(
+    bot.id, id, nick,
+    try {
+        friendGroup.id
+    } catch (npe: NullPointerException) {
+        -1
+    }
+)
 
 @Serializable
 @Entity(

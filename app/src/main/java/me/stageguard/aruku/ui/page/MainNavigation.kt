@@ -3,7 +3,6 @@ package me.stageguard.aruku.ui.page
 import android.util.Log
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.runtime.*
-import androidx.navigation.NavType.ParcelableType
 import androidx.navigation.navArgument
 import com.google.accompanist.navigation.animation.AnimatedNavHost
 import com.google.accompanist.navigation.animation.rememberAnimatedNavController
@@ -12,6 +11,7 @@ import me.stageguard.aruku.service.parcel.ArukuContact
 import me.stageguard.aruku.ui.LocalBot
 import me.stageguard.aruku.ui.LocalNavController
 import me.stageguard.aruku.ui.common.animatedComposable
+import me.stageguard.aruku.ui.common.rememberArgument
 import me.stageguard.aruku.ui.page.chat.ChatPage
 import me.stageguard.aruku.ui.page.home.HomePage
 import me.stageguard.aruku.ui.page.login.LoginPage
@@ -64,13 +64,13 @@ fun Navigation() {
             animatedComposable(
                 route = "$NAV_CHAT/{contact}",
                 arguments = listOf(navArgument("contact") {
-                    type = ParcelableType(ArukuContact::class.java)
+                    type = ArukuContactNavType
                     nullable = false
                 }),
             ) { entry ->
-                val arguments = entry.arguments ?: throw IllegalArgumentException("no bundle passed into chat page.")
-                val contact = arguments.getParcelable("contact", ArukuContact::class.java)
+                val contact = entry.rememberArgument<ArukuContact>("contact")
                     ?: throw IllegalArgumentException("no contact info in bundle of chat page.")
+
                 ChatPage(contact)
             }
         }

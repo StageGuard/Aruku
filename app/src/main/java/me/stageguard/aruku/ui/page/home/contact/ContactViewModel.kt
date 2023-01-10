@@ -37,7 +37,7 @@ class ContactViewModel(
             }.flow.map { data ->
                 data.map {
                     SimpleContactData(
-                        it.id,
+                        ArukuContact(ArukuContactType.GROUP, it.id),
                         it.name,
                         arukuServiceInterface.getAvatarUrl(account, ArukuContact(ArukuContactType.GROUP, it.id))
                     )
@@ -49,7 +49,7 @@ class ContactViewModel(
             }.flow.map { data ->
                 data.map {
                     SimpleContactData(
-                        it.id,
+                        ArukuContact(ArukuContactType.FRIEND, it.id),
                         it.name,
                         arukuServiceInterface.getAvatarUrl(account, ArukuContact(ArukuContactType.FRIEND, it.id))
                     )
@@ -62,7 +62,7 @@ class ContactViewModel(
 data class ContactTab(val title: Int, val content: @Composable () -> Unit)
 
 data class SimpleContactData(
-    val id: Long,
+    val contact: ArukuContact,
     val name: String,
     val avatarData: Any?,
 )

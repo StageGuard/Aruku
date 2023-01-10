@@ -1,8 +1,10 @@
 package me.stageguard.aruku.ui.common
 
+import android.os.Parcelable
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.navigation.NamedNavArgument
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavDeepLink
@@ -41,3 +43,8 @@ fun NavGraphBuilder.animatedComposable(
     },
     content = content
 )
+
+@Composable
+inline fun <reified T : Parcelable> NavBackStackEntry.rememberArgument(
+    key: String = T::class.qualifiedName!!,
+): T? = remember { arguments?.getParcelable(key) }

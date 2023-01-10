@@ -70,6 +70,12 @@
 -keep class net.mamoe.mirai.utils.** { *; }
 -keep class net.mamoe.mirai.* { *; }
 
+-keep class me.stageguard.aruku.service.IArukuMiraiInterface
+-keep class me.stageguard.aruku.service.IBotListObserver
+-keep class me.stageguard.aruku.service.ILoginSolver
+-keep class me.stageguard.aruku.service.IMessageConsumer
+-keep class me.stageguard.aruku.service.parcel.*
+
 # Please add these rules to your existing keep rules in order to suppress warnings.
 # This is generated automatically by the Android Gradle plugin.
 -dontwarn io.ktor.client.engine.okhttp.OkHttpEngineContainer

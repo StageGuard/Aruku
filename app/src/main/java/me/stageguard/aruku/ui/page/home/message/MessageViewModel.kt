@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.paging.*
+import com.valentinilk.shimmer.Shimmer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -16,6 +17,7 @@ import me.stageguard.aruku.database.message.MessagePreviewEntity
 import me.stageguard.aruku.service.IArukuMiraiInterface
 import me.stageguard.aruku.service.parcel.ArukuContact
 import me.stageguard.aruku.service.parcel.ArukuContactType
+import net.mamoe.mirai.utils.Either
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 
@@ -37,8 +39,7 @@ class MessageViewModel(
         }.flow.map { data ->
             data.map {
                 SimpleMessagePreview(
-                    type = it.type,
-                    subject = it.subject,
+                    contact = ArukuContact(it.type, it.subject),
                     avatarData = arukuServiceInterface.getAvatarUrl(account, ArukuContact(it.type, it.subject)),
                     name = arukuServiceInterface.getNickname(account, ArukuContact(it.type, it.subject))
                         ?: it.subject.toString(),
@@ -88,11 +89,12 @@ class MessageViewModel(
 
 
 data class SimpleMessagePreview(
-    val type: ArukuContactType,
-    val subject: Long,
+    val contact: ArukuContact,
     val avatarData: Any?,
     val name: String,
     val preview: String,
     val time: LocalDateTime,
     val unreadCount: Int
 )
+
+typealias MessagePreviewOrShimmer = Either<Shimmer, SimpleMessagePreview>

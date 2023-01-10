@@ -31,6 +31,7 @@ import net.mamoe.mirai.event.events.*
 import net.mamoe.mirai.network.LoginFailedException
 import net.mamoe.mirai.utils.BotConfiguration.HeartbeatStrategy
 import net.mamoe.mirai.utils.BotConfiguration.MiraiProtocol
+import net.mamoe.mirai.utils.mapToArray
 import org.koin.android.ext.android.inject
 import xyz.cssxsh.mirai.device.MiraiDeviceGenerator
 import java.util.concurrent.ConcurrentHashMap
@@ -86,7 +87,7 @@ class ArukuMiraiService : LifecycleService() {
 
             }
             val lifecycleObserver = Observer { new: Map<Long, Bot> ->
-                observer.onChange(new.keys.toLongArray())
+                observer.onChange(new.keys.mapToArray { it }.toLongArray())
             }
             botListObservers[identity] = lifecycleObserver
             lifecycleScope.launch(Dispatchers.Main) {
@@ -249,6 +250,11 @@ class ArukuMiraiService : LifecycleService() {
                         if (account != null) accountDao.update(account.apply { isOfflineManually = false })
                     }
                 }
+                val existingBotJob = botJobs[accountNo]
+                if (existingBotJob != null) {
+                    existingBotJob.cancel()
+                    botJobs.remove(accountNo, existingBotJob)
+                }
                 val job = lifecycleScope.launch(context = CoroutineExceptionHandler { _, throwable ->
                     if (throwable is LoginFailedException) {
                         Log.e(tag(), "login $accountNo failed.", throwable)
@@ -294,11 +300,6 @@ class ArukuMiraiService : LifecycleService() {
                     targetBot.login()
                     doInitAfterLogin(targetBot)
                     targetBot.join()
-                }
-                val existingBotJob = botJobs[accountNo]
-                if (existingBotJob != null) {
-                    existingBotJob.cancel()
-                    botJobs.remove(accountNo, existingBotJob)
                 }
                 botJobs[accountNo] = job
             }

@@ -1,5 +1,6 @@
 package me.stageguard.aruku.ui.page.home.contact
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -23,6 +24,8 @@ import coil.request.ImageRequest
 import com.google.accompanist.pager.*
 import kotlinx.coroutines.launch
 import me.stageguard.aruku.R
+import me.stageguard.aruku.service.parcel.ArukuContact
+import me.stageguard.aruku.service.parcel.ArukuContactType
 import me.stageguard.aruku.ui.LocalBot
 import me.stageguard.aruku.ui.common.EmptyListWhitePage
 import me.stageguard.aruku.ui.common.pagerTabIndicatorOffsetMD3
@@ -96,7 +99,7 @@ fun ContactTabs(tabs: List<ContactTab>, pagerState: PagerState, modifier: Modifi
 fun ContactTabContent(
     data: List<SimpleContactData>,
     modifier: Modifier = Modifier,
-    onContactClick: (Long) -> Unit
+    onContactClick: (ArukuContact) -> Unit
 ) {
     LazyColumn(
         modifier = modifier,
@@ -104,14 +107,14 @@ fun ContactTabContent(
         horizontalAlignment = Alignment.CenterHorizontally,
         contentPadding = PaddingValues(5.dp)
     ) {
-        items(data, key = { it.id }) {
-            ContactItem(it) { onContactClick(it.id) }
+        items(data, key = { it.contact }) {
+            ContactItem(it, modifier = Modifier.clickable { onContactClick(it.contact) })
         }
     }
 }
 
 @Composable
-fun ContactItem(data: SimpleContactData, modifier: Modifier = Modifier, onClick: () -> Unit) {
+fun ContactItem(data: SimpleContactData, modifier: Modifier = Modifier) {
     ElevatedCard(modifier = modifier, elevation = CardDefaults.elevatedCardElevation(4.dp)) {
         Row(modifier = Modifier.fillMaxWidth()) {
             Card(
@@ -141,7 +144,7 @@ fun ContactItem(data: SimpleContactData, modifier: Modifier = Modifier, onClick:
                     maxLines = 1
                 )
                 Text(
-                    text = data.id.toString(),
+                    text = data.contact.subject.toString(),
                     modifier = Modifier,
                     style = MaterialTheme.typography.bodySmall.copy(
                         fontSize = 14.sp,
@@ -182,9 +185,9 @@ fun ContactTabContentPreview() {
     ArukuTheme {
         ContactTabContent(
             data = listOf(
-                SimpleContactData(1234556L, "group 1", R.mipmap.ic_launcher),
-                SimpleContactData(114514L, "group 2", R.mipmap.load_loading),
-                SimpleContactData(1919810L, "friend 1", R.mipmap.load_empty)
+                SimpleContactData(ArukuContact(ArukuContactType.GROUP, 1234556L), "group 1", R.mipmap.ic_launcher),
+                SimpleContactData(ArukuContact(ArukuContactType.GROUP, 114514L), "group 2", R.mipmap.load_loading),
+                SimpleContactData(ArukuContact(ArukuContactType.FRIEND, 1919810L), "friend 1", R.mipmap.load_empty)
             )
         ) { }
     }

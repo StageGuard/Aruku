@@ -51,7 +51,8 @@ fun ChatPage(contact: ArukuContact) {
                 ChatBar()
             }
         }
-    ) {
+    ) { pv ->
+        pv
         // TODO chat background
         // TODO chat message list
     }

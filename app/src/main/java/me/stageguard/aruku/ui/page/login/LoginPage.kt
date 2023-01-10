@@ -36,8 +36,6 @@ import net.mamoe.mirai.utils.BotConfiguration
 import net.mamoe.mirai.utils.secondsToMillis
 import org.koin.androidx.compose.koinViewModel
 
-private const val TAG = "LoginView"
-
 @Composable
 fun LoginPage(
     onLoginSuccess: (Long) -> Unit
@@ -45,10 +43,10 @@ fun LoginPage(
     val viewModel: LoginViewModel = koinViewModel()
     val coroutineScope = rememberCoroutineScope()
 
-    val loginState = viewModel.state.collectAsState(context = coroutineScope.coroutineContext)
-    LaunchedEffect(viewModel.state.value) {
-        Log.i(tag("LoginPageLaunchedEffect"), viewModel.state.value.toString())
-        if (viewModel.state.value is LoginState.Success) onLoginSuccess(viewModel.accountInfo.value.accountNo)
+    val loginState by viewModel.state.collectAsState(context = coroutineScope.coroutineContext)
+    LaunchedEffect(loginState) {
+        Log.i(tag("LoginPageLaunchedEffect"), loginState.toString())
+        if (loginState is LoginState.Success) onLoginSuccess(viewModel.accountInfo.value.accountNo)
     }
 
     LoginView(accountInfo = viewModel.accountInfo,
@@ -64,7 +62,7 @@ fun LoginPage(
 @Composable
 fun LoginView(
     accountInfo: MutableState<AccountInfo>,
-    state: State<LoginState>,
+    state: LoginState,
     onLoginClick: (Long) -> Unit,
     onLoginFailedClick: (Long) -> Unit,
     onRetryCaptchaClick: (Long) -> Unit,
@@ -133,7 +131,7 @@ fun LoginView(
                         shape = RoundedCornerShape(15.dp),
                         isError = if (account.value.isEmpty()) false else !isAccountValid,
                         onValueChange = { account.value = it },
-                        enabled = state.value is LoginState.Default
+                        enabled = state is LoginState.Default
                     )
                     OutlinedTextField(
                         value = password.value,
@@ -158,10 +156,10 @@ fun LoginView(
                         },
                         visualTransformation = if (passwordVisible.value) VisualTransformation.None else PasswordVisualTransformation(),
                         onValueChange = { password.value = it },
-                        enabled = state.value is LoginState.Default
+                        enabled = state is LoginState.Default
                     )
                     AdvancedOptions(
-                        state.value is LoginState.Default,
+                        state is LoginState.Default,
                         protocol,
                         heartbeatStrategy,
                         heartbeatPeriodMillis,
@@ -188,7 +186,7 @@ fun LoginView(
                         },
                         modifier = Modifier.padding(vertical = 30.dp).fillMaxWidth(),
                         shape = RoundedCornerShape(15.dp),
-                        enabled = state.value is LoginState.Default && isAccountValid && account.value.isNotEmpty() && internetPermission.status.isGranted,
+                        enabled = state is LoginState.Default && isAccountValid && account.value.isNotEmpty() && internetPermission.status.isGranted,
                         colors = if (internetPermission.status.isGranted) ButtonDefaults.buttonColors(
                             disabledContainerColor = MaterialTheme.colorScheme.primaryContainer
                         ) else ButtonDefaults.buttonColors(
@@ -196,7 +194,7 @@ fun LoginView(
                         )
                     ) {
                         AnimatedVisibility(
-                            state.value !is LoginState.Default,
+                            state !is LoginState.Default,
                             enter = expandHorizontally(expandFrom = Alignment.Start) + fadeIn(),
                             exit = shrinkHorizontally(shrinkTowards = Alignment.Start) + fadeOut(),
                         ) {
@@ -211,26 +209,25 @@ fun LoginView(
                             modifier = Modifier.padding(8.dp)
                         )
                     }
-                    if (state.value is LoginState.Failed) {
-                        val failedState = state.value as LoginState.Failed
-                        AlertDialog(onDismissRequest = { onLoginFailedClick(failedState.bot) }, title = {
+                    if (state is LoginState.Failed) {
+                        AlertDialog(onDismissRequest = { onLoginFailedClick(state.bot) }, title = {
                             Text(
                                 text = R.string.login_failed.stringResC, style = MaterialTheme.typography.titleLarge
                             )
                         }, text = {
                             Text(
                                 text = R.string.login_failed_message.stringResC(
-                                    failedState.bot.toString(), failedState.cause
+                                    state.bot.toString(), state.cause
                                 ), style = MaterialTheme.typography.bodyMedium
                             )
                         }, confirmButton = {
-                            Button(onClick = { onLoginFailedClick(failedState.bot) }) {
+                            Button(onClick = { onLoginFailedClick(state.bot) }) {
                                 Text(R.string.confirm.stringResC)
                             }
                         })
-                    } else if (state.value is LoginState.CaptchaRequired) {
+                    } else if (state is LoginState.CaptchaRequired) {
                         CaptchaRequired(
-                            state.value as LoginState.CaptchaRequired,
+                            state,
                             onRetryCaptchaClick,
                             onSubmitCaptchaClick,
                             onLoginFailedClick
@@ -247,6 +244,7 @@ fun LoginView(
 @Composable
 fun LoginViewPreview() {
     ArukuTheme(dynamicColor = false, darkTheme = true) {
+        val loginState by remember { mutableStateOf(LoginState.Default) }
         LoginView(mutableStateOf(
             AccountInfo(
                 accountNo = 0L,
@@ -260,7 +258,7 @@ fun LoginViewPreview() {
                 reconnectionRetryTimes = 5
             )
         ),
-            remember { mutableStateOf(LoginState.Default) },
+            loginState,
             onLoginClick = {},
             onLoginFailedClick = {},
             onRetryCaptchaClick = {},
