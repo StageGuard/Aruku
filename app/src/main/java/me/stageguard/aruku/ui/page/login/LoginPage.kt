@@ -17,7 +17,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalInspectionMode
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -107,12 +106,12 @@ fun LoginView(
             )
             Text(
                 text = R.string.login_message.stringResC,
-                style = TextStyle(fontSize = 36.sp, fontWeight = FontWeight.Bold),
+                style = MaterialTheme.typography.titleLarge.copy(fontSize = 36.sp, fontWeight = FontWeight.Bold),
                 modifier = Modifier.padding(vertical = 4.dp)
             )
             Text(
                 text = R.string.login_desc.stringResC,
-                style = TextStyle(fontSize = 24.sp),
+                style = MaterialTheme.typography.titleMedium.copy(fontSize = 24.sp),
                 modifier = Modifier.padding(vertical = 4.dp)
             )
             Column(

@@ -45,7 +45,7 @@ class ArukuMiraiService : LifecycleService() {
         const val FOREGROUND_NOTIFICATION_CHANNEL_ID = "ArukuMiraiService"
     }
 
-    private val _botFactory: BotFactory by inject()
+    private val botFactory: BotFactory by inject()
     private val database: ArukuDatabase by inject()
 
     private val bots: MutableLiveData<MutableMap<Long, Bot>> = MutableLiveData(mutableMapOf())
@@ -390,7 +390,8 @@ class ArukuMiraiService : LifecycleService() {
                         } else {
                             messagePreviewDao.update(messagePreview.single().apply p@{
                                 this@p.time = event.time.toLong()
-                                this@p.previewContent = event.sender.remark + ": " + event.message.contentToString()
+                                this@p.previewContent =
+                                    event.sender.nameCardOrNick + ": " + event.message.contentToString()
                             })
                         }
 
@@ -519,7 +520,7 @@ class ArukuMiraiService : LifecycleService() {
             }
         }
 
-        return _botFactory.newBot(accountInfo.accountNo, accountInfo.passwordMd5) {
+        return botFactory.newBot(accountInfo.accountNo, accountInfo.passwordMd5) {
             workingDir = miraiWorkingDir
             parentCoroutineContext = lifecycleScope.coroutineContext
             protocol = MiraiProtocol.valueOf(accountInfo.protocol)
@@ -538,9 +539,9 @@ class ArukuMiraiService : LifecycleService() {
                 fileBasedDeviceInfo(deviceInfoFile.absolutePath)
             } else {
                 deviceInfo = {
-                    MiraiDeviceGenerator().load(it).also {
+                    MiraiDeviceGenerator().load(it).also { generated ->
                         deviceInfoFile.createNewFile()
-                        deviceInfoFile.writeText(Json.encodeToString(it))
+                        deviceInfoFile.writeText(Json.encodeToString(generated))
                     }
                 }
             }

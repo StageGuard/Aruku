@@ -4,13 +4,14 @@ buildscript {
     ext {
         compose_version = '1.4.0-alpha02'
         mirai_version = '2.13.2'
-        lifecycle_version = '2.6.0-alpha02'
+        lifecycle_version = '2.6.0-alpha04'
         koin_version = '3.2.1'
-        room_version = '2.4.3'
-        accompanist_version = '0.26.2-beta'
+        room_version = '2.5.0'
+        accompanist_version = '0.28.0'
         okkv2_version = '1.1.0'
         kotlinx_serialization_version = "1.4.1"
         kotlin_version = "1.7.21"
+        coil_version = "2.2.2"
     }
 }// Top-level build file where you can add configuration options common to all sub-projects/modules.
 plugins {

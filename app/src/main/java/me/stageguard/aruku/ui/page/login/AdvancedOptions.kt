@@ -6,6 +6,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.MaterialTheme
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material3.Checkbox
@@ -58,6 +59,7 @@ fun AdvancedOptions(
             )
             Text(
                 R.string.advanced_options.stringResC,
+                style = MaterialTheme.typography.body1,
                 modifier = Modifier.padding(start = 5.dp)
             )
         }

@@ -1,5 +1,6 @@
 package me.stageguard.aruku.ui.page.home.contact
 
+import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.State
@@ -59,7 +60,7 @@ class ContactViewModel(
     }
 }
 
-data class ContactTab(val title: Int, val content: @Composable () -> Unit)
+data class ContactTab(@StringRes val title: Int, val content: @Composable () -> Unit)
 
 data class SimpleContactData(
     val contact: ArukuContact,
