@@ -1,10 +1,13 @@
 package me.stageguard.aruku
 
+import android.content.Context
 import androidx.room.Room
 import com.heyanle.okkv2.MMKVStore
 import com.heyanle.okkv2.core.Okkv
+import me.stageguard.aruku.cache.AudioCache
 import me.stageguard.aruku.database.ArukuDatabase
 import me.stageguard.aruku.service.ArukuServiceConnector
+import me.stageguard.aruku.service.RetrofitDownloadService
 import me.stageguard.aruku.service.parcel.ArukuContact
 import me.stageguard.aruku.ui.activity.unitProp
 import me.stageguard.aruku.ui.page.chat.ChatViewModel
@@ -16,6 +19,7 @@ import me.stageguard.aruku.ui.page.login.LoginViewModel
 import net.mamoe.mirai.BotFactory
 import org.koin.androidx.viewmodel.dsl.viewModel
 import org.koin.dsl.module
+import retrofit2.Retrofit
 
 val applicationModule = module {
     single<BotFactory> { BotFactory }
@@ -37,6 +41,15 @@ val applicationModule = module {
         else null
     }
 
+    // cache
+    single { Retrofit.Builder().baseUrl("http://localhost/").build() }
+    single {
+        AudioCache(
+            get<Context>().externalCacheDir!!.resolve("audio_cache"),
+            get<Retrofit>().create(RetrofitDownloadService::class.java)
+        )
+    }
+
     // view model
     viewModel { LoginViewModel(get()) }
     viewModel { HomeViewModel(get(), get<ArukuServiceConnector>().bots, get()) }
@@ -45,6 +58,6 @@ val applicationModule = module {
     viewModel { AccountAvatarViewModel() }
     viewModel { params ->
         val contact: ArukuContact = params.get()
-        ChatViewModel(get(), get(), params.get())
+        ChatViewModel(get(), get(), get(), contact)
     }
 }

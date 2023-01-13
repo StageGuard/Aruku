@@ -8,6 +8,7 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -27,7 +28,7 @@ fun PlainText(
     Text(
         text = element.content,
         modifier = modifier,
-        style = MaterialTheme.typography.bodyMedium.copy(
+        style = MaterialTheme.typography.bodyLarge.copy(
             color = LocalContentColor.current
         )
     )
@@ -147,11 +148,23 @@ fun FlashImage(
 @Composable
 fun Audio(
     element: VisibleChatMessage.Audio,
+    status: State<ChatAudioStatus>?,
     modifier: Modifier = Modifier,
     onClick: (url: String) -> Unit,
 ) { // TODO: audio visible element, currently plain text
     PlainText(
-        VisibleChatMessage.PlainText("[Audio]${element.url}"),
+        VisibleChatMessage.PlainText(buildString {
+            append("[Audio]")
+            append("[")
+            if (status == null) append("NotPrepared") else when(val v = status.value) {
+                is ChatAudioStatus.Unknown -> append("NotPrepared")
+                is ChatAudioStatus.Preparing -> append("Preparing:").append(v.progress)
+                is ChatAudioStatus.NotFound -> append("NotFound")
+                is ChatAudioStatus.Ready -> append("Ready")
+            }
+            append("]")
+            append(element.name)
+        }),
         primary = false,
         modifier = modifier,
     )

@@ -1,4 +1,4 @@
-package me.stageguard.aruku.util.apng
+package me.stageguard.aruku.util
 
 import coil.ImageLoader
 import coil.annotation.ExperimentalCoilApi

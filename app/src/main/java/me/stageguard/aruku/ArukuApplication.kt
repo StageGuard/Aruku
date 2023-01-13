@@ -7,7 +7,7 @@ import coil.ImageLoader
 import coil.ImageLoaderFactory
 import me.stageguard.aruku.preference.ArukuPreference
 import me.stageguard.aruku.service.ArukuMiraiService
-import me.stageguard.aruku.util.apng.AnimatedPngDecoder
+import me.stageguard.aruku.util.AnimatedPngDecoder
 import me.stageguard.aruku.util.tag
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.koin.android.ext.koin.androidContext

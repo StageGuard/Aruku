@@ -3,6 +3,7 @@
     <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="true">q.qlogo.cn</domain>
         <domain includeSubdomains="true">p.qlogo.cn</domain>
+        <domain includeSubdomains="true">gchat.qpic.cn</domain>
 
     </domain-config>
 </network-security-config>

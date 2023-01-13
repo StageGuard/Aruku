@@ -6,6 +6,9 @@ import me.stageguard.aruku.service.IBotListObserver;
 import me.stageguard.aruku.service.ILoginSolver;
 import me.stageguard.aruku.service.IMessageConsumer;
 import me.stageguard.aruku.service.parcel.ArukuContact;
+import me.stageguard.aruku.service.parcel.GroupMemberInfo;
+import me.stageguard.aruku.service.parcel.GroupAtMessage;
+import me.stageguard.aruku.service.parcel.ArukuAudio;
 
 // Declare any non-default types here with import statements
 
@@ -25,6 +28,8 @@ interface IArukuMiraiInterface {
     void removeLoginSolver(long bot);
     void addMessageEventConsumer(long bot, String identity, in IMessageConsumer consumer);
     void removeMessageEventConsumer(String identity);
+    // accessing mirai from application
     String getAvatarUrl(long account, in ArukuContact contact);
     String getNickname(long account, in ArukuContact contact);
+    GroupMemberInfo getGroupMemberInfo(long account, long groupId, long memberId);
 }

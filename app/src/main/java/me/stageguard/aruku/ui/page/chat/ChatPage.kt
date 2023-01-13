@@ -7,6 +7,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.paging.compose.collectAsLazyPagingItems
 import me.stageguard.aruku.service.parcel.ArukuContact
 import me.stageguard.aruku.ui.LocalBot
 import me.stageguard.aruku.ui.common.ArrowBack
@@ -26,8 +27,11 @@ fun ChatPage(contact: ArukuContact) {
     val avatarData by remember { viewModel.subjectAvatar }
     val listState = rememberLazyListState()
 
+    val messages = viewModel.messages.value?.collectAsLazyPagingItems()
+    val chatAudios = viewModel.chatAudios
+
     LaunchedEffect(bot) {
-        if (bot != null) viewModel.initChatInfoState(bot)
+        if (bot != null) viewModel.init(bot)
     }
 
     Scaffold(
@@ -54,8 +58,9 @@ fun ChatPage(contact: ArukuContact) {
         }
     ) { paddingValues ->
         ChatListView(
-            chatList = listOf(),
+            chatList = messages?.itemSnapshotList,
             lazyListState = listState,
+            chatAudio = chatAudios,
             paddingValues = paddingValues,
         )
     }

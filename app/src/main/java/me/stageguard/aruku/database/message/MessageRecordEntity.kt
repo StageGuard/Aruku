@@ -25,8 +25,9 @@ data class MessageRecordEntity(
     @ColumnInfo(name = "subject") val subject: Long,
     @ColumnInfo(name = "sender") val sender: Long,
     @ColumnInfo(name = "senderName") val senderName: String,
-    @PrimaryKey @ColumnInfo(name = "message_ids") val messageIds: String,
+    @ColumnInfo(name = "message_ids") val messageIds: String,
     @ColumnInfo(name = "message_internalIds") val messageInternalIds: String,
     @ColumnInfo(name = "time") val time: Int,
-    @ColumnInfo(name = "message") val message: String
+    @ColumnInfo(name = "message") val message: String,
+    @PrimaryKey(autoGenerate = true) @ColumnInfo(name = "_prim_key") val _prim_key: Int = 0,
 )
