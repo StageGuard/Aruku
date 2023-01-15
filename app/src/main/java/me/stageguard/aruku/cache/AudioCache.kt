@@ -8,7 +8,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
-import me.stageguard.aruku.service.RetrofitDownloadService
+import me.stageguard.aruku.domain.RetrofitDownloadService
 import me.stageguard.aruku.service.parcel.ArukuAudio
 import net.mamoe.mirai.message.data.AudioCodec
 import net.mamoe.mirai.utils.ConcurrentHashMap

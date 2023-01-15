@@ -153,7 +153,7 @@ private fun Mesasge(
             if (!sentByBot && showSender) {
                 Text(
                     text = senderName,
-                    style = MaterialTheme.typography.titleMedium.copy(
+                    style = MaterialTheme.typography.bodyMedium.copy(
                         fontWeight = FontWeight.SemiBold
                     ),
                     modifier = Modifier

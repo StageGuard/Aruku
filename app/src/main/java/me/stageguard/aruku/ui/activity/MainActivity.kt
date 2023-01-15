@@ -17,8 +17,6 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.core.view.WindowCompat
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
 import me.stageguard.aruku.service.ArukuServiceConnector
-import me.stageguard.aruku.service.IArukuMiraiInterface
-import me.stageguard.aruku.ui.LocalArukuMiraiInterface
 import me.stageguard.aruku.ui.LocalStringLocale
 import me.stageguard.aruku.ui.LocalSystemUiController
 import me.stageguard.aruku.ui.common.MoeSnackBar
@@ -34,7 +32,6 @@ val unitProp = Unit
 class MainActivity : ComponentActivity() {
 
     private val serviceConnector: ArukuServiceConnector by inject()
-    private val serviceInterface: IArukuMiraiInterface by inject()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -62,9 +59,7 @@ class MainActivity : ComponentActivity() {
                         LocalSystemUiController provides systemUiController
                     ) {
                         if (serviceConnected.value) {
-                            CompositionLocalProvider(LocalArukuMiraiInterface provides serviceInterface) {
-                                Navigation()
-                            }
+                            Navigation()
                         } else {
                             ServiceConnectingPage(serviceConnector.weakReference())
                         }

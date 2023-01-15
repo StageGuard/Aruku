@@ -13,8 +13,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
-import me.stageguard.aruku.database.ArukuDatabase
-import me.stageguard.aruku.service.IArukuMiraiInterface
+import me.stageguard.aruku.domain.MainRepository
 import me.stageguard.aruku.service.parcel.ArukuContact
 import me.stageguard.aruku.service.parcel.ArukuContactType
 
@@ -23,8 +22,7 @@ import me.stageguard.aruku.service.parcel.ArukuContactType
  * https://github.com/WhichWho
  */
 class ContactViewModel(
-    private val arukuServiceInterface: IArukuMiraiInterface,
-    private val database: ArukuDatabase,
+    private val repository: MainRepository
 ) : ViewModel() {
     private val _groups: MutableState<Flow<PagingData<SimpleContactData>>?> = mutableStateOf(null)
     private val _friends: MutableState<Flow<PagingData<SimpleContactData>>?> = mutableStateOf(null)
@@ -33,26 +31,36 @@ class ContactViewModel(
 
     context(CoroutineScope) suspend fun initContacts(account: Long) {
         withContext(Dispatchers.IO) {
-            _groups.value = Pager(config = PagingConfig(15), initialKey = 0) {
-                database.groups().getGroupsPaging(account)
-            }.flow.map { data ->
+            _groups.value = Pager(
+                config = PagingConfig(15),
+                initialKey = 0,
+                pagingSourceFactory = { repository.getGroups(account) }
+            ).flow.map { data ->
                 data.map {
                     SimpleContactData(
                         ArukuContact(ArukuContactType.GROUP, it.id),
                         it.name,
-                        arukuServiceInterface.getAvatarUrl(account, ArukuContact(ArukuContactType.GROUP, it.id))
+                        repository.getAvatarUrl(
+                            account,
+                            ArukuContact(ArukuContactType.GROUP, it.id)
+                        )
                     )
                 }
             }.cachedIn(viewModelScope)
 
-            _friends.value = Pager(config = PagingConfig(15), initialKey = 0) {
-                database.friends().getFriendsPaging(account)
-            }.flow.map { data ->
+            _friends.value = Pager(
+                config = PagingConfig(15),
+                initialKey = 0,
+                pagingSourceFactory =  { repository.getFriends(account) }
+            ).flow.map { data ->
                 data.map {
                     SimpleContactData(
                         ArukuContact(ArukuContactType.FRIEND, it.id),
                         it.name,
-                        arukuServiceInterface.getAvatarUrl(account, ArukuContact(ArukuContactType.FRIEND, it.id))
+                        repository.getAvatarUrl(
+                            account,
+                            ArukuContact(ArukuContactType.FRIEND, it.id)
+                        )
                     )
                 }
             }.cachedIn(viewModelScope)

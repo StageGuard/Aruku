@@ -17,8 +17,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import me.stageguard.aruku.cache.AudioCache
-import me.stageguard.aruku.database.ArukuDatabase
-import me.stageguard.aruku.service.IArukuMiraiInterface
+import me.stageguard.aruku.domain.MainRepository
 import me.stageguard.aruku.service.parcel.ArukuContact
 import me.stageguard.aruku.service.parcel.ArukuContactType
 import me.stageguard.aruku.service.parcel.toArukuAudio
@@ -38,8 +37,7 @@ import java.time.LocalDateTime
 import java.time.ZoneOffset
 
 class ChatViewModel(
-    private val arukuServiceInterface: IArukuMiraiInterface,
-    private val database: ArukuDatabase,
+    private val repository: MainRepository,
     private val audioCache: AudioCache,
     private val contact: ArukuContact,
 ) : ViewModel() {
@@ -55,20 +53,23 @@ class ChatViewModel(
 
     context(CoroutineScope) fun init(bot: Long) {
         this@CoroutineScope.launch {
-            _subjectName.value = arukuServiceInterface.getNickname(bot, contact)
-            _subjectAvatar.value = arukuServiceInterface.getAvatarUrl(bot, contact)
+            _subjectName.value = repository.getNickname(bot, contact) ?: contact.subject.toString()
+            _subjectAvatar.value = repository.getAvatarUrl(bot, contact)
 
-            _messages.value = Pager(config = PagingConfig(10), initialKey = null) {
-                database.messageRecords().run {
-                    when (contact.type) {
-                        ArukuContactType.TEMP -> error("temp message is currently unsupported")
-                        else -> getMessagesPaging(bot, contact.subject, contact.type)
-                    }
+            _messages.value = Pager(
+                config = PagingConfig(10),
+                initialKey = null,
+                pagingSourceFactory = {
+                    repository.getMessageRecords(
+                        bot,
+                        contact.subject,
+                        contact.type
+                    )
                 }
-            }.flow.map { data ->
+            ).flow.map { data ->
                 data.map { record ->
                     val memberInfo = if (record.type == ArukuContactType.GROUP) {
-                        arukuServiceInterface.getGroupMemberInfo(
+                        repository.getGroupMemberInfo(
                             bot,
                             record.subject,
                             record.sender
@@ -134,7 +135,7 @@ class ChatViewModel(
                         senderName = record.senderName,
                         senderAvatarUrl = when (record.type) {
                             ArukuContactType.GROUP -> memberInfo?.senderAvatarUrl
-                            ArukuContactType.FRIEND -> arukuServiceInterface.getAvatarUrl(
+                            ArukuContactType.FRIEND -> repository.getAvatarUrl(
                                 bot,
                                 ArukuContact(ArukuContactType.FRIEND, record.subject)
                             )

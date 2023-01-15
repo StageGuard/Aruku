@@ -5,11 +5,7 @@ import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.navigation.NavController
 import com.google.accompanist.systemuicontroller.SystemUiController
-import me.stageguard.aruku.service.IArukuMiraiInterface
 import me.stageguard.aruku.util.StringLocale
-
-val LocalArukuMiraiInterface: ProvidableCompositionLocal<IArukuMiraiInterface> =
-    staticCompositionLocalOf { IArukuMiraiInterface.Default() }
 
 val LocalNavController: ProvidableCompositionLocal<NavController> =
     staticCompositionLocalOf { error("No MainActivity NavController provided.") }

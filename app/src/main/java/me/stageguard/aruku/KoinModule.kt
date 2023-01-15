@@ -6,10 +6,9 @@ import com.heyanle.okkv2.MMKVStore
 import com.heyanle.okkv2.core.Okkv
 import me.stageguard.aruku.cache.AudioCache
 import me.stageguard.aruku.database.ArukuDatabase
+import me.stageguard.aruku.domain.MainRepository
+import me.stageguard.aruku.domain.RetrofitDownloadService
 import me.stageguard.aruku.service.ArukuServiceConnector
-import me.stageguard.aruku.service.RetrofitDownloadService
-import me.stageguard.aruku.service.parcel.ArukuContact
-import me.stageguard.aruku.ui.activity.unitProp
 import me.stageguard.aruku.ui.page.chat.ChatViewModel
 import me.stageguard.aruku.ui.page.home.HomeViewModel
 import me.stageguard.aruku.ui.page.home.account.AccountAvatarViewModel
@@ -34,11 +33,13 @@ val applicationModule = module {
 
     // service
     single { ArukuServiceConnector(get()) }
-    factory {
+
+    // repo
+    factory<MainRepository> {
         val connector: ArukuServiceConnector = get()
-        if (connector.connected.value == true)
-            connector.getValue(Unit, ::unitProp)
-        else null
+        val binder by connector
+        val connected = connector.connected.value == true
+        MainRepositoryImpl(if (connected) binder else null, get())
     }
 
     // cache
@@ -52,12 +53,9 @@ val applicationModule = module {
 
     // view model
     viewModel { LoginViewModel(get()) }
-    viewModel { HomeViewModel(get(), get<ArukuServiceConnector>().bots, get()) }
-    viewModel { MessageViewModel(get(), get()) }
-    viewModel { ContactViewModel(get(), get()) }
+    viewModel { HomeViewModel(get(), get<ArukuServiceConnector>().bots) }
+    viewModel { MessageViewModel(get()) }
+    viewModel { ContactViewModel(get()) }
     viewModel { AccountAvatarViewModel() }
-    viewModel { params ->
-        val contact: ArukuContact = params.get()
-        ChatViewModel(get(), get(), get(), contact)
-    }
+    viewModel { params -> ChatViewModel(get(), get(), params.get()) }
 }

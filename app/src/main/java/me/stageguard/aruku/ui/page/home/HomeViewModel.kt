@@ -17,16 +17,19 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import me.stageguard.aruku.ArukuApplication
 import me.stageguard.aruku.R
-import me.stageguard.aruku.database.ArukuDatabase
+import me.stageguard.aruku.domain.MainRepository
 import me.stageguard.aruku.preference.ArukuPreference
-import me.stageguard.aruku.service.IArukuMiraiInterface
 import me.stageguard.aruku.service.ILoginSolver
 import me.stageguard.aruku.ui.LocalNavController
 import me.stageguard.aruku.ui.page.NAV_CHAT
@@ -43,9 +46,8 @@ import net.mamoe.mirai.event.ListeningStatus
 import net.mamoe.mirai.event.events.BotOfflineEvent
 
 class HomeViewModel(
-    private val arukuServiceInterface: IArukuMiraiInterface,
+    private val repository: MainRepository,
     private val _accountList: LiveData<List<Long>>,
-    private val database: ArukuDatabase,
 ) : ViewModel() {
     // represents state of current account
     // it is only changed at [observeAccountState] and [loginSolver]
@@ -131,7 +133,12 @@ class HomeViewModel(
         }
 
         override fun onLoginFailed(bot: Long, botKilled: Boolean, cause: String?) {
-            viewModelScope.updateLoginState(AccountState.Login(bot, LoginState.Failed(bot, cause.toString())))
+            viewModelScope.updateLoginState(
+                AccountState.Login(
+                    bot,
+                    LoginState.Failed(bot, cause.toString())
+                )
+            )
             Toast.makeText(
                 ArukuApplication.INSTANCE.applicationContext,
                 R.string.login_failed_please_retry.stringRes(bot.toString()),
@@ -155,9 +162,9 @@ class HomeViewModel(
                 Log.i(tag(), "First launch and observing background account login state.")
                 viewModelScope.updateLoginState(AccountState.Login(activeBot, LoginState.Logging))
 
-                activeAccountLoginSolver?.let { arukuServiceInterface.removeLoginSolver(it.first) }
+                activeAccountLoginSolver?.let { repository.removeLoginSolver(it.first) }
                 val currentLoginSolver = activeBot to loginSolver
-                arukuServiceInterface.addLoginSolver(activeBot, currentLoginSolver.second)
+                repository.addLoginSolver(activeBot, currentLoginSolver.second)
                 activeAccountLoginSolver = currentLoginSolver
             }
         } else {
@@ -165,23 +172,28 @@ class HomeViewModel(
             // if offline, it is either logout manually or appears offline.
             if (!bot.isOnline) {
                 this@CoroutineScope.launch(Dispatchers.IO) {
-                    val dbAccount = database { accounts()[bot.id].singleOrNull() }
+                    val dbAccount = repository.getAccount(bot.id)
                     if (dbAccount == null) {
-                        Log.w(tag(), "LocalBot is provided but the account is not found in database.")
+                        Log.w(
+                            tag(),
+                            "LocalBot is provided but the account is not found in database."
+                        )
                         return@launch
                     }
 
                     if (!dbAccount.isOfflineManually) { // state: Logging
                         Log.i(tag(), "Bot is now logging.")
-                        viewModelScope.updateLoginState(AccountState.Login(bot.id, LoginState.Logging))
-
-                        activeAccountLoginSolver?.let { arukuServiceInterface.removeLoginSolver(it.first) }
-                        val currentLoginSolver = bot.id to loginSolver
-                        arukuServiceInterface.addLoginSolver(
-                            currentLoginSolver.first,
-                            currentLoginSolver.second
+                        viewModelScope.updateLoginState(
+                            AccountState.Login(
+                                bot.id,
+                                LoginState.Logging
+                            )
                         )
-                        activeAccountLoginSolver = currentLoginSolver
+
+                        activeAccountLoginSolver?.let { repository.removeLoginSolver(it.first) }
+                        val currSolver = bot.id to loginSolver
+                        repository.addLoginSolver(currSolver.first, currSolver.second)
+                        activeAccountLoginSolver = currSolver
                     } else { // state: Offline
                         viewModelScope.updateLoginState(AccountState.Offline(bot.id, null))
                     }
@@ -205,13 +217,7 @@ class HomeViewModel(
 
     fun cancelLogin(accountNo: Long) {
         viewModelScope.updateLoginState(AccountState.Offline(accountNo, null))
-        viewModelScope.launch {
-            val accountDao = database { accounts() }
-            val dbAccount = accountDao[accountNo].singleOrNull()
-            if (dbAccount != null) {
-                accountDao.update(dbAccount.apply { isOfflineManually = true })
-            }
-        }
+        viewModelScope.launch { repository.setAccountOfflineManually(accountNo) }
         Toast.makeText(
             ArukuApplication.INSTANCE.applicationContext,
             R.string.login_failed_please_retry.stringRes(accountNo.toString()),

@@ -6,15 +6,19 @@ import android.content.Intent
 import android.content.ServiceConnection
 import android.os.IBinder
 import android.util.Log
-import androidx.lifecycle.*
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.MutableLiveData
 import me.stageguard.aruku.util.tag
 import kotlin.properties.ReadOnlyProperty
 import kotlin.reflect.KProperty
 
 class ArukuServiceConnector(
     private val context: Context
-) : ServiceConnection, LifecycleEventObserver, ReadOnlyProperty<Any?, IArukuMiraiInterface> {
-    private lateinit var _delegate: IArukuMiraiInterface
+) : ServiceConnection, LifecycleEventObserver, ReadOnlyProperty<Nothing?, IArukuMiraiInterface?> {
+    private var _delegate: IArukuMiraiInterface? = null
     val connected: MutableLiveData<Boolean> = MutableLiveData(false)
 
     private val _bots: MutableList<Long> = mutableListOf()
@@ -24,23 +28,25 @@ class ArukuServiceConnector(
 
     override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
         Log.d(tag(), "service is connected: $name")
-        _delegate = IArukuMiraiInterface.Stub.asInterface(service)
+        _delegate = IArukuMiraiInterface.Stub.asInterface(service).apply {
+            addBotListObserver(
+                this@ArukuServiceConnector.toString(),
+                object : IBotListObserver.Stub() {
+                    override fun onChange(newList: LongArray?) {
+                        val l = newList?.toList() ?: listOf()
+                        _bots.removeIf { it !in l }
+                        l.forEach { if (it !in _bots) _bots.add(it) }
+                        _botsLiveData.value = _bots
+                    }
+                })
+        }
         connected.value = true
-
-        _delegate.addBotListObserver(toString(), object : IBotListObserver.Stub() {
-            override fun onChange(newList: LongArray?) {
-                val l = newList?.toList() ?: listOf()
-                _bots.removeIf { it !in l }
-                l.forEach { if (it !in _bots) _bots.add(it) }
-                _botsLiveData.value = _bots
-            }
-        })
     }
 
     override fun onServiceDisconnected(name: ComponentName?) {
         Log.d(tag(), "service is disconnected: $name")
+        _delegate?.removeBotListObserver(this@ArukuServiceConnector.toString())
         connected.value = false
-        _delegate.removeBotListObserver(toString())
     }
 
     override fun onStateChanged(source: LifecycleOwner, event: Lifecycle.Event) {
@@ -64,7 +70,10 @@ class ArukuServiceConnector(
         }
     }
 
-    override fun getValue(thisRef: Any?, property: KProperty<*>): IArukuMiraiInterface {
+    override fun getValue(thisRef: Nothing?, property: KProperty<*>): IArukuMiraiInterface? {
+        if (_delegate == null) {
+            Log.w(tag(), "binder IArukuMiraiInterface hasn't yet initialized.")
+        }
         return _delegate
     }
 }

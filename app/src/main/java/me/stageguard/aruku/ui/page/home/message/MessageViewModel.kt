@@ -5,18 +5,18 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.paging.*
+import androidx.paging.Pager
+import androidx.paging.PagingConfig
+import androidx.paging.PagingData
+import androidx.paging.cachedIn
+import androidx.paging.map
 import com.valentinilk.shimmer.Shimmer
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
-import me.stageguard.aruku.database.ArukuDatabase
-import me.stageguard.aruku.database.message.MessagePreviewEntity
-import me.stageguard.aruku.service.IArukuMiraiInterface
+import me.stageguard.aruku.domain.MainRepository
 import me.stageguard.aruku.service.parcel.ArukuContact
-import me.stageguard.aruku.service.parcel.ArukuContactType
 import net.mamoe.mirai.utils.Either
 import java.time.LocalDateTime
 import java.time.ZoneOffset
@@ -26,44 +26,36 @@ import java.time.ZoneOffset
  * https://github.com/WhichWho
  */
 class MessageViewModel(
-    private val arukuServiceInterface: IArukuMiraiInterface,
-    private val database: ArukuDatabase,
+    private val repository: MainRepository
 ) : ViewModel() {
 
-    private val _messages: MutableState<Flow<PagingData<SimpleMessagePreview>>?> = mutableStateOf(null)
+    private val _messages: MutableState<Flow<PagingData<SimpleMessagePreview>>?> =
+        mutableStateOf(null)
     val messages: State<Flow<PagingData<SimpleMessagePreview>>?> get() = _messages
 
     suspend fun initMessage(account: Long) = withContext(Dispatchers.IO) {
-        _messages.value = Pager(config = PagingConfig(12/* based on dpi=360, height=2160 */), initialKey = 0) {
-            database.messagePreview().getMessagesPaging(account)
-        }.flow.map { data ->
-            data.map {
-                SimpleMessagePreview(
-                    contact = ArukuContact(it.type, it.subject),
-                    avatarData = arukuServiceInterface.getAvatarUrl(account, ArukuContact(it.type, it.subject)),
-                    name = arukuServiceInterface.getNickname(account, ArukuContact(it.type, it.subject))
-                        ?: it.subject.toString(),
-                    preview = it.previewContent,
-                    time = LocalDateTime.ofEpochSecond(it.time, 0, ZoneOffset.UTC),
-                    unreadCount = 1
-                )
-            }
-        }.cachedIn(viewModelScope)
-    }
-
-    suspend fun initMessageTest() = withContext(Dispatchers.IO) {
-        delay(3000)
-        repeat(100) {
-            database.messagePreview().insert(
-                MessagePreviewEntity(
-                    account = 3129693328,
-                    subject = 789123L + it,
-                    type = ArukuContactType.GROUP,
-                    time = System.currentTimeMillis(),
-                    previewContent = "message" + System.currentTimeMillis()
-                )
-            )
-        }
+        _messages.value =
+            Pager(config = PagingConfig(12/* based on dpi=360, height=2160 */), initialKey = 0) {
+                repository.getMessagePreview(account)
+            }.flow.map { data ->
+                data.map {
+                    SimpleMessagePreview(
+                        contact = ArukuContact(it.type, it.subject),
+                        avatarData = repository.getAvatarUrl(
+                            account,
+                            ArukuContact(it.type, it.subject)
+                        ),
+                        name = repository.getNickname(
+                            account,
+                            ArukuContact(it.type, it.subject)
+                        )
+                            ?: it.subject.toString(),
+                        preview = it.previewContent,
+                        time = LocalDateTime.ofEpochSecond(it.time, 0, ZoneOffset.UTC),
+                        unreadCount = 1
+                    )
+                }
+            }.cachedIn(viewModelScope)
     }
 //
 ////        delay(3000)

@@ -14,14 +14,14 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import me.stageguard.aruku.service.IArukuMiraiInterface
+import me.stageguard.aruku.domain.MainRepository
 import me.stageguard.aruku.service.ILoginSolver
 import me.stageguard.aruku.service.parcel.AccountInfo
 import net.mamoe.mirai.utils.BotConfiguration
 import net.mamoe.mirai.utils.secondsToMillis
 
 class LoginViewModel(
-    private val arukuServiceInterface: IArukuMiraiInterface
+    private val repository: MainRepository
 ) : ViewModel() {
     val accountInfo: MutableState<AccountInfo> by lazy {
         mutableStateOf(
@@ -84,7 +84,12 @@ class LoginViewModel(
         }
 
         override fun onSolveSMSRequest(bot: Long, phone: String?): String? {
-            viewModelScope.updateState(LoginState.CaptchaRequired(bot, CaptchaType.SMSRequest(bot, phone)))
+            viewModelScope.updateState(
+                LoginState.CaptchaRequired(
+                    bot,
+                    CaptchaType.SMSRequest(bot, phone)
+                )
+            )
             return runBlocking(viewModelScope.coroutineContext) { captchaChannel.receive() }
         }
 
@@ -100,8 +105,8 @@ class LoginViewModel(
 
     fun doLogin(accountNo: Long) {
         viewModelScope.updateState(LoginState.Logging)
-        arukuServiceInterface.addLoginSolver(accountNo, loginSolver)
-        arukuServiceInterface.addBot(accountInfo.value, true)
+        repository.addLoginSolver(accountNo, loginSolver)
+        repository.addBot(accountInfo.value, true)
     }
 
     fun retryCaptcha() {
@@ -116,7 +121,7 @@ class LoginViewModel(
 
     fun removeBotAndClearState(accountNo: Long) {
         viewModelScope.updateState(LoginState.Default)
-        arukuServiceInterface.removeBot(accountNo)
+        repository.removeBot(accountNo)
     }
 
     private fun CoroutineScope.updateState(s: LoginState) {

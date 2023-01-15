@@ -1,4 +1,4 @@
-package me.stageguard.aruku.service
+package me.stageguard.aruku.domain
 
 import okhttp3.ResponseBody
 import retrofit2.Response
