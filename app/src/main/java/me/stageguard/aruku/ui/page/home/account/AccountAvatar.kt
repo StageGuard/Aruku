@@ -1,26 +1,47 @@
 package me.stageguard.aruku.ui.page.home.account
 
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.AddCircleOutline
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.State
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import me.stageguard.aruku.R
 import me.stageguard.aruku.ui.LocalBot
+import me.stageguard.aruku.ui.LocalHomeAccountState
 import me.stageguard.aruku.ui.page.home.AccountState
 import me.stageguard.aruku.ui.page.home.BasicAccountInfo
+import me.stageguard.aruku.ui.page.login.LoginState
+import me.stageguard.aruku.ui.theme.ArukuTheme
 import me.stageguard.aruku.ui.theme.ColorAccountOffline
 import me.stageguard.aruku.ui.theme.ColorAccountOnline
 import me.stageguard.aruku.util.stringResC
@@ -31,40 +52,40 @@ import me.stageguard.aruku.util.stringResC
  */
 @Composable
 fun AccountAvatar(
-    accountState: AccountState,
-    botList: List<BasicAccountInfo>,
+    botList: State<List<BasicAccountInfo>>,
     onAddAccount: () -> Unit,
     onSwitchAccount: (Long) -> Unit
 ) {
 
-    val showProgress by remember { derivedStateOf { accountState is AccountState.Login } }
-    val online by remember { derivedStateOf { accountState is AccountState.Online } }
     val bot = LocalBot.current
+    val accountState = LocalHomeAccountState.current
     val viewModel = viewModel<AccountAvatarViewModel>()
 
+    val showProgress = accountState is AccountState.Login
+    val online = accountState is AccountState.Online
+    val currentAccount by remember { derivedStateOf { botList.value.find { it.id == bot } } }
+
     IconButton(onClick = {
-        if (botList.isEmpty()) {
+        if (botList.value.isEmpty()) {
             onAddAccount()
         } else {
             viewModel.accountMenuExpanded.value = true
         }
     }) {
         Box(Modifier.size(45.dp), contentAlignment = Alignment.Center) {
-            if (showProgress) CircularProgressIndicator(modifier = Modifier.fillMaxWidth())
-            val currentAccount by remember { derivedStateOf { botList.find { it.id == bot } } }
             if (currentAccount == null) {
                 Icon(
                     Icons.Outlined.AccountCircle,
                     contentDescription = "account avatar url",
                     modifier = Modifier
-                        .size(40.dp)
+                        .size(45.dp)
                         .border(
-                            width = ProgressIndicatorDefaults.CircularStrokeWidth,
-                            shape = CircleShape,
-                            color = if (showProgress) Color.Transparent else {
-                                if (online) ColorAccountOnline else ColorAccountOffline
-                            }
+                            1.5.dp, if (showProgress) Color.Transparent
+                            else if (online) ColorAccountOnline
+                            else ColorAccountOffline, CircleShape
                         )
+                        .border(3.dp, MaterialTheme.colorScheme.surface, CircleShape)
+                        .clip(CircleShape)
                 )
             } else {
                 AsyncImage(
@@ -74,21 +95,26 @@ fun AccountAvatar(
                         .build(),
                     contentDescription = "account avatar url",
                     modifier = Modifier
-                        .size(40.dp)
+                        .size(45.dp)
                         .border(
-                            width = ProgressIndicatorDefaults.CircularStrokeWidth,
-                            shape = CircleShape,
-                            color = if (showProgress) Color.Transparent
+                            1.5.dp, if (showProgress) Color.Transparent
                             else if (online) ColorAccountOnline
-                            else ColorAccountOffline
+                            else ColorAccountOffline, CircleShape
                         )
+                        .border(3.dp, MaterialTheme.colorScheme.surface, CircleShape)
+                        .clip(CircleShape)
                 )
             }
+            if (showProgress) CircularProgressIndicator(
+                modifier = Modifier.fillMaxWidth(),
+                strokeWidth = 4.5.dp,
+                trackColor = MaterialTheme.colorScheme.primary
+            )
         }
     }
 
     AccountMenu(
-        botList,
+        botList.value,
         viewModel.accountMenuExpanded,
         onClickAccountItem = {
             viewModel.accountMenuExpanded.value = false
@@ -192,4 +218,22 @@ private fun AccountListItem(
         },
         onClick = { onClickAccountItem(accountNo) }
     )
+}
+
+@Preview
+@Composable
+fun AccountAvatarPreview() {
+    ArukuTheme {
+        CompositionLocalProvider(LocalHomeAccountState provides AccountState.Default) {
+            Row {
+                AccountAvatar(remember { mutableStateOf(listOf()) }, {}, {})
+                AccountAvatar(
+                    remember { mutableStateOf(listOf()) },
+                    {},
+                    {}
+                )
+                AccountAvatar(remember { mutableStateOf(listOf()) }, {}, {})
+            }
+        }
+    }
 }

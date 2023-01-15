@@ -26,7 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.accompanist.permissions.*
 import me.stageguard.aruku.R
-import me.stageguard.aruku.service.parcel.AccountInfo
+import me.stageguard.aruku.service.parcel.AccountLoginData
 import me.stageguard.aruku.ui.common.SingleItemLazyColumn
 import me.stageguard.aruku.ui.theme.ArukuTheme
 import me.stageguard.aruku.util.stringResC
@@ -42,7 +42,7 @@ fun LoginPage(
     val viewModel: LoginViewModel = koinViewModel()
     val coroutineScope = rememberCoroutineScope()
 
-    val loginState by viewModel.state.collectAsState(context = coroutineScope.coroutineContext)
+    val loginState by viewModel.state.collectAsState(coroutineScope.coroutineContext)
     LaunchedEffect(loginState) {
         Log.i(tag("LoginPageLaunchedEffect"), loginState.toString())
         if (loginState is LoginState.Success) onLoginSuccess(viewModel.accountInfo.value.accountNo)
@@ -60,7 +60,7 @@ fun LoginPage(
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
 @Composable
 fun LoginView(
-    accountInfo: MutableState<AccountInfo>,
+    accountInfo: MutableState<AccountLoginData>,
     state: LoginState,
     onLoginClick: (Long) -> Unit,
     onLoginFailedClick: (Long) -> Unit,
@@ -74,11 +74,15 @@ fun LoginView(
 
     val protocol = rememberSaveable { mutableStateOf(accountInfo.value.protocol) }
     val heartbeatStrategy = rememberSaveable { mutableStateOf(accountInfo.value.heartbeatStrategy) }
-    val heartbeatPeriodMillis = rememberSaveable { mutableStateOf(accountInfo.value.heartbeatPeriodMillis) }
-    val heartbeatTimeoutMillis = rememberSaveable { mutableStateOf(accountInfo.value.heartbeatTimeoutMillis) }
-    val statHeartbeatPeriodMillis = rememberSaveable { mutableStateOf(accountInfo.value.statHeartbeatPeriodMillis) }
+    val heartbeatPeriodMillis =
+        rememberSaveable { mutableStateOf(accountInfo.value.heartbeatPeriodMillis) }
+    val heartbeatTimeoutMillis =
+        rememberSaveable { mutableStateOf(accountInfo.value.heartbeatTimeoutMillis) }
+    val statHeartbeatPeriodMillis =
+        rememberSaveable { mutableStateOf(accountInfo.value.statHeartbeatPeriodMillis) }
     val autoReconnect = rememberSaveable { mutableStateOf(accountInfo.value.autoReconnect) }
-    val reconnectionRetryTimes = rememberSaveable { mutableStateOf(accountInfo.value.reconnectionRetryTimes) }
+    val reconnectionRetryTimes =
+        rememberSaveable { mutableStateOf(accountInfo.value.reconnectionRetryTimes) }
 
     val topBarState = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
     val scrollBehavior = remember { topBarState }
@@ -99,14 +103,22 @@ fun LoginView(
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 25.dp).align(Alignment.TopCenter)
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 25.dp)
+                .align(Alignment.TopCenter)
         ) {
             Spacer(
-                Modifier.fillMaxWidth().height(50.dp)
+                Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
             )
             Text(
                 text = R.string.login_message.stringResC,
-                style = MaterialTheme.typography.titleLarge.copy(fontSize = 36.sp, fontWeight = FontWeight.Bold),
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontSize = 36.sp,
+                    fontWeight = FontWeight.Bold
+                ),
                 modifier = Modifier.padding(vertical = 4.dp)
             )
             Text(
@@ -115,17 +127,22 @@ fun LoginView(
                 modifier = Modifier.padding(vertical = 4.dp)
             )
             Column(
-                modifier = Modifier.padding(10.dp).nestedScroll(scrollBehavior.nestedScrollConnection)
+                modifier = Modifier
+                    .padding(10.dp)
+                    .nestedScroll(scrollBehavior.nestedScrollConnection)
             ) {
                 SingleItemLazyColumn {
                     OutlinedTextField(
                         value = account.value,
                         label = {
                             Text(
-                                R.string.qq_account.stringResC, style = MaterialTheme.typography.bodyMedium
+                                R.string.qq_account.stringResC,
+                                style = MaterialTheme.typography.bodyMedium
                             )
                         },
-                        modifier = Modifier.padding(top = 30.dp, bottom = 4.dp).fillMaxWidth(),
+                        modifier = Modifier
+                            .padding(top = 30.dp, bottom = 4.dp)
+                            .fillMaxWidth(),
                         singleLine = true,
                         shape = RoundedCornerShape(15.dp),
                         isError = if (account.value.isEmpty()) false else !isAccountValid,
@@ -136,10 +153,13 @@ fun LoginView(
                         value = password.value,
                         label = {
                             Text(
-                                R.string.qq_password.stringResC, style = MaterialTheme.typography.bodyMedium
+                                R.string.qq_password.stringResC,
+                                style = MaterialTheme.typography.bodyMedium
                             )
                         },
-                        modifier = Modifier.padding(top = 4.dp).fillMaxWidth(),
+                        modifier = Modifier
+                            .padding(top = 4.dp)
+                            .fillMaxWidth(),
                         singleLine = true,
                         shape = RoundedCornerShape(15.dp),
                         keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Password),
@@ -183,7 +203,9 @@ fun LoginView(
                             }
                             onLoginClick(account.value.toLong())
                         },
-                        modifier = Modifier.padding(vertical = 30.dp).fillMaxWidth(),
+                        modifier = Modifier
+                            .padding(vertical = 30.dp)
+                            .fillMaxWidth(),
                         shape = RoundedCornerShape(15.dp),
                         enabled = state is LoginState.Default && isAccountValid && account.value.isNotEmpty() && internetPermission.status.isGranted,
                         colors = if (internetPermission.status.isGranted) ButtonDefaults.buttonColors(
@@ -198,7 +220,10 @@ fun LoginView(
                             exit = shrinkHorizontally(shrinkTowards = Alignment.Start) + fadeOut(),
                         ) {
                             CircularProgressIndicator(
-                                modifier = Modifier.padding(end = 3.dp).size(14.dp), strokeWidth = 3.dp
+                                modifier = Modifier
+                                    .padding(end = 3.dp)
+                                    .size(14.dp),
+                                strokeWidth = 3.dp
                             )
                         }
                         Text(
@@ -211,7 +236,8 @@ fun LoginView(
                     if (state is LoginState.Failed) {
                         AlertDialog(onDismissRequest = { onLoginFailedClick(state.bot) }, title = {
                             Text(
-                                text = R.string.login_failed.stringResC, style = MaterialTheme.typography.titleLarge
+                                text = R.string.login_failed.stringResC,
+                                style = MaterialTheme.typography.titleLarge
                             )
                         }, text = {
                             Text(
@@ -245,7 +271,7 @@ fun LoginViewPreview() {
     ArukuTheme(dynamicColor = false, darkTheme = true) {
         val loginState by remember { mutableStateOf(LoginState.Default) }
         LoginView(mutableStateOf(
-            AccountInfo(
+            AccountLoginData(
                 accountNo = 0L,
                 passwordMd5 = "",
                 protocol = BotConfiguration.MiraiProtocol.ANDROID_PHONE.toString(),

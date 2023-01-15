@@ -9,6 +9,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import me.stageguard.aruku.database.message.MessageRecordEntity
+import me.stageguard.aruku.ui.page.ChatPageNav
 import me.stageguard.aruku.util.Into
 import me.stageguard.aruku.util.tag
 import net.mamoe.mirai.message.data.MessageChain
@@ -54,8 +55,8 @@ data class ArukuContact(
     val type: ArukuContactType,
     val subject: Long,
 ) : Parcelable {
-    fun toNavArg(): String {
-        return Json.encodeToString(this)
+    fun toNavArg(messageId: Long? = null): String {
+        return Json.encodeToString(ChatPageNav(this, messageId))
     }
 }
 

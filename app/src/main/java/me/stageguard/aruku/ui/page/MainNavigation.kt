@@ -7,7 +7,6 @@ import androidx.navigation.navArgument
 import com.google.accompanist.navigation.animation.AnimatedNavHost
 import com.google.accompanist.navigation.animation.rememberAnimatedNavController
 import me.stageguard.aruku.preference.ArukuPreference
-import me.stageguard.aruku.service.parcel.ArukuContact
 import me.stageguard.aruku.ui.LocalBot
 import me.stageguard.aruku.ui.LocalNavController
 import me.stageguard.aruku.ui.common.animatedComposable
@@ -64,11 +63,11 @@ fun Navigation() {
             animatedComposable(
                 route = "$NAV_CHAT/{contact}",
                 arguments = listOf(navArgument("contact") {
-                    type = ArukuContactNavType
+                    type = ChatPageNavType
                     nullable = false
                 }),
             ) { entry ->
-                val contact = entry.rememberArgument<ArukuContact>("contact")
+                val contact = entry.rememberArgument<ChatPageNav>("contact")
                     ?: throw IllegalArgumentException("no contact info in bundle of chat page.")
 
                 ChatPage(contact)

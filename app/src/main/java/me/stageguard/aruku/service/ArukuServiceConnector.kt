@@ -21,7 +21,6 @@ class ArukuServiceConnector(
     private var _delegate: IArukuMiraiInterface? = null
     val connected: MutableLiveData<Boolean> = MutableLiveData(false)
 
-    private val _bots: MutableList<Long> = mutableListOf()
     private val _botsLiveData: MutableLiveData<List<Long>> = MutableLiveData()
 
     val bots: LiveData<List<Long>> = _botsLiveData
@@ -33,12 +32,10 @@ class ArukuServiceConnector(
                 this@ArukuServiceConnector.toString(),
                 object : IBotListObserver.Stub() {
                     override fun onChange(newList: LongArray?) {
-                        val l = newList?.toList() ?: listOf()
-                        _bots.removeIf { it !in l }
-                        l.forEach { if (it !in _bots) _bots.add(it) }
-                        _botsLiveData.value = _bots
+                        _botsLiveData.value = newList?.toList() ?: listOf()
                     }
-                })
+                }
+            )
         }
         connected.value = true
     }

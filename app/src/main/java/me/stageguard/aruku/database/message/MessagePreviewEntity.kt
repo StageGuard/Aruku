@@ -25,5 +25,7 @@ data class MessagePreviewEntity(
     @TypeConverters(ArukuMessageTypeConverter::class) val type: ArukuContactType,
     @ColumnInfo(name = "time") var time: Long,
     @ColumnInfo(name = "preview") var previewContent: String,
+    @ColumnInfo(name = "unreadCount") var unreadCount: Int,
+    @ColumnInfo(name = "messageId") var messageId: Long,
     @PrimaryKey(autoGenerate = true) @ColumnInfo(name = "_prim_key") val _prim_key: Int = 0,
 )

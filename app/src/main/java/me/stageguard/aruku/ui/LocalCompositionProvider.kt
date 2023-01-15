@@ -5,6 +5,7 @@ import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.navigation.NavController
 import com.google.accompanist.systemuicontroller.SystemUiController
+import me.stageguard.aruku.ui.page.home.AccountState
 import me.stageguard.aruku.util.StringLocale
 
 val LocalNavController: ProvidableCompositionLocal<NavController> =
@@ -17,3 +18,6 @@ val LocalSystemUiController: ProvidableCompositionLocal<SystemUiController> =
     staticCompositionLocalOf { error("No SystemUiController provided.") }
 
 val LocalBot: ProvidableCompositionLocal<Long?> = compositionLocalOf { null }
+
+val LocalHomeAccountState: ProvidableCompositionLocal<AccountState> =
+    compositionLocalOf { AccountState.Default }

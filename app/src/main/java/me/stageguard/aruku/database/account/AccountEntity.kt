@@ -3,7 +3,7 @@ package me.stageguard.aruku.database.account
 import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
-import me.stageguard.aruku.service.parcel.AccountInfo
+import me.stageguard.aruku.service.parcel.AccountLoginData
 import me.stageguard.aruku.util.Into
 
 @Entity(tableName = "account")
@@ -18,9 +18,9 @@ data class AccountEntity(
     @ColumnInfo(name = "auto_reconnect") var autoReconnect: Boolean,
     @ColumnInfo(name = "reconnection_retry_times") var reconnectionRetryTimes: Int,
     @ColumnInfo(name = "is_offline_manually") var isOfflineManually: Boolean,
-) : Into<AccountInfo> {
-    override fun into(): AccountInfo {
-        return AccountInfo(
+) : Into<AccountLoginData> {
+    override fun into(): AccountLoginData {
+        return AccountLoginData(
             accountNo = this@AccountEntity.accountNo,
             passwordMd5 = this@AccountEntity.passwordMd5,
             protocol = this@AccountEntity.loginProtocol,

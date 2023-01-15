@@ -16,16 +16,16 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import me.stageguard.aruku.domain.MainRepository
 import me.stageguard.aruku.service.ILoginSolver
-import me.stageguard.aruku.service.parcel.AccountInfo
+import me.stageguard.aruku.service.parcel.AccountLoginData
 import net.mamoe.mirai.utils.BotConfiguration
 import net.mamoe.mirai.utils.secondsToMillis
 
 class LoginViewModel(
     private val repository: MainRepository
 ) : ViewModel() {
-    val accountInfo: MutableState<AccountInfo> by lazy {
+    val accountInfo: MutableState<AccountLoginData> by lazy {
         mutableStateOf(
-            AccountInfo(
+            AccountLoginData(
                 accountNo = 0L,
                 passwordMd5 = "",
                 protocol = BotConfiguration.MiraiProtocol.ANDROID_PHONE.toString(),

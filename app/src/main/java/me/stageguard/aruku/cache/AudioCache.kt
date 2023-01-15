@@ -50,9 +50,9 @@ class AudioCache(
         }
     }
 
-    context(CoroutineScope) fun appendDownloadJob(audio: ArukuAudio, url: String) {
+    fun appendDownloadJob(scope: CoroutineScope, audio: ArukuAudio, url: String) {
         val event = MutableLiveData<ResolveResult>()
-        val job = launch(Dispatchers.IO, start = CoroutineStart.LAZY) {
+        val job = scope.launch(Dispatchers.IO, start = CoroutineStart.LAZY) {
             val selfJob = downloadJobs[audio]
 
             val resp = downloadService.download(url)
@@ -83,13 +83,13 @@ class AudioCache(
                 }
             }
             selfJob?.progress = 1.0
-            event.postValue(ResolveResult.Ready(cacheFile))
+            event.value = ResolveResult.Ready(cacheFile)
         }
 
         val existing = downloadJobs[audio]
         if (existing != null) {
             existing.job.cancel("cancelled manually", null)
-            existing.liveData.value = ResolveResult.NotFound(resolveCacheFile(audio))
+            existing.liveData.postValue(ResolveResult.NotFound(resolveCacheFile(audio)))
         }
 
         downloadJobs[audio] = DownloadJob(job, 0.0, event)

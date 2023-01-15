@@ -13,7 +13,11 @@ import androidx.paging.map
 import com.valentinilk.shimmer.Shimmer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.stageguard.aruku.domain.MainRepository
 import me.stageguard.aruku.service.parcel.ArukuContact
@@ -28,34 +32,45 @@ import java.time.ZoneOffset
 class MessageViewModel(
     private val repository: MainRepository
 ) : ViewModel() {
-
-    private val _messages: MutableState<Flow<PagingData<SimpleMessagePreview>>?> =
-        mutableStateOf(null)
-    val messages: State<Flow<PagingData<SimpleMessagePreview>>?> get() = _messages
+    private val messageUpdateFlow = MutableStateFlow(0L)
+    private val _messages: MutableState<Flow<PagingData<SimpleMessagePreview>>> =
+        mutableStateOf(flow { PagingData.empty<SimpleMessagePreview>() })
+    val messages: State<Flow<PagingData<SimpleMessagePreview>>> get() = _messages
 
     suspend fun initMessage(account: Long) = withContext(Dispatchers.IO) {
-        _messages.value =
-            Pager(config = PagingConfig(12/* based on dpi=360, height=2160 */), initialKey = 0) {
-                repository.getMessagePreview(account)
-            }.flow.map { data ->
-                data.map {
-                    SimpleMessagePreview(
-                        contact = ArukuContact(it.type, it.subject),
-                        avatarData = repository.getAvatarUrl(
-                            account,
-                            ArukuContact(it.type, it.subject)
-                        ),
-                        name = repository.getNickname(
-                            account,
-                            ArukuContact(it.type, it.subject)
-                        )
-                            ?: it.subject.toString(),
-                        preview = it.previewContent,
-                        time = LocalDateTime.ofEpochSecond(it.time, 0, ZoneOffset.UTC),
-                        unreadCount = 1
-                    )
-                }
-            }.cachedIn(viewModelScope)
+        _messages.value = Pager(
+            config = PagingConfig(12),
+            initialKey = 0,
+            pagingSourceFactory = { repository.getMessagePreview(account) }
+        ).flow.map { pagingData ->
+            pagingData.map {
+                SimpleMessagePreview(
+                    contact = ArukuContact(it.type, it.subject),
+                    avatarData = repository.getAvatarUrl(
+                        account,
+                        ArukuContact(it.type, it.subject)
+                    ),
+                    name = repository.getNickname(
+                        account,
+                        ArukuContact(it.type, it.subject)
+                    ) ?: it.subject.toString(),
+                    preview = it.previewContent,
+                    time = LocalDateTime.ofEpochSecond(it.time, 0, ZoneOffset.UTC),
+                    unreadCount = it.unreadCount,
+                    messageId = it.messageId,
+                )
+            }
+        }.cachedIn(viewModelScope).combine(messageUpdateFlow) { data, _ -> data }
+    }
+
+    fun clearUnreadCount(account: Long, contact: ArukuContact) {
+        viewModelScope.launch {
+            repository.clearUnreadCount(account, contact)
+        }
+    }
+
+    suspend fun updateMessages() {
+        messageUpdateFlow.emit(System.currentTimeMillis())
     }
 //
 ////        delay(3000)
@@ -86,7 +101,8 @@ data class SimpleMessagePreview(
     val name: String,
     val preview: String,
     val time: LocalDateTime,
-    val unreadCount: Int
+    val unreadCount: Int,
+    val messageId: Long,
 )
 
 typealias MessagePreviewOrShimmer = Either<Shimmer, SimpleMessagePreview>

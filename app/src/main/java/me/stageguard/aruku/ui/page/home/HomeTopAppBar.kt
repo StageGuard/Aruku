@@ -14,9 +14,8 @@ import me.stageguard.aruku.ui.theme.ArukuTheme
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeTopAppBar(
-    botList: List<BasicAccountInfo>,
+    botList: State<List<BasicAccountInfo>>,
     title: String,
-    state: AccountState,
     modifier: Modifier = Modifier,
     onSwitchAccount: (Long) -> Unit,
     onAddAccount: () -> Unit,
@@ -42,7 +41,6 @@ fun HomeTopAppBar(
         },
         actions = {
             AccountAvatar(
-                accountState = state,
                 botList = botList,
                 onSwitchAccount = onSwitchAccount,
                 onAddAccount = onAddAccount
@@ -57,14 +55,18 @@ fun HomeTopAppBar(
 fun HomeTopAppBarPreview() {
     val expanded = remember { mutableStateOf(true) }
     val state by remember { mutableStateOf(AccountState.Default) }
-    ArukuTheme {
-        HomeTopAppBar(
-            botList = listOf(
+    val botList = remember {
+        mutableStateOf(
+            listOf(
                 BasicAccountInfo(1234567890, "StageGuard", null),
                 BasicAccountInfo(9876543210, "GuardStage", null),
                 BasicAccountInfo(1145141919, "WhichWho", null),
-            ),
-            state = state,
+            )
+        )
+    }
+    ArukuTheme {
+        HomeTopAppBar(
+            botList = botList,
 //            showAvatarProgressIndicator = true,
             onAddAccount = { expanded.value = !expanded.value },
             onSwitchAccount = {},

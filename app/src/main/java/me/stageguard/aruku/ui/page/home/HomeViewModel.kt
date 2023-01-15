@@ -10,19 +10,21 @@ import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Contacts
 import androidx.compose.material.icons.filled.Message
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -41,7 +43,6 @@ import me.stageguard.aruku.ui.page.login.LoginState
 import me.stageguard.aruku.util.stringRes
 import me.stageguard.aruku.util.tag
 import net.mamoe.mirai.Bot
-import net.mamoe.mirai.contact.AvatarSpec
 import net.mamoe.mirai.event.ListeningStatus
 import net.mamoe.mirai.event.events.BotOfflineEvent
 
@@ -53,6 +54,25 @@ class HomeViewModel(
     // it is only changed at [observeAccountState] and [loginSolver]
     private val _loginState: MutableStateFlow<AccountState> = MutableStateFlow(AccountState.Default)
     val loginState: StateFlow<AccountState> get() = _loginState.asStateFlow()
+    private val _accounts: MutableStateFlow<List<BasicAccountInfo>> by lazy {
+        MutableStateFlow(
+            _accountList.value
+                ?.mapNotNull { repository.queryAccountProfile(it) }
+                ?.map { BasicAccountInfo(it.accountNo, it.nickname, it.avatarUrl) }
+                ?: listOf()
+        )
+    }
+    private val accountListUpdateFlow = MutableStateFlow(0L)
+    val accounts: Flow<List<BasicAccountInfo>> =
+        _accounts.combine(accountListUpdateFlow) { info, _ -> info }
+
+    fun observeAccountList(owner: LifecycleOwner) {
+        _accountList.observe(owner) { list ->
+            _accounts.value = list
+                .mapNotNull { repository.queryAccountProfile(it) }
+                .map { BasicAccountInfo(it.accountNo, it.nickname, it.avatarUrl) }
+        }
+    }
 
     private val captchaChannel = Channel<String?>()
     private val loginSolver = object : ILoginSolver.Stub() {
@@ -130,6 +150,7 @@ class HomeViewModel(
 
         override fun onLoginSuccess(bot: Long) {
             viewModelScope.updateLoginState(AccountState.Online(bot))
+            accountListUpdateFlow.value = System.currentTimeMillis()
         }
 
         override fun onLoginFailed(bot: Long, botKilled: Boolean, cause: String?) {
@@ -150,7 +171,7 @@ class HomeViewModel(
 
     val currentNavSelection = mutableStateOf(homeNaves[HomeNavSelection.MESSAGE]!!)
 
-    // observe account state at home page
+    // observe account state
     context(CoroutineScope) fun observeAccountState(account: Long?) {
         val bot = if (account != null) Bot.getInstanceOrNull(account) else null
         Log.i(tag(), "observeAccountState $bot")
@@ -225,16 +246,6 @@ class HomeViewModel(
         ).show()
     }
 
-    @Composable
-    fun getAccountBasicInfo(): List<BasicAccountInfo> {
-        val state = _accountList.observeAsState(listOf())
-
-        return state.value.filter { Bot.getInstanceOrNull(it) != null }.map {
-            val b = Bot.getInstance(it)
-            BasicAccountInfo(b.id, b.nick, b.avatarUrl(AvatarSpec.ORIGINAL))
-        }
-    }
-
     private fun CoroutineScope.updateLoginState(s: AccountState) {
         launch {
             _loginState.emit(s)
@@ -255,8 +266,8 @@ val homeNaves = mapOf(
         label = R.string.home_nav_message,
         content = {
             val navController = LocalNavController.current
-            HomeMessagePage(it) { contact ->
-                navController.navigate("$NAV_CHAT/${contact.toNavArg()}")
+            HomeMessagePage(it) { contact, messageId ->
+                navController.navigate("$NAV_CHAT/${contact.toNavArg(messageId)}")
             }
         }
     ),

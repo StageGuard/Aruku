@@ -10,10 +10,17 @@ import me.stageguard.aruku.service.parcel.ArukuContactType
 @Dao
 abstract class MessagePreviewDao : BaseDao<MessagePreviewEntity> {
     @Query("select * from message_preview where account_id=:account and type=:type order by time desc")
-    abstract fun getMessages(account: Long, type: ArukuContactType): Flow<List<MessagePreviewEntity>>
+    abstract fun getMessages(
+        account: Long,
+        type: ArukuContactType
+    ): Flow<List<MessagePreviewEntity>>
 
     @Query("select * from message_preview where account_id=:account and type=:type order by time desc limit :limit")
-    abstract fun getMessages(account: Long, type: ArukuContactType, limit: Int): Flow<List<MessagePreviewEntity>>
+    abstract fun getMessages(
+        account: Long,
+        type: ArukuContactType,
+        limit: Int
+    ): Flow<List<MessagePreviewEntity>>
 
     @Query("select * from message_preview where account_id=:account order by time desc")
     abstract fun getMessages(account: Long): Flow<List<MessagePreviewEntity>>

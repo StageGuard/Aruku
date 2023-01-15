@@ -12,6 +12,7 @@ import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import androidx.paging.map
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
@@ -31,7 +32,6 @@ import net.mamoe.mirai.message.data.FileMessage
 import net.mamoe.mirai.message.data.FlashImage
 import net.mamoe.mirai.message.data.ForwardMessage
 import net.mamoe.mirai.message.data.Image
-import net.mamoe.mirai.message.data.Image.Key.queryUrl
 import net.mamoe.mirai.message.data.PlainText
 import java.time.LocalDateTime
 import java.time.ZoneOffset
@@ -81,8 +81,14 @@ class ChatViewModel(
                     deserializedMessage.forEach {
                         when (it) {
                             is PlainText -> visibleMessages.add(VisibleChatMessage.PlainText(it.content))
-                            is Image -> visibleMessages.add(VisibleChatMessage.Image(it.queryUrl()))
-                            is FlashImage -> visibleMessages.add(VisibleChatMessage.Image(it.image.queryUrl()))
+                            is Image -> visibleMessages.add(
+                                VisibleChatMessage.Image(repository.queryImageUrl(it))
+                            )
+
+                            is FlashImage -> visibleMessages.add(
+                                VisibleChatMessage.Image(repository.queryImageUrl(it.image))
+                            )
+
                             is At -> visibleMessages.add(
                                 VisibleChatMessage.At(
                                     it.target,
@@ -97,8 +103,7 @@ class ChatViewModel(
                             is AtAll -> visibleMessages.add(VisibleChatMessage.AtAll)
                             is Face -> visibleMessages.add(VisibleChatMessage.Face(it.id))
                             is Audio -> {
-                                val arukuAudio = it.toArukuAudio()
-                                val cache = audioCache.resolveAsFlow(arukuAudio)
+                                val cache = audioCache.resolveAsFlow(it.toArukuAudio())
                                     .map { result ->
                                         when (result) {
                                             is AudioCache.ResolveResult.NotFound -> ChatAudioStatus.NotFound
@@ -107,7 +112,7 @@ class ChatViewModel(
                                                 result.progress
                                             )
                                         }
-                                    }.flowOn(viewModelScope.coroutineContext)
+                                    }.flowOn(viewModelScope.coroutineContext + Dispatchers.IO)
                                 val identity = it.filename + "_" + it.fileMd5
                                 _chatAudios[identity] = cache
 
@@ -144,7 +149,8 @@ class ChatViewModel(
                         } ?: "",
                         time = LocalDateTime.ofEpochSecond(record.time.toLong(), 0, ZoneOffset.UTC)
                             .formatHHmm(),
-                        source = "${record._prim_key}${record.messageIds}".toLongOrNull() ?: -1L,
+                        source = "${record.messageIds}${record.messageInternalIds}".toLongOrNull()
+                            ?: -1L,
                         visibleMessages = visibleMessages
                     ) as ChatElement
                 }
@@ -155,7 +161,7 @@ class ChatViewModel(
 
 sealed interface VisibleChatMessage {
     data class PlainText(val content: String) : VisibleChatMessage
-    data class Image(val url: String) : VisibleChatMessage
+    data class Image(val url: String?) : VisibleChatMessage
     data class At(val targetId: Long, val targetName: String) : VisibleChatMessage
     object AtAll : VisibleChatMessage
     data class Face(val id: Int) : VisibleChatMessage {

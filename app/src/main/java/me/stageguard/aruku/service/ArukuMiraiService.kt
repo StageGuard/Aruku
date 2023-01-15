@@ -30,6 +30,7 @@ import me.stageguard.aruku.database.contact.toFriendEntity
 import me.stageguard.aruku.database.contact.toGroupEntity
 import me.stageguard.aruku.database.message.MessagePreviewEntity
 import me.stageguard.aruku.service.parcel.AccountInfo
+import me.stageguard.aruku.service.parcel.AccountLoginData
 import me.stageguard.aruku.service.parcel.ArukuContact
 import me.stageguard.aruku.service.parcel.ArukuContactType
 import me.stageguard.aruku.service.parcel.ArukuMessage
@@ -64,6 +65,8 @@ import net.mamoe.mirai.event.events.StrangerRelationChangeEvent
 import net.mamoe.mirai.message.data.Audio
 import net.mamoe.mirai.message.data.MessageChain
 import net.mamoe.mirai.message.data.OnlineAudio
+import net.mamoe.mirai.message.data.ids
+import net.mamoe.mirai.message.data.internalId
 import net.mamoe.mirai.network.LoginFailedException
 import net.mamoe.mirai.utils.BotConfiguration.HeartbeatStrategy
 import net.mamoe.mirai.utils.BotConfiguration.MiraiProtocol
@@ -94,7 +97,7 @@ class ArukuMiraiService : LifecycleService() {
         mutableMapOf()
 
     private val binderInterface = object : IArukuMiraiInterface.Stub() {
-        override fun addBot(info: AccountInfo?, alsoLogin: Boolean): Boolean {
+        override fun addBot(info: AccountLoginData?, alsoLogin: Boolean): Boolean {
             Log.i(tag(), "addBot(info=$info)")
             if (info == null) return false
             this@ArukuMiraiService.addBot(info, true)
@@ -209,6 +212,28 @@ class ArukuMiraiService : LifecycleService() {
             val group = bot.getGroup(groupId) ?: return null
             return group.getMember(memberId)?.toGroupMemberInfo()
         }
+
+        override fun queryAccountInfo(account: Long): AccountInfo? {
+            val bot = Bot.getInstanceOrNull(account) ?: return null
+            return AccountInfo(
+                accountNo = bot.id,
+                nickname = bot.nick,
+                avatarUrl = bot.avatarUrl
+            )
+            /*val profile = lifecycleScope.async { bot.asFriend.queryProfile() }
+            return runBlocking(lifecycleScope.coroutineContext) {
+                AccountInfo(
+                    accountNo = bot.id,
+                    nickname = bot.nick,
+                    avatarUrl = bot.avatarUrl,
+                    age = profile.await().age,
+                    email = profile.await().email,
+                    qLevel = profile.await().qLevel,
+                    sign = profile.await().sign,
+                    sex = profile.await().sex.ordinal
+                )
+            }*/
+        }
     }
 
     override fun onCreate() {
@@ -298,7 +323,7 @@ class ArukuMiraiService : LifecycleService() {
         super.onDestroy()
     }
 
-    private fun addBot(account: AccountInfo, notifyPost: Boolean = false): Boolean {
+    private fun addBot(account: AccountLoginData, notifyPost: Boolean = false): Boolean {
         if (bots.value?.get(account.accountNo) != null) {
             removeBot(account.accountNo, notifyPost)
         }
@@ -500,7 +525,9 @@ class ArukuMiraiService : LifecycleService() {
                                     event.subject.id,
                                     messageType,
                                     event.time.toLong(),
-                                    event.sender.nameCardOrNick + ": " + event.message.contentToString()
+                                    event.sender.nameCardOrNick + ": " + event.message.contentToString(),
+                                    1,
+                                    "${event.message.ids.sum()}${event.message.internalId.sum()}".toLong()
                                 )
                             )
                         } else {
@@ -508,6 +535,9 @@ class ArukuMiraiService : LifecycleService() {
                                 this@p.time = event.time.toLong()
                                 this@p.previewContent =
                                     event.sender.nameCardOrNick + ": " + event.message.contentToString()
+                                this@p.unreadCount = this@p.unreadCount + 1
+                                this@p.messageId =
+                                    "${event.message.ids.sum()}${event.message.internalId.sum()}".toLong()
                             })
                         }
 
@@ -599,12 +629,11 @@ class ArukuMiraiService : LifecycleService() {
     private fun processMessageChain(bot: Bot, subject: ArukuContact, message: MessageChain) {
         message.forEach {
             if (it is Audio) {
-                with(lifecycleScope) {
-                    audioCache.appendDownloadJob(
-                        it.toArukuAudio(),
-                        (it as OnlineAudio).urlForDownload
-                    )
-                }
+                audioCache.appendDownloadJob(
+                    lifecycleScope,
+                    it.toArukuAudio(),
+                    (it as OnlineAudio).urlForDownload
+                )
             }
         }
     }
@@ -624,7 +653,7 @@ class ArukuMiraiService : LifecycleService() {
         } ?: false
     }
 
-    private fun createBot(accountInfo: AccountInfo, pushToDatabase: Boolean = false): Bot {
+    private fun createBot(accountInfo: AccountLoginData, pushToDatabase: Boolean = false): Bot {
         val miraiWorkingDir = ArukuApplication.INSTANCE.filesDir.resolve("mirai/")
         if (!miraiWorkingDir.exists()) miraiWorkingDir.mkdirs()
 

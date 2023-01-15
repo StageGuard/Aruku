@@ -47,7 +47,7 @@ fun Image(
             .crossfade(true)
             .build(),
         "chat image ${element.url}",
-        modifier = modifier.then(Modifier.clickable { onClick(element.url) })
+        modifier = modifier.then(Modifier.clickable { element.url?.let { onClick(it) } })
     )
 }
 
@@ -79,7 +79,8 @@ fun At(
         text = annotatedContent,
         modifier = modifier,
         onClick = {
-            val atTargetAnnotation = annotatedContent.getStringAnnotations("AT", it, it).firstOrNull()
+            val atTargetAnnotation =
+                annotatedContent.getStringAnnotations("AT", it, it).firstOrNull()
             if (atTargetAnnotation != null) onClick(atTargetAnnotation.item.toLongOrDefault(-1L))
         }
     )
@@ -156,7 +157,7 @@ fun Audio(
         VisibleChatMessage.PlainText(buildString {
             append("[Audio]")
             append("[")
-            if (status == null) append("NotPrepared") else when(val v = status.value) {
+            if (status == null) append("NotPrepared") else when (val v = status.value) {
                 is ChatAudioStatus.Unknown -> append("NotPrepared")
                 is ChatAudioStatus.Preparing -> append("Preparing:").append(v.progress)
                 is ChatAudioStatus.NotFound -> append("NotFound")

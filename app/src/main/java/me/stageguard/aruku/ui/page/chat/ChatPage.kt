@@ -8,9 +8,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.paging.compose.collectAsLazyPagingItems
-import me.stageguard.aruku.service.parcel.ArukuContact
 import me.stageguard.aruku.ui.LocalBot
 import me.stageguard.aruku.ui.common.ArrowBack
+import me.stageguard.aruku.ui.page.ChatPageNav
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
 
@@ -20,7 +20,7 @@ import org.koin.core.parameter.parametersOf
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChatPage(contact: ArukuContact) {
+fun ChatPage(contact: ChatPageNav) {
     val bot = LocalBot.current
     val viewModel: ChatViewModel = koinViewModel { parametersOf(contact) }
 

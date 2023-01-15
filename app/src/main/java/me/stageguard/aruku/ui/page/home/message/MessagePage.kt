@@ -35,8 +35,10 @@ import me.stageguard.aruku.R
 import me.stageguard.aruku.service.parcel.ArukuContact
 import me.stageguard.aruku.service.parcel.ArukuContactType
 import me.stageguard.aruku.ui.LocalBot
+import me.stageguard.aruku.ui.LocalHomeAccountState
 import me.stageguard.aruku.ui.common.FastScrollToTopFab
 import me.stageguard.aruku.ui.common.WhitePage
+import me.stageguard.aruku.ui.page.home.AccountState
 import me.stageguard.aruku.ui.theme.ArukuTheme
 import me.stageguard.aruku.util.formatHHmm
 import me.stageguard.aruku.util.stringResC
@@ -49,20 +51,26 @@ import java.time.LocalDateTime
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun HomeMessagePage(padding: PaddingValues, onContactClick: (ArukuContact) -> Unit) {
+fun HomeMessagePage(padding: PaddingValues, onContactClick: (ArukuContact, Long) -> Unit) {
     val bot = LocalBot.current
+    val accountState = LocalHomeAccountState.current
     val viewModel: MessageViewModel = koinViewModel()
-//    LaunchedEffect(bot) { vm.initMessageTest() }
-    LaunchedEffect(bot) { if (bot != null) viewModel.initMessage(bot) }
 
-    val messages = viewModel.messages.value?.collectAsLazyPagingItems()
+    LaunchedEffect(bot) {
+        if (bot != null) viewModel.initMessage(bot)
+    }
+    LaunchedEffect(accountState) {
+        if (accountState is AccountState.Online) viewModel.updateMessages()
+    }
+
+    val messages = viewModel.messages.value.collectAsLazyPagingItems()
     val listState = rememberLazyListState()
     val shimmer = rememberShimmer(shimmerBounds = ShimmerBounds.View)
-    val rOnContactClick by rememberUpdatedState(onContactClick)
+    val currentOnContactClick by rememberUpdatedState(onContactClick)
 
     val currentFirstVisibleIndex = remember { mutableStateOf(listState.firstVisibleItemIndex) }
-    LaunchedEffect(messages?.itemSnapshotList) {
-        val first = messages?.itemSnapshotList?.firstOrNull()
+    LaunchedEffect(messages.itemSnapshotList) {
+        val first = messages.itemSnapshotList.firstOrNull()
         if (first != null && listState.firstVisibleItemIndex > currentFirstVisibleIndex.value) {
             listState.animateScrollToItem((listState.firstVisibleItemIndex - 1).coerceAtLeast(0))
         }
@@ -70,41 +78,36 @@ fun HomeMessagePage(padding: PaddingValues, onContactClick: (ArukuContact) -> Un
     }
 
     Box {
-        if (messages != null) {
-            if (messages.loadState.refresh !is LoadState.Error) {
-                if (messages.loadState.refresh !is LoadState.NotLoading || messages.itemCount > 0) {
-                    LazyColumn(
-                        state = listState,
-                        modifier = Modifier.padding(padding),
-                        verticalArrangement = Arrangement.spacedBy(5.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        contentPadding = PaddingValues(5.dp)
-                    ) {
-                        if (messages.itemCount > 0) {
-                            items(messages, key = { it.contact }) {
-                                if (it != null) {
-                                    MessageCard(
-                                        data = Either<Shimmer, SimpleMessagePreview>(it),
-                                        modifier = Modifier.animateItemPlacement().animateContentSize().clickable {
-                                            rOnContactClick(it.contact)
-                                        }
-                                    )
+        if (bot != null && messages.loadState.refresh !is LoadState.Error) {
+            if (messages.loadState.refresh !is LoadState.NotLoading || messages.itemCount > 0) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.padding(padding),
+                    verticalArrangement = Arrangement.spacedBy(5.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    contentPadding = PaddingValues(5.dp)
+                ) {
+                    if (messages.itemCount > 0) {
+                        items(messages, key = { it.contact }) {
+                            if (it != null) MessageCard(
+                                data = Either<Shimmer, SimpleMessagePreview>(it),
+                                modifier = Modifier.animateItemPlacement().animateContentSize().clickable {
+                                    viewModel.clearUnreadCount(bot, it.contact)
+                                    currentOnContactClick(it.contact, it.messageId)
                                 }
-                            }
-                        } else {
-                            items(10) {
-                                MessageCard(data = Either(shimmer))
-                            }
+                            )
+                        }
+                    } else {
+                        items(10) {
+                            MessageCard(data = Either(shimmer))
                         }
                     }
-                } else {
-                    WhitePage(R.string.list_empty.stringResC)
                 }
             } else {
-                WhitePage(R.string.list_failed.stringResC)
+                WhitePage(R.string.list_empty.stringResC)
             }
         } else {
-            WhitePage(R.string.list_empty.stringResC)
+            WhitePage(R.string.list_failed.stringResC)
         }
 
         FastScrollToTopFab(listState)
@@ -256,7 +259,8 @@ fun MessageCardPreview() {
             message,
             "message preview",
             LocalDateTime.now().minusMinutes((0L..3600L).random()),
-            (0..100).random()
+            (0..100).random(),
+            0L
         )
     }
     val shimmer = rememberShimmer(ShimmerBounds.View)
