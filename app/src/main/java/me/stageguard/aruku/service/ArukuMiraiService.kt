@@ -39,6 +39,7 @@ import me.stageguard.aruku.service.parcel.GroupMemberInfo
 import me.stageguard.aruku.service.parcel.toArukuAudio
 import me.stageguard.aruku.service.parcel.toGroupMemberInfo
 import me.stageguard.aruku.ui.activity.MainActivity
+import me.stageguard.aruku.util.longMessageId
 import me.stageguard.aruku.util.notify
 import me.stageguard.aruku.util.notifyPost
 import me.stageguard.aruku.util.stringRes
@@ -65,8 +66,6 @@ import net.mamoe.mirai.event.events.StrangerRelationChangeEvent
 import net.mamoe.mirai.message.data.Audio
 import net.mamoe.mirai.message.data.MessageChain
 import net.mamoe.mirai.message.data.OnlineAudio
-import net.mamoe.mirai.message.data.ids
-import net.mamoe.mirai.message.data.internalId
 import net.mamoe.mirai.network.LoginFailedException
 import net.mamoe.mirai.utils.BotConfiguration.HeartbeatStrategy
 import net.mamoe.mirai.utils.BotConfiguration.MiraiProtocol
@@ -527,7 +526,7 @@ class ArukuMiraiService : LifecycleService() {
                                     event.time.toLong(),
                                     event.sender.nameCardOrNick + ": " + event.message.contentToString(),
                                     1,
-                                    "${event.message.ids.sum()}${event.message.internalId.sum()}".toLong()
+                                    event.message.longMessageId
                                 )
                             )
                         } else {
@@ -536,8 +535,7 @@ class ArukuMiraiService : LifecycleService() {
                                 this@p.previewContent =
                                     event.sender.nameCardOrNick + ": " + event.message.contentToString()
                                 this@p.unreadCount = this@p.unreadCount + 1
-                                this@p.messageId =
-                                    "${event.message.ids.sum()}${event.message.internalId.sum()}".toLong()
+                                this@p.messageId = event.message.longMessageId
                             })
                         }
 

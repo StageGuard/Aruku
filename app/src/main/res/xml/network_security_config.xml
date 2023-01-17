@@ -4,6 +4,7 @@
         <domain includeSubdomains="true">q.qlogo.cn</domain>
         <domain includeSubdomains="true">p.qlogo.cn</domain>
         <domain includeSubdomains="true">gchat.qpic.cn</domain>
+        <domain includeSubdomains="true">grouptalk.c2c.qq.com</domain>
 
     </domain-config>
 </network-security-config>

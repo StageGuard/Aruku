@@ -3,20 +3,7 @@ package me.stageguard.aruku.ui.page.chat
 import android.content.Context
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.defaultMinSize
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.paddingFrom
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -40,7 +27,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.paging.ItemSnapshotList
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.google.accompanist.flowlayout.FlowRow
@@ -51,7 +37,7 @@ import me.stageguard.aruku.ui.theme.ArukuTheme
 
 @Composable
 fun ChatListView(
-    chatList: ItemSnapshotList<ChatElement>?,
+    chatList: List<ChatElement>,
     lazyListState: LazyListState,
     chatAudio: Map<String, Flow<ChatAudioStatus>>,
     paddingValues: PaddingValues,
@@ -66,9 +52,9 @@ fun ChatListView(
             contentPadding = paddingValues,
             modifier = Modifier.fillMaxSize()
         ) {
-            chatList?.forEachIndexed { index, element ->
+            chatList.forEachIndexed { index, element ->
                 when (element) {
-                    is ChatElement.Message -> item(key = element.source) {
+                    is ChatElement.Message -> item(key = "${index}-${element.source}") {
                         val lastSentByCurrent =
                             if (index - 1 < 0) false else chatList[index - 1].run {
                                 this is ChatElement.Message && this.senderId == element.senderId
@@ -374,76 +360,74 @@ fun ChatListPreview() {
         CompositionLocalProvider(LocalBot provides 202746796L) {
             val listState = rememberLazyListState()
             val randSrcId = { IntRange(0, 100000).random().toLong() }
-            val list = ItemSnapshotList(
-                0, 0, listOf(
-                    ChatElement.DateDivider("Jan 4, 2023"),
-                    ChatElement.Notification("XXX toggled mute all", listOf()),
-                    ChatElement.Message(
-                        senderId = 1355416608L,
-                        senderName = "StageGuard",
-                        senderAvatarUrl = "https://stageguard.top/img/avatar.png",
-                        time = "11:45:14",
-                        source = randSrcId(),
-                        visibleMessages = listOf(
-                            VisibleChatMessage.PlainText("1")
-                        ),
+            val list = listOf(
+                ChatElement.DateDivider("Jan 4, 2023"),
+                ChatElement.Notification("XXX toggled mute all", listOf()),
+                ChatElement.Message(
+                    senderId = 1355416608L,
+                    senderName = "StageGuard",
+                    senderAvatarUrl = "https://stageguard.top/img/avatar.png",
+                    time = "11:45:14",
+                    source = randSrcId(),
+                    visibleMessages = listOf(
+                        VisibleChatMessage.PlainText("1")
                     ),
-                    ChatElement.Message(
-                        senderId = 1355416608L,
-                        senderName = "StageGuard",
-                        senderAvatarUrl = "https://stageguard.top/img/avatar.png",
-                        time = "11:45:14",
-                        source = randSrcId(),
-                        visibleMessages = listOf(
-                            VisibleChatMessage.PlainText("compose chat list view preview")
-                        ),
+                ),
+                ChatElement.Message(
+                    senderId = 1355416608L,
+                    senderName = "StageGuard",
+                    senderAvatarUrl = "https://stageguard.top/img/avatar.png",
+                    time = "11:45:14",
+                    source = randSrcId(),
+                    visibleMessages = listOf(
+                        VisibleChatMessage.PlainText("compose chat list view preview")
                     ),
-                    ChatElement.Message(
-                        senderId = 1355416608L,
-                        senderName = "StageGuard",
-                        senderAvatarUrl = "https://stageguard.top/img/avatar.png",
-                        time = "11:45:14",
-                        source = randSrcId(),
-                        visibleMessages = listOf(
-                            VisibleChatMessage.PlainText(buildString { repeat(20) { append("long message! ") } })
-                        ),
+                ),
+                ChatElement.Message(
+                    senderId = 1355416608L,
+                    senderName = "StageGuard",
+                    senderAvatarUrl = "https://stageguard.top/img/avatar.png",
+                    time = "11:45:14",
+                    source = randSrcId(),
+                    visibleMessages = listOf(
+                        VisibleChatMessage.PlainText(buildString { repeat(20) { append("long message! ") } })
                     ),
-                    ChatElement.Message(
-                        senderId = 3129693328L,
-                        senderName = "WhichWho",
-                        senderAvatarUrl = "https://q1.qlogo.cn/g?b=qq&nk=3129693328&s=0&timestamp=1673582758562",
-                        time = "11:45:14",
-                        source = randSrcId(),
-                        visibleMessages = listOf(
-                            VisibleChatMessage.Face(1),
-                            VisibleChatMessage.Face(10),
-                            VisibleChatMessage.PlainText("<- this is face.")
-                        ),
+                ),
+                ChatElement.Message(
+                    senderId = 3129693328L,
+                    senderName = "WhichWho",
+                    senderAvatarUrl = "https://q1.qlogo.cn/g?b=qq&nk=3129693328&s=0&timestamp=1673582758562",
+                    time = "11:45:14",
+                    source = randSrcId(),
+                    visibleMessages = listOf(
+                        VisibleChatMessage.Face(1),
+                        VisibleChatMessage.Face(10),
+                        VisibleChatMessage.PlainText("<- this is face.")
                     ),
-                    ChatElement.Message(
-                        senderId = 202746796L,
-                        senderName = "SIGTERM",
-                        senderAvatarUrl = "",
-                        time = "11:45:14",
-                        source = randSrcId(),
-                        visibleMessages = listOf(
-                            VisibleChatMessage.Image("https://gchat.qpic.cn/gchatpic_new/2591482572/2079312506-2210827314-3599E59C0E36C66A966F4DD2E28C4341/0?term=255&is_origin=0")
-                        ),
+                ),
+                ChatElement.Message(
+                    senderId = 202746796L,
+                    senderName = "SIGTERM",
+                    senderAvatarUrl = "",
+                    time = "11:45:14",
+                    source = randSrcId(),
+                    visibleMessages = listOf(
+                        VisibleChatMessage.Image("https://gchat.qpic.cn/gchatpic_new/2591482572/2079312506-2210827314-3599E59C0E36C66A966F4DD2E28C4341/0?term=255&is_origin=0")
                     ),
-                    ChatElement.Message(
-                        senderId = 202746796L,
-                        senderName = "SIGTERM",
-                        senderAvatarUrl = "",
-                        time = "11:45:14",
-                        source = randSrcId(),
-                        visibleMessages = listOf(
-                            VisibleChatMessage.At(3129693328L, "WhichWho"),
-                            VisibleChatMessage.PlainText(" this is my error log"),
-                            VisibleChatMessage.Image("https://mirai.mamoe.net/assets/uploads/files/1672243675745-ece9effe-c9eb-4bcb-aba1-529e6f0c5f49-image.png")
+                ),
+                ChatElement.Message(
+                    senderId = 202746796L,
+                    senderName = "SIGTERM",
+                    senderAvatarUrl = "",
+                    time = "11:45:14",
+                    source = randSrcId(),
+                    visibleMessages = listOf(
+                        VisibleChatMessage.At(3129693328L, "WhichWho"),
+                        VisibleChatMessage.PlainText(" this is my error log"),
+                        VisibleChatMessage.Image("https://mirai.mamoe.net/assets/uploads/files/1672243675745-ece9effe-c9eb-4bcb-aba1-529e6f0c5f49-image.png")
 
-                        ),
                     ),
-                )
+                ),
             )
 
             ChatListView(list, listState, mapOf(), PaddingValues())

@@ -1,72 +1,50 @@
 package me.stageguard.aruku.ui.page.chat
 
 import androidx.annotation.DrawableRes
-import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.State
-import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.paging.Pager
-import androidx.paging.PagingConfig
-import androidx.paging.PagingData
-import androidx.paging.cachedIn
-import androidx.paging.map
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.*
 import me.stageguard.aruku.cache.AudioCache
+import me.stageguard.aruku.database.LoadState
+import me.stageguard.aruku.database.mapOk
 import me.stageguard.aruku.domain.MainRepository
 import me.stageguard.aruku.service.parcel.ArukuContact
 import me.stageguard.aruku.service.parcel.ArukuContactType
 import me.stageguard.aruku.service.parcel.toArukuAudio
+import me.stageguard.aruku.ui.page.ChatPageNav
 import me.stageguard.aruku.util.formatHHmm
 import net.mamoe.mirai.message.code.MiraiCode.deserializeMiraiCode
-import net.mamoe.mirai.message.data.At
-import net.mamoe.mirai.message.data.AtAll
-import net.mamoe.mirai.message.data.Audio
-import net.mamoe.mirai.message.data.Face
-import net.mamoe.mirai.message.data.FileMessage
-import net.mamoe.mirai.message.data.FlashImage
-import net.mamoe.mirai.message.data.ForwardMessage
-import net.mamoe.mirai.message.data.Image
-import net.mamoe.mirai.message.data.PlainText
+import net.mamoe.mirai.message.data.*
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 
 class ChatViewModel(
     private val repository: MainRepository,
+    private val bot: Long,
     private val audioCache: AudioCache,
-    private val contact: ArukuContact,
+    private val chatNav: ChatPageNav,
 ) : ViewModel() {
-    private val _subjectName = mutableStateOf(contact.subject.toString())
-    val subjectName: State<String> = _subjectName
-    private val _subjectAvatar = mutableStateOf<Any?>(null)
-    val subjectAvatar: State<Any?> = _subjectAvatar
-    private val _messages: MutableState<Flow<PagingData<ChatElement>>?> = mutableStateOf(null)
-    val messages: State<Flow<PagingData<ChatElement>>?> = _messages
+    val subjectName = flow {
+        val name = repository.getNickname(bot, chatNav.contact)
+        if (name != null) emit(name)
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.Lazily,
+        chatNav.contact.subject.toString()
+    )
+    val subjectAvatar = flow<String?> {
+        val url = repository.getAvatarUrl(bot, chatNav.contact)
+        if (url != null) emit(url)
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.Lazily,
+        null
+    )
 
-    private val _chatAudios: MutableMap<String, Flow<ChatAudioStatus>> = mutableMapOf()
-    val chatAudios: Map<String, Flow<ChatAudioStatus>> = _chatAudios
-
-    context(CoroutineScope) fun init(bot: Long) {
-        this@CoroutineScope.launch {
-            _subjectName.value = repository.getNickname(bot, contact) ?: contact.subject.toString()
-            _subjectAvatar.value = repository.getAvatarUrl(bot, contact)
-
-            _messages.value = Pager(
-                config = PagingConfig(10),
-                initialKey = null,
-                pagingSourceFactory = {
-                    repository.getMessageRecords(
-                        bot,
-                        contact.subject,
-                        contact.type
-                    )
-                }
-            ).flow.map { data ->
+    val messages: StateFlow<LoadState<List<ChatElement>>> =
+        repository.getMessageRecords(bot, chatNav.contact.subject, chatNav.contact.type)
+            .mapOk { data ->
                 data.map { record ->
                     val memberInfo = if (record.type == ArukuContactType.GROUP) {
                         repository.getGroupMemberInfo(
@@ -154,9 +132,10 @@ class ChatViewModel(
                         visibleMessages = visibleMessages
                     ) as ChatElement
                 }
-            }.cachedIn(viewModelScope)
-        }
-    }
+            }.stateIn(viewModelScope, SharingStarted.Lazily, LoadState.Loading())
+
+    private val _chatAudios: MutableMap<String, Flow<ChatAudioStatus>> = mutableMapOf()
+    val chatAudios: Map<String, Flow<ChatAudioStatus>> = _chatAudios
 }
 
 sealed interface VisibleChatMessage {

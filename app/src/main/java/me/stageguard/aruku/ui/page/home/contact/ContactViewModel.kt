@@ -2,17 +2,15 @@ package me.stageguard.aruku.ui.page.home.contact
 
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.State
-import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.paging.*
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+import me.stageguard.aruku.database.LoadState
+import me.stageguard.aruku.database.mapOk
 import me.stageguard.aruku.domain.MainRepository
 import me.stageguard.aruku.service.parcel.ArukuContact
 import me.stageguard.aruku.service.parcel.ArukuContactType
@@ -22,48 +20,42 @@ import me.stageguard.aruku.service.parcel.ArukuContactType
  * https://github.com/WhichWho
  */
 class ContactViewModel(
-    private val repository: MainRepository
+    private val repository: MainRepository,
+    private val bot: Long,
 ) : ViewModel() {
-    private val _groups: MutableState<Flow<PagingData<SimpleContactData>>?> = mutableStateOf(null)
-    private val _friends: MutableState<Flow<PagingData<SimpleContactData>>?> = mutableStateOf(null)
-    val groups: State<Flow<PagingData<SimpleContactData>>?> get() = _groups
-    val friends: State<Flow<PagingData<SimpleContactData>>?> get() = _friends
+    private val contactUpdateFlow = MutableStateFlow(0L)
 
-    context(CoroutineScope) suspend fun initContacts(account: Long) {
-        withContext(Dispatchers.IO) {
-            _groups.value = Pager(
-                config = PagingConfig(15),
-                initialKey = 0,
-                pagingSourceFactory = { repository.getGroups(account) }
-            ).flow.map { data ->
-                data.map {
-                    SimpleContactData(
-                        ArukuContact(ArukuContactType.GROUP, it.id),
-                        it.name,
-                        repository.getAvatarUrl(
-                            account,
-                            ArukuContact(ArukuContactType.GROUP, it.id)
-                        )
+    val groups: StateFlow<LoadState<List<SimpleContactData>>> =
+        repository.getGroups(bot).mapOk { data ->
+            data.map {
+                SimpleContactData(
+                    ArukuContact(ArukuContactType.GROUP, it.id),
+                    it.name,
+                    repository.getAvatarUrl(
+                        bot,
+                        ArukuContact(ArukuContactType.GROUP, it.id)
                     )
-                }
-            }.cachedIn(viewModelScope)
+                )
+            }
+        }.stateIn(viewModelScope, SharingStarted.Lazily, LoadState.Loading())
 
-            _friends.value = Pager(
-                config = PagingConfig(15),
-                initialKey = 0,
-                pagingSourceFactory =  { repository.getFriends(account) }
-            ).flow.map { data ->
-                data.map {
-                    SimpleContactData(
-                        ArukuContact(ArukuContactType.FRIEND, it.id),
-                        it.name,
-                        repository.getAvatarUrl(
-                            account,
-                            ArukuContact(ArukuContactType.FRIEND, it.id)
-                        )
+    val friends: StateFlow<LoadState<List<SimpleContactData>>> =
+        repository.getFriends(bot).mapOk { data ->
+            data.map {
+                SimpleContactData(
+                    ArukuContact(ArukuContactType.FRIEND, it.id),
+                    it.name,
+                    repository.getAvatarUrl(
+                        bot,
+                        ArukuContact(ArukuContactType.FRIEND, it.id)
                     )
-                }
-            }.cachedIn(viewModelScope)
+                )
+            }
+        }.stateIn(viewModelScope, SharingStarted.Lazily, LoadState.Loading())
+
+    fun updateContacts() {
+        viewModelScope.launch {
+            contactUpdateFlow.emit(System.currentTimeMillis())
         }
     }
 }

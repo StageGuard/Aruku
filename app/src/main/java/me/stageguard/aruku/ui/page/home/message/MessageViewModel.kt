@@ -1,24 +1,13 @@
 package me.stageguard.aruku.ui.page.home.message
 
-import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.State
-import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.paging.Pager
-import androidx.paging.PagingConfig
-import androidx.paging.PagingData
-import androidx.paging.cachedIn
-import androidx.paging.map
 import com.valentinilk.shimmer.Shimmer
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import me.stageguard.aruku.database.LoadState
+import me.stageguard.aruku.database.mapOk
 import me.stageguard.aruku.domain.MainRepository
 import me.stageguard.aruku.service.parcel.ArukuContact
 import net.mamoe.mirai.utils.Either
@@ -30,41 +19,34 @@ import java.time.ZoneOffset
  * https://github.com/WhichWho
  */
 class MessageViewModel(
-    private val repository: MainRepository
+    private val repository: MainRepository,
+    private val bot: Long,
 ) : ViewModel() {
     private val messageUpdateFlow = MutableStateFlow(0L)
-    private val _messages: MutableState<Flow<PagingData<SimpleMessagePreview>>> =
-        mutableStateOf(flow { PagingData.empty<SimpleMessagePreview>() })
-    val messages: State<Flow<PagingData<SimpleMessagePreview>>> get() = _messages
-
-    suspend fun initMessage(account: Long) = withContext(Dispatchers.IO) {
-        _messages.value = Pager(
-            config = PagingConfig(12),
-            initialKey = 0,
-            pagingSourceFactory = { repository.getMessagePreview(account) }
-        ).flow.map { pagingData ->
-            pagingData.map {
-                SimpleMessagePreview(
-                    contact = ArukuContact(it.type, it.subject),
-                    avatarData = repository.getAvatarUrl(
-                        account,
-                        ArukuContact(it.type, it.subject)
-                    ),
-                    name = repository.getNickname(
-                        account,
-                        ArukuContact(it.type, it.subject)
-                    ) ?: it.subject.toString(),
-                    preview = it.previewContent,
-                    time = LocalDateTime.ofEpochSecond(it.time, 0, ZoneOffset.UTC),
-                    unreadCount = it.unreadCount,
-                    messageId = it.messageId,
-                )
-            }
-        }.cachedIn(viewModelScope).combine(messageUpdateFlow) { data, _ -> data }
-    }
+    val messages: StateFlow<LoadState<List<SimpleMessagePreview>>> =
+        repository.getMessagePreview(bot).combine(messageUpdateFlow) { data, _ -> data }
+            .mapOk { data ->
+                data.map {
+                    SimpleMessagePreview(
+                        contact = ArukuContact(it.type, it.subject),
+                        avatarData = repository.getAvatarUrl(
+                            bot,
+                            ArukuContact(it.type, it.subject)
+                        ),
+                        name = repository.getNickname(
+                            bot,
+                            ArukuContact(it.type, it.subject)
+                        ) ?: it.subject.toString(),
+                        preview = it.previewContent,
+                        time = LocalDateTime.ofEpochSecond(it.time, 0, ZoneOffset.UTC),
+                        unreadCount = it.unreadCount,
+                        messageId = it.messageId,
+                    )
+                }
+            }.stateIn(viewModelScope, SharingStarted.Lazily, LoadState.Loading())
 
     fun clearUnreadCount(account: Long, contact: ArukuContact) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             repository.clearUnreadCount(account, contact)
         }
     }
@@ -93,7 +75,6 @@ class MessageViewModel(
 //    }
 
 }
-
 
 data class SimpleMessagePreview(
     val contact: ArukuContact,

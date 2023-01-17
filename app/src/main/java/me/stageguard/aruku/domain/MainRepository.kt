@@ -1,6 +1,7 @@
 package me.stageguard.aruku.domain
 
-import androidx.paging.PagingSource
+import kotlinx.coroutines.flow.Flow
+import me.stageguard.aruku.database.LoadState
 import me.stageguard.aruku.database.account.AccountEntity
 import me.stageguard.aruku.database.contact.FriendEntity
 import me.stageguard.aruku.database.contact.GroupEntity
@@ -8,11 +9,7 @@ import me.stageguard.aruku.database.message.MessagePreviewEntity
 import me.stageguard.aruku.database.message.MessageRecordEntity
 import me.stageguard.aruku.service.IBotListObserver
 import me.stageguard.aruku.service.ILoginSolver
-import me.stageguard.aruku.service.parcel.AccountInfo
-import me.stageguard.aruku.service.parcel.AccountLoginData
-import me.stageguard.aruku.service.parcel.ArukuContact
-import me.stageguard.aruku.service.parcel.ArukuContactType
-import me.stageguard.aruku.service.parcel.GroupMemberInfo
+import me.stageguard.aruku.service.parcel.*
 import net.mamoe.mirai.message.data.Image
 
 interface MainRepository {
@@ -34,14 +31,14 @@ interface MainRepository {
     // database
     fun getAccount(account: Long): AccountEntity?
     fun setAccountOfflineManually(account: Long)
-    fun getMessagePreview(account: Long): PagingSource<Int, MessagePreviewEntity>
-    fun getGroups(account: Long): PagingSource<Int, GroupEntity>
-    fun getFriends(account: Long): PagingSource<Int, FriendEntity>
+    fun getMessagePreview(account: Long): Flow<LoadState<List<MessagePreviewEntity>>>
+    fun getGroups(account: Long): Flow<LoadState<List<GroupEntity>>>
+    fun getFriends(account: Long): Flow<LoadState<List<FriendEntity>>>
     fun getMessageRecords(
         account: Long,
         subject: Long,
         type: ArukuContactType
-    ): PagingSource<Int, MessageRecordEntity>
+    ): Flow<LoadState<List<MessageRecordEntity>>>
 
     // other data sources
     suspend fun queryImageUrl(image: Image): String?

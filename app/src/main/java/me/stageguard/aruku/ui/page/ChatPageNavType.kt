@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.os.Parcelable
 import androidx.navigation.NavType
 import kotlinx.parcelize.Parcelize
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import me.stageguard.aruku.service.parcel.ArukuContact
@@ -14,20 +15,12 @@ object ChatPageNavType : NavType<ChatPageNav>(false) {
         get() = "ChatPageNav"
 
     override fun put(bundle: Bundle, key: String, value: ChatPageNav) {
-        val data = Bundle().apply {
-            putParcelable("contact", value.contact as Parcelable)
-            putLong("messageId", value.messageId ?: -1L)
-        }
-        bundle.putBundle(key, data)
+        bundle.putParcelable(key, value as Parcelable?)
     }
 
     @Suppress("UNCHECKED_CAST", "DEPRECATION")
     override fun get(bundle: Bundle, key: String): ChatPageNav {
-        val data = bundle[key] as Bundle
-        return ChatPageNav(
-            data["contact"] as ArukuContact,
-            (data["messageId"] as? Long).let { if (it == -1L) null else it }
-        )
+        return bundle[key] as ChatPageNav
     }
 
     override fun parseValue(value: String): ChatPageNav {
@@ -36,6 +29,7 @@ object ChatPageNavType : NavType<ChatPageNav>(false) {
 }
 
 @Parcelize
+@Serializable
 data class ChatPageNav(
     val contact: ArukuContact,
     val messageId: Long? = null

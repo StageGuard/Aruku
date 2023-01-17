@@ -7,10 +7,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.paging.compose.collectAsLazyPagingItems
+import me.stageguard.aruku.database.LoadState
 import me.stageguard.aruku.ui.LocalBot
 import me.stageguard.aruku.ui.common.ArrowBack
 import me.stageguard.aruku.ui.page.ChatPageNav
+import me.stageguard.aruku.util.cast
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
 
@@ -22,17 +23,14 @@ import org.koin.core.parameter.parametersOf
 @Composable
 fun ChatPage(contact: ChatPageNav) {
     val bot = LocalBot.current
-    val viewModel: ChatViewModel = koinViewModel { parametersOf(contact) }
+    val viewModel: ChatViewModel = koinViewModel { parametersOf(contact, bot) }
 
-    val avatarData by remember { viewModel.subjectAvatar }
+    val subjectName by viewModel.subjectName.collectAsState()
+    val subjectAvatar by viewModel.subjectAvatar.collectAsState()
     val listState = rememberLazyListState()
 
-    val messages = viewModel.messages.value?.collectAsLazyPagingItems()
+    val messages by viewModel.messages.collectAsState()
     val chatAudios = viewModel.chatAudios
-
-    LaunchedEffect(bot) {
-        if (bot != null) viewModel.init(bot)
-    }
 
     Scaffold(
         modifier = Modifier
@@ -44,8 +42,8 @@ fun ChatPage(contact: ChatPageNav) {
                 navigationIcon = { ArrowBack() },
                 title = {
                     ChatTitleBar(
-                        name = viewModel.subjectName.value,
-                        avatarData = avatarData,
+                        name = subjectName,
+                        avatarData = subjectAvatar,
                     )
                 },
                 actions = { ChatTopActions() }
@@ -57,12 +55,14 @@ fun ChatPage(contact: ChatPageNav) {
             }
         }
     ) { paddingValues ->
-        ChatListView(
-            chatList = messages?.itemSnapshotList,
-            lazyListState = listState,
-            chatAudio = chatAudios,
-            paddingValues = paddingValues,
-        )
+        if (messages is LoadState.Ok) {
+            ChatListView(
+                chatList = messages.cast<LoadState.Ok<List<ChatElement>>>().data,
+                lazyListState = listState,
+                chatAudio = chatAudios,
+                paddingValues = paddingValues,
+            )
+        }
     }
 
 }

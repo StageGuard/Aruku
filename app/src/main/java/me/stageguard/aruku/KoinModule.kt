@@ -54,8 +54,8 @@ val applicationModule = module {
     // view model
     viewModel { LoginViewModel(get()) }
     viewModel { HomeViewModel(get(), get<ArukuServiceConnector>().bots) }
-    viewModel { MessageViewModel(get()) }
-    viewModel { ContactViewModel(get()) }
+    viewModel { params -> MessageViewModel(get(), params.get()) }
+    viewModel { params -> ContactViewModel(get(), params.get()) }
     viewModel { AccountAvatarViewModel() }
-    viewModel { params -> ChatViewModel(get(), get(), params.get()) }
+    viewModel { params -> ChatViewModel(get(), params.get(), get(), params.get()) }
 }
