@@ -2,6 +2,7 @@ package me.stageguard.aruku.database
 
 import androidx.room.Database
 import androidx.room.RoomDatabase
+import androidx.room.TypeConverters
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.newSingleThreadContext
@@ -29,6 +30,7 @@ private val databaseScope by lazy { CoroutineScope(newSingleThreadContext("Aruku
     ],
     version = 1
 )
+@TypeConverters(DBTypeConverters::class)
 abstract class ArukuDatabase : RoomDatabase() {
     abstract fun accounts(): AccountDao
 

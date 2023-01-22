@@ -3,7 +3,20 @@ package me.stageguard.aruku.ui.page.chat
 import android.content.Context
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.paddingFrom
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -54,21 +67,21 @@ fun ChatListView(
         ) {
             chatList.forEachIndexed { index, element ->
                 when (element) {
-                    is ChatElement.Message -> item(key = "${index}-${element.source}") {
+                    is ChatElement.Message -> item(key = "${index}-${element.messageId}") {
                         val lastSentByCurrent =
                             if (index - 1 < 0) false else chatList[index - 1].run {
                                 this is ChatElement.Message && this.senderId == element.senderId
                             }
                         Mesasge(
                             context = context,
-                            source = element.source,
+                            messageId = element.messageId,
                             senderId = element.senderId,
                             senderName = element.senderName,
                             senderAvatarData = element.senderAvatarUrl,
                             sentByBot = element.senderId == bot,
                             showSender = !lastSentByCurrent,
                             time = element.time,
-                            visibleMessages = element.visibleMessages,
+                            messages = element.visibleMessages,
                             chatAudio = chatAudio,
                             modifier = Modifier.padding(
                                 horizontal = 10.dp,
@@ -95,14 +108,14 @@ fun ChatListView(
 @Composable
 private fun Mesasge(
     context: Context,
-    source: Long,
+    messageId: Int,
     senderId: Long,
     senderName: String,
     senderAvatarData: Any?,
     sentByBot: Boolean,
     showSender: Boolean,
     time: String,
-    visibleMessages: List<VisibleChatMessage>,
+    messages: List<VisibleChatMessage>,
     chatAudio: Map<String, Flow<ChatAudioStatus>>,
     modifier: Modifier = Modifier,
     onClickAvatar: (Long) -> Unit,
@@ -159,7 +172,7 @@ private fun Mesasge(
 
             ) {
                 RichMessage(
-                    list = visibleMessages,
+                    list = messages,
                     time = time,
                     context = context,
                     sentByBot = sentByBot,
@@ -359,7 +372,7 @@ fun ChatListPreview() {
     ArukuTheme {
         CompositionLocalProvider(LocalBot provides 202746796L) {
             val listState = rememberLazyListState()
-            val randSrcId = { IntRange(0, 100000).random().toLong() }
+            val randSrcId = { IntRange(0, 100000).random() }
             val list = listOf(
                 ChatElement.DateDivider("Jan 4, 2023"),
                 ChatElement.Notification("XXX toggled mute all", listOf()),
@@ -368,7 +381,7 @@ fun ChatListPreview() {
                     senderName = "StageGuard",
                     senderAvatarUrl = "https://stageguard.top/img/avatar.png",
                     time = "11:45:14",
-                    source = randSrcId(),
+                    messageId = randSrcId(),
                     visibleMessages = listOf(
                         VisibleChatMessage.PlainText("1")
                     ),
@@ -378,7 +391,7 @@ fun ChatListPreview() {
                     senderName = "StageGuard",
                     senderAvatarUrl = "https://stageguard.top/img/avatar.png",
                     time = "11:45:14",
-                    source = randSrcId(),
+                    messageId = randSrcId(),
                     visibleMessages = listOf(
                         VisibleChatMessage.PlainText("compose chat list view preview")
                     ),
@@ -388,7 +401,7 @@ fun ChatListPreview() {
                     senderName = "StageGuard",
                     senderAvatarUrl = "https://stageguard.top/img/avatar.png",
                     time = "11:45:14",
-                    source = randSrcId(),
+                    messageId = randSrcId(),
                     visibleMessages = listOf(
                         VisibleChatMessage.PlainText(buildString { repeat(20) { append("long message! ") } })
                     ),
@@ -398,7 +411,7 @@ fun ChatListPreview() {
                     senderName = "WhichWho",
                     senderAvatarUrl = "https://q1.qlogo.cn/g?b=qq&nk=3129693328&s=0&timestamp=1673582758562",
                     time = "11:45:14",
-                    source = randSrcId(),
+                    messageId = randSrcId(),
                     visibleMessages = listOf(
                         VisibleChatMessage.Face(1),
                         VisibleChatMessage.Face(10),
@@ -410,7 +423,7 @@ fun ChatListPreview() {
                     senderName = "SIGTERM",
                     senderAvatarUrl = "",
                     time = "11:45:14",
-                    source = randSrcId(),
+                    messageId = randSrcId(),
                     visibleMessages = listOf(
                         VisibleChatMessage.Image("https://gchat.qpic.cn/gchatpic_new/2591482572/2079312506-2210827314-3599E59C0E36C66A966F4DD2E28C4341/0?term=255&is_origin=0")
                     ),
@@ -420,7 +433,7 @@ fun ChatListPreview() {
                     senderName = "SIGTERM",
                     senderAvatarUrl = "",
                     time = "11:45:14",
-                    source = randSrcId(),
+                    messageId = randSrcId(),
                     visibleMessages = listOf(
                         VisibleChatMessage.At(3129693328L, "WhichWho"),
                         VisibleChatMessage.PlainText(" this is my error log"),

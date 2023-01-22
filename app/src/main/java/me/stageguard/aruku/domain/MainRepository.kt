@@ -9,8 +9,11 @@ import me.stageguard.aruku.database.message.MessagePreviewEntity
 import me.stageguard.aruku.database.message.MessageRecordEntity
 import me.stageguard.aruku.service.IBotListObserver
 import me.stageguard.aruku.service.ILoginSolver
-import me.stageguard.aruku.service.parcel.*
-import net.mamoe.mirai.message.data.Image
+import me.stageguard.aruku.service.parcel.AccountInfo
+import me.stageguard.aruku.service.parcel.AccountLoginData
+import me.stageguard.aruku.service.parcel.ArukuContact
+import me.stageguard.aruku.service.parcel.ArukuContactType
+import me.stageguard.aruku.service.parcel.GroupMemberInfo
 
 interface MainRepository {
     // binder
@@ -41,7 +44,6 @@ interface MainRepository {
     ): Flow<LoadState<List<MessageRecordEntity>>>
 
     // other data sources
-    suspend fun queryImageUrl(image: Image): String?
     fun clearUnreadCount(account: Long, contact: ArukuContact)
 }
 

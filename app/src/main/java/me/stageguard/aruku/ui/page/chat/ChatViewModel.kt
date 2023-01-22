@@ -9,13 +9,12 @@ import me.stageguard.aruku.cache.AudioCache
 import me.stageguard.aruku.database.LoadState
 import me.stageguard.aruku.database.mapOk
 import me.stageguard.aruku.domain.MainRepository
-import me.stageguard.aruku.service.parcel.ArukuContact
+import me.stageguard.aruku.domain.data.message.*
 import me.stageguard.aruku.service.parcel.ArukuContactType
 import me.stageguard.aruku.service.parcel.toArukuAudio
 import me.stageguard.aruku.ui.page.ChatPageNav
 import me.stageguard.aruku.util.formatHHmm
-import net.mamoe.mirai.message.code.MiraiCode.deserializeMiraiCode
-import net.mamoe.mirai.message.data.*
+import net.mamoe.mirai.utils.toUHexString
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 
@@ -46,89 +45,63 @@ class ChatViewModel(
         repository.getMessageRecords(bot, chatNav.contact.subject, chatNav.contact.type)
             .mapOk { data ->
                 data.map { record ->
-                    val memberInfo = if (record.type == ArukuContactType.GROUP) {
+                    val memberInfo = if (record.contact.type == ArukuContactType.GROUP) {
                         repository.getGroupMemberInfo(
                             bot,
-                            record.subject,
+                            record.contact.subject,
                             record.sender
                         )
                     } else null
 
-                    val deserializedMessage = record.message.deserializeMiraiCode()
-                    val visibleMessages = mutableListOf<VisibleChatMessage>()
-                    deserializedMessage.forEach {
-                        when (it) {
-                            is PlainText -> visibleMessages.add(VisibleChatMessage.PlainText(it.content))
-                            is Image -> visibleMessages.add(
-                                VisibleChatMessage.Image(repository.queryImageUrl(it))
-                            )
-
-                            is FlashImage -> visibleMessages.add(
-                                VisibleChatMessage.Image(repository.queryImageUrl(it.image))
-                            )
-
-                            is At -> visibleMessages.add(
-                                VisibleChatMessage.At(
-                                    it.target,
-                                    when (record.type) {
-                                        ArukuContactType.GROUP -> memberInfo?.senderName
-                                        ArukuContactType.FRIEND -> record.senderName
-                                        ArukuContactType.TEMP -> error("temp message is currently unsupported")
-                                    } ?: it.target.toString()
+                    val visibleMessages = buildList(record.message.size) {
+                        record.message.forEach {
+                            when (it) {
+                                is PlainText -> add(VisibleChatMessage.PlainText(it.text))
+                                is Image -> add(VisibleChatMessage.Image(it.url))
+                                is FlashImage -> add(VisibleChatMessage.Image(it.url))
+                                is At -> add(
+                                    VisibleChatMessage.At(it.target, it.display)
                                 )
-                            )
 
-                            is AtAll -> visibleMessages.add(VisibleChatMessage.AtAll)
-                            is Face -> visibleMessages.add(VisibleChatMessage.Face(it.id))
-                            is Audio -> {
-                                val cache = audioCache.resolveAsFlow(it.toArukuAudio())
-                                    .map { result ->
-                                        when (result) {
-                                            is AudioCache.ResolveResult.NotFound -> ChatAudioStatus.NotFound
-                                            is AudioCache.ResolveResult.Ready -> ChatAudioStatus.Ready
-                                            is AudioCache.ResolveResult.Preparing -> ChatAudioStatus.Preparing(
-                                                result.progress
-                                            )
-                                        }
-                                    }.flowOn(viewModelScope.coroutineContext + Dispatchers.IO)
-                                val identity = it.filename + "_" + it.fileMd5
-                                _chatAudios[identity] = cache
+                                is AtAll -> add(VisibleChatMessage.AtAll)
+                                is Face -> add(VisibleChatMessage.Face(it.id))
+                                is Audio -> {
+                                    val cache = audioCache.resolveAsFlow(it.toArukuAudio())
+                                        .map { result ->
+                                            when (result) {
+                                                is AudioCache.ResolveResult.NotFound -> ChatAudioStatus.NotFound
+                                                is AudioCache.ResolveResult.Ready -> ChatAudioStatus.Ready
+                                                is AudioCache.ResolveResult.Preparing -> ChatAudioStatus.Preparing(
+                                                    result.progress
+                                                )
+                                            }
+                                        }.flowOn(viewModelScope.coroutineContext + Dispatchers.IO)
 
-                                visibleMessages.add(
-                                    VisibleChatMessage.Audio(
-                                        it.filename + "_" + it.fileMd5, it.filename
-                                    )
-                                )
+                                    val identity = it.fileMd5.toUHexString()
+                                    _chatAudios[identity] = cache
+
+                                    add(VisibleChatMessage.Audio(identity, it.fileName))
+                                }
+
+                                is File -> add(VisibleChatMessage.File(it.name, it.size))
+                                is Forward -> add(VisibleChatMessage.PlainText(it.contentToString()))
+                                else -> add(VisibleChatMessage.Unsupported(it.contentToString()))
                             }
-
-                            is FileMessage -> visibleMessages.add(
-                                VisibleChatMessage.File(
-                                    it.name,
-                                    it.size
-                                )
-                            )
-
-                            is ForwardMessage -> visibleMessages.add(VisibleChatMessage.PlainText(it.contentToString()))
-                            else -> visibleMessages.add(VisibleChatMessage.Unsupported(it.contentToString()))
                         }
                     }
+
 
                     ChatElement.Message(
                         senderId = record.sender,
                         senderName = record.senderName,
-                        senderAvatarUrl = when (record.type) {
+                        senderAvatarUrl = when (record.contact.type) {
                             ArukuContactType.GROUP -> memberInfo?.senderAvatarUrl
-                            ArukuContactType.FRIEND -> repository.getAvatarUrl(
-                                bot,
-                                ArukuContact(ArukuContactType.FRIEND, record.subject)
-                            )
-
+                            ArukuContactType.FRIEND -> repository.getAvatarUrl(bot, record.contact)
                             ArukuContactType.TEMP -> error("temp message is currently unsupported")
-                        } ?: "",
+                        },
                         time = LocalDateTime.ofEpochSecond(record.time.toLong(), 0, ZoneOffset.UTC)
                             .formatHHmm(),
-                        source = "${record.messageIds}${record.messageInternalIds}".toLongOrNull()
-                            ?: -1L,
+                        messageId = record.messageId,
                         visibleMessages = visibleMessages
                     ) as ChatElement
                 }
@@ -156,7 +129,7 @@ sealed interface VisibleChatMessage {
         val title: String,
         val brief: String,
         val summary: String,
-        val nodes: List<ForwardMessage.Node>
+        val nodes: List<me.stageguard.aruku.domain.data.message.Forward.Node>
     ) : VisibleChatMessage
 
     data class File(val name: String, val size: Long) : VisibleChatMessage
@@ -169,9 +142,9 @@ sealed interface ChatElement {
     data class Message(
         val senderId: Long,
         val senderName: String,
-        val senderAvatarUrl: String,
+        val senderAvatarUrl: String?,
         val time: String,
-        val source: Long,
+        val messageId: Int,
         val visibleMessages: List<VisibleChatMessage>
     ) : ChatElement
 

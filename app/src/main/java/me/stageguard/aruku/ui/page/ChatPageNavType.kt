@@ -32,5 +32,5 @@ object ChatPageNavType : NavType<ChatPageNav>(false) {
 @Serializable
 data class ChatPageNav(
     val contact: ArukuContact,
-    val messageId: Long? = null
+    val messageId: Int? = null
 ) : Parcelable

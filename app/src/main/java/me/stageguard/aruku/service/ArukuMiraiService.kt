@@ -29,17 +29,17 @@ import me.stageguard.aruku.database.ArukuDatabase
 import me.stageguard.aruku.database.contact.toFriendEntity
 import me.stageguard.aruku.database.contact.toGroupEntity
 import me.stageguard.aruku.database.message.MessagePreviewEntity
+import me.stageguard.aruku.database.message.MessageRecordEntity
+import me.stageguard.aruku.domain.data.calculateMessageId
+import me.stageguard.aruku.domain.data.toMessageElements
 import me.stageguard.aruku.service.parcel.AccountInfo
 import me.stageguard.aruku.service.parcel.AccountLoginData
+import me.stageguard.aruku.service.parcel.ArukuAudio
 import me.stageguard.aruku.service.parcel.ArukuContact
 import me.stageguard.aruku.service.parcel.ArukuContactType
-import me.stageguard.aruku.service.parcel.ArukuMessage
-import me.stageguard.aruku.service.parcel.ArukuMessageEvent
 import me.stageguard.aruku.service.parcel.GroupMemberInfo
-import me.stageguard.aruku.service.parcel.toArukuAudio
 import me.stageguard.aruku.service.parcel.toGroupMemberInfo
 import me.stageguard.aruku.ui.activity.MainActivity
-import me.stageguard.aruku.util.longMessageId
 import me.stageguard.aruku.util.notify
 import me.stageguard.aruku.util.notifyPost
 import me.stageguard.aruku.util.stringRes
@@ -66,10 +66,10 @@ import net.mamoe.mirai.event.events.StrangerRelationChangeEvent
 import net.mamoe.mirai.message.data.Audio
 import net.mamoe.mirai.message.data.MessageChain
 import net.mamoe.mirai.message.data.OnlineAudio
+import net.mamoe.mirai.message.data.source
 import net.mamoe.mirai.network.LoginFailedException
 import net.mamoe.mirai.utils.BotConfiguration.HeartbeatStrategy
 import net.mamoe.mirai.utils.BotConfiguration.MiraiProtocol
-import net.mamoe.mirai.utils.mapToArray
 import org.koin.android.ext.android.inject
 import xyz.cssxsh.mirai.device.MiraiDeviceGenerator
 import java.util.concurrent.ConcurrentHashMap
@@ -92,8 +92,6 @@ class ArukuMiraiService : LifecycleService() {
 
     private val botListObservers: MutableMap<String, Observer<Map<Long, Bot>>> = mutableMapOf()
     private val loginSolvers: MutableMap<Long, ILoginSolver> = mutableMapOf()
-    private val messageConsumers: MutableMap<Long, MutableMap<String, IMessageConsumer>> =
-        mutableMapOf()
 
     private val binderInterface = object : IArukuMiraiInterface.Stub() {
         override fun addBot(info: AccountLoginData?, alsoLogin: Boolean): Boolean {
@@ -130,7 +128,11 @@ class ArukuMiraiService : LifecycleService() {
 
             }
             val lifecycleObserver = Observer { new: Map<Long, Bot> ->
-                observer.onChange(new.keys.mapToArray { it }.toLongArray())
+                observer.onChange(try {
+                    LongArray(new.size) { new.keys.elementAt(it) }
+                } catch (ex: IndexOutOfBoundsException) {
+                    longArrayOf()
+                })
             }
             botListObservers[identity] = lifecycleObserver
             lifecycleScope.launch(Dispatchers.Main) {
@@ -156,32 +158,6 @@ class ArukuMiraiService : LifecycleService() {
 
         override fun removeLoginSolver(bot: Long) {
             loginSolvers.remove(bot)
-        }
-
-        override fun addMessageEventConsumer(
-            bot: Long,
-            identity: String?,
-            consumer: IMessageConsumer?
-        ) {
-            if (identity == null || consumer == null) {
-                Log.w(
-                    this@ArukuMiraiService.tag(),
-                    "Empty identity or consumer for messageConsumers."
-                )
-                return
-            }
-            var exist = true
-            val botConsumers = messageConsumers.getOrPut(bot) {
-                exist = false
-                mutableMapOf(identity to consumer)
-            }
-            if (exist) botConsumers[identity] = consumer
-        }
-
-        override fun removeMessageEventConsumer(identity: String?) {
-            messageConsumers.iterator().forEach { entry ->
-                entry.value.remove(identity)
-            }
         }
 
         override fun getAvatarUrl(account: Long, contact: ArukuContact): String? {
@@ -487,64 +463,58 @@ class ArukuMiraiService : LifecycleService() {
                 }) { event ->
                     if (!this@ArukuMiraiService.lifecycleScope.isActive) return@subscribe ListeningStatus.STOPPED
 
-                    val messageType = when (event) {
-                        is GroupMessageEvent -> ArukuContactType.GROUP
-                        is FriendMessageEvent -> ArukuContactType.FRIEND
-                        is GroupTempMessageEvent -> ArukuContactType.TEMP
-                        else -> error("UNKNOWN_MESSAGE_EVENT_TYPE")
-                    }
-                    val parcelMessageEvent = ArukuMessageEvent(
-                        account = event.bot.id,
-                        subject = event.subject.id,
-                        sender = event.sender.id,
-                        senderName = event.senderName,
-                        message = ArukuMessage(
-                            source = event.source,
-                            messages = event.message
-                        ),
-                        type = messageType
+                    val contact = ArukuContact(
+                        when (event) {
+                            is GroupMessageEvent -> ArukuContactType.GROUP
+                            is FriendMessageEvent -> ArukuContactType.FRIEND
+                            is GroupTempMessageEvent -> ArukuContactType.TEMP
+                            else -> error("UNKNOWN_MESSAGE_EVENT_TYPE")
+                        }, subject.id
                     )
 
-                    processMessageChain(bot, ArukuContact(messageType, subject.id), event.message)
-
+                    val messageElements = event.message.toMessageElements(this@subscribe)
+                    processMessageChain(bot, contact, event.message)
                     database {
                         // insert message event to records
-                        messageRecords().insert(parcelMessageEvent.into())
+                        messageRecords().insert(
+                            MessageRecordEntity(
+                                account = bot.id,
+                                contact = contact,
+                                sender = event.sender.id,
+                                senderName = event.sender.nameCardOrNick,
+                                messageId = event.message.source.calculateMessageId(),
+                                message = messageElements,
+                                time = event.time
+                            )
+                        )
                         // update message preview
-                        val messagePreviewDao = messagePreview()
-                        val messagePreview = messagePreviewDao.getExactMessagePreview(
+                        val preview = messagePreview()
+                        val messagePreview = preview.getExactMessagePreview(
                             event.bot.id,
-                            event.subject.id,
-                            messageType
+                            contact.subject,
+                            contact.type
                         )
                         if (messagePreview.isEmpty()) {
-                            messagePreviewDao.insert(
+                            preview.insert(
                                 MessagePreviewEntity(
                                     event.bot.id,
-                                    event.subject.id,
-                                    messageType,
+                                    contact,
                                     event.time.toLong(),
                                     event.sender.nameCardOrNick + ": " + event.message.contentToString(),
                                     1,
-                                    event.message.longMessageId
+                                    event.message.source.calculateMessageId()
                                 )
                             )
                         } else {
-                            messagePreviewDao.update(messagePreview.single().apply p@{
+                            preview.update(messagePreview.single().apply p@{
                                 this@p.time = event.time.toLong()
                                 this@p.previewContent =
                                     event.sender.nameCardOrNick + ": " + event.message.contentToString()
                                 this@p.unreadCount = this@p.unreadCount + 1
-                                this@p.messageId = event.message.longMessageId
+                                this@p.messageId = event.message.source.calculateMessageId()
                             })
                         }
 
-                    }
-
-                    messageConsumers[event.bot.id]?.let { consumers ->
-                        consumers.forEach { (_, consumer) ->
-                            consumer.consume(parcelMessageEvent)
-                        }
                     }
 
                     return@subscribe ListeningStatus.LISTENING
@@ -629,7 +599,7 @@ class ArukuMiraiService : LifecycleService() {
             if (it is Audio) {
                 audioCache.appendDownloadJob(
                     lifecycleScope,
-                    it.toArukuAudio(),
+                    ArukuAudio(it.filename, it.fileMd5, it.fileSize, it.codec.formatName),
                     (it as OnlineAudio).urlForDownload
                 )
             }

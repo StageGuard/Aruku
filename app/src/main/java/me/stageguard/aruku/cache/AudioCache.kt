@@ -10,7 +10,6 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import me.stageguard.aruku.domain.RetrofitDownloadService
 import me.stageguard.aruku.service.parcel.ArukuAudio
-import net.mamoe.mirai.message.data.AudioCodec
 import net.mamoe.mirai.utils.ConcurrentHashMap
 import net.mamoe.mirai.utils.toUHexString
 import java.io.File
@@ -83,7 +82,7 @@ class AudioCache(
                 }
             }
             selfJob?.progress = 1.0
-            event.value = ResolveResult.Ready(cacheFile)
+            event.postValue(ResolveResult.Ready(cacheFile))
         }
 
         val existing = downloadJobs[audio]
@@ -101,13 +100,7 @@ class AudioCache(
     }
 
     private fun resolveCacheFile(audio: ArukuAudio): File =
-        cacheFolder.resolve(
-            "${audio.filename}_${audio.fileMd5.toUHexString()}.${
-                AudioCodec.fromId(
-                    audio.codec
-                ).formatName
-            }"
-        )
+        cacheFolder.resolve("${audio.filename}_${audio.fileMd5.toUHexString()}.${audio.extension}")
 
 
     sealed class ResolveResult(val file: File) {

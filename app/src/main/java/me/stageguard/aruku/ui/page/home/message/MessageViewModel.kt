@@ -4,7 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.valentinilk.shimmer.Shimmer
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import me.stageguard.aruku.database.LoadState
 import me.stageguard.aruku.database.mapOk
@@ -28,15 +32,10 @@ class MessageViewModel(
             .mapOk { data ->
                 data.map {
                     SimpleMessagePreview(
-                        contact = ArukuContact(it.type, it.subject),
-                        avatarData = repository.getAvatarUrl(
-                            bot,
-                            ArukuContact(it.type, it.subject)
-                        ),
-                        name = repository.getNickname(
-                            bot,
-                            ArukuContact(it.type, it.subject)
-                        ) ?: it.subject.toString(),
+                        contact = it.contact,
+                        avatarData = repository.getAvatarUrl(bot, it.contact),
+                        name = repository.getNickname(bot, it.contact)
+                            ?: it.contact.subject.toString(),
                         preview = it.previewContent,
                         time = LocalDateTime.ofEpochSecond(it.time, 0, ZoneOffset.UTC),
                         unreadCount = it.unreadCount,
@@ -83,7 +82,7 @@ data class SimpleMessagePreview(
     val preview: String,
     val time: LocalDateTime,
     val unreadCount: Int,
-    val messageId: Long,
+    val messageId: Int,
 )
 
 typealias MessagePreviewOrShimmer = Either<Shimmer, SimpleMessagePreview>

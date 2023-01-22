@@ -1,14 +1,18 @@
 package me.stageguard.aruku.database.message
 
-import androidx.room.*
+import androidx.room.ColumnInfo
+import androidx.room.Embedded
+import androidx.room.Entity
+import androidx.room.Index
+import androidx.room.PrimaryKey
 import kotlinx.serialization.Serializable
-import me.stageguard.aruku.database.ArukuMessageTypeConverter
-import me.stageguard.aruku.service.parcel.ArukuContactType
+import me.stageguard.aruku.domain.data.MessageElement
+import me.stageguard.aruku.service.parcel.ArukuContact
 
 @Serializable
 @Entity(
     tableName = "message_record",
-    indices = [Index("account_id", "subject", "type")],
+    indices = [Index("account_id", "type", "subject")],
 //    foreignKeys = [
 //        ForeignKey(
 //            entity = AccountEntity::class,
@@ -20,14 +24,10 @@ import me.stageguard.aruku.service.parcel.ArukuContactType
 )
 data class MessageRecordEntity(
     @ColumnInfo(name = "account_id") val account: Long,
-    @ColumnInfo(name = "type")
-    @TypeConverters(ArukuMessageTypeConverter::class) val type: ArukuContactType,
-    @ColumnInfo(name = "subject") val subject: Long,
+    @Embedded val contact: ArukuContact,
     @ColumnInfo(name = "sender") val sender: Long,
-    @ColumnInfo(name = "senderName") val senderName: String,
-    @ColumnInfo(name = "message_ids") val messageIds: String,
-    @ColumnInfo(name = "message_internalIds") val messageInternalIds: String,
+    @ColumnInfo(name = "sender_name") val senderName: String,
+    @PrimaryKey @ColumnInfo(name = "message_id") val messageId: Int,
     @ColumnInfo(name = "time") val time: Int,
-    @ColumnInfo(name = "message") val message: String,
-    @PrimaryKey(autoGenerate = true) @ColumnInfo(name = "_prim_key") val _prim_key: Int = 0,
+    @ColumnInfo(name = "message") val message: List<MessageElement>,
 )

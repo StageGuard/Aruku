@@ -16,14 +16,19 @@ import me.stageguard.aruku.domain.MainRepository
 import me.stageguard.aruku.service.IArukuMiraiInterface
 import me.stageguard.aruku.service.IBotListObserver
 import me.stageguard.aruku.service.ILoginSolver
-import me.stageguard.aruku.service.parcel.*
+import me.stageguard.aruku.service.parcel.AccountInfo
+import me.stageguard.aruku.service.parcel.AccountLoginData
+import me.stageguard.aruku.service.parcel.ArukuContact
+import me.stageguard.aruku.service.parcel.ArukuContactType
+import me.stageguard.aruku.service.parcel.GroupMemberInfo
 import me.stageguard.aruku.util.tag
-import net.mamoe.mirai.message.data.Image
-import net.mamoe.mirai.message.data.Image.Key.queryUrl
+import java.util.concurrent.ConcurrentHashMap
 
 class MainRepositoryImpl(
     private val binder: IArukuMiraiInterface?,
-    private val database: ArukuDatabase
+    private val database: ArukuDatabase,
+    private val avatarCache: ConcurrentHashMap<Long, String>,
+    private val nicknameCache: ConcurrentHashMap<Long, String>
 ) : MainRepository {
     override fun addBot(info: AccountLoginData, alsoLogin: Boolean): Boolean {
         assertBinderNotNull(binder)
@@ -81,22 +86,33 @@ class MainRepositoryImpl(
     }
 
     override fun getAvatarUrl(account: Long, contact: ArukuContact): String? {
-        assertBinderNotNull(binder)
-        return try {
-            binder?.getAvatarUrl(account, contact)
-        } catch (ex: Exception) {
-            Log.w(tag(), "cannot get avatar url on $contact of bot $account: $ex", ex)
-            null
+        val cache = avatarCache[contact.subject]
+        return if (cache != null) cache else {
+            assertBinderNotNull(binder)
+            try {
+                binder?.getAvatarUrl(account, contact)?.also {
+                    avatarCache[contact.subject] = it
+                }
+            } catch (ex: Exception) {
+                Log.w(tag(), "cannot get avatar url on $contact of bot $account: $ex", ex)
+                null
+            }
         }
+
     }
 
     override fun getNickname(account: Long, contact: ArukuContact): String? {
-        assertBinderNotNull(binder)
-        return try {
-            binder?.getNickname(account, contact)
-        } catch (ex: Exception) {
-            Log.w(tag(), "cannot get nickname on $contact of bot $account: $ex", ex)
-            null
+        val cache = nicknameCache[contact.subject]
+        return if (cache != null) cache else {
+            assertBinderNotNull(binder)
+            try {
+                binder?.getNickname(account, contact)?.also {
+                    nicknameCache[contact.subject] = it
+                }
+            } catch (ex: Exception) {
+                Log.w(tag(), "cannot get nickname on $contact of bot $account: $ex", ex)
+                null
+            }
         }
     }
 
@@ -179,14 +195,6 @@ class MainRepositoryImpl(
             } catch (ex: Exception) {
                 emit(LoadState.Error(ex))
             }
-        }
-    }
-
-    override suspend fun queryImageUrl(image: Image): String? {
-        return try {
-            image.queryUrl()
-        } catch (ile: IllegalStateException) {
-            null
         }
     }
 

@@ -52,7 +52,7 @@ import java.time.LocalDateTime
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun HomeMessagePage(padding: PaddingValues, onContactClick: (ArukuContact, Long) -> Unit) {
+fun HomeMessagePage(padding: PaddingValues, onContactClick: (ArukuContact, Int) -> Unit) {
     val bot = LocalBot.current
     val accountState = LocalHomeAccountState.current
     val viewModel: MessageViewModel = koinViewModel { parametersOf(bot) }
@@ -277,7 +277,7 @@ fun MessageCardPreview() {
             "message preview",
             LocalDateTime.now().minusMinutes((0L..3600L).random()),
             (0..100).random(),
-            0L
+            0
         )
     }
     val shimmer = rememberShimmer(ShimmerBounds.View)

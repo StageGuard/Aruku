@@ -34,16 +34,4 @@ abstract class MessagePreviewDao : BaseDao<MessagePreviewEntity> {
         subject: Long,
         type: ArukuContactType
     ): List<MessagePreviewEntity>
-
-    fun getFriendMessages(account: Long): Flow<List<MessagePreviewEntity>> =
-        getMessages(account, ArukuContactType.FRIEND)
-
-    fun getFriendMessages(account: Long, limit: Int): Flow<List<MessagePreviewEntity>> =
-        getMessages(account, ArukuContactType.FRIEND, limit)
-
-    fun getGroupMessages(account: Long): Flow<List<MessagePreviewEntity>> =
-        getMessages(account, ArukuContactType.GROUP)
-
-    fun getGroupMessages(account: Long, limit: Int): Flow<List<MessagePreviewEntity>> =
-        getMessages(account, ArukuContactType.GROUP, limit)
 }
