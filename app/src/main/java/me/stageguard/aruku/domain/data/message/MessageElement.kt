@@ -1,4 +1,4 @@
-package me.stageguard.aruku.domain.data
+package me.stageguard.aruku.domain.data.message
 
 import android.os.Parcelable
 import android.util.Log
@@ -14,7 +14,7 @@ import net.mamoe.mirai.message.data.MessageSource
 import net.mamoe.mirai.message.data.OnlineAudio
 import net.mamoe.mirai.utils.MiraiExperimentalApi
 
-interface MessageElement : Parcelable {
+sealed interface MessageElement : Parcelable {
     fun contentToString(): String
 }
 

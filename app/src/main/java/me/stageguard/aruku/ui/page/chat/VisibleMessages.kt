@@ -59,7 +59,7 @@ fun At(
     onClick: (Long) -> Unit,
 ) {
     val annotatedContent = buildAnnotatedString {
-        append("@${element.targetName}")
+        append(element.targetName)
         addStyle(
             style = SpanStyle(
                 color = if (primary) MaterialTheme.colorScheme.inversePrimary else MaterialTheme.colorScheme.primary,

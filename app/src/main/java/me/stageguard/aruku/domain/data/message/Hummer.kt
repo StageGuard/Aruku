@@ -2,7 +2,6 @@ package me.stageguard.aruku.domain.data.message
 
 import kotlinx.parcelize.Parcelize
 import kotlinx.serialization.Serializable
-import me.stageguard.aruku.domain.data.MessageElement
 import org.jetbrains.annotations.Range
 
 @Parcelize
