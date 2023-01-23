@@ -6,11 +6,7 @@ import android.content.Intent
 import android.content.ServiceConnection
 import android.os.IBinder
 import android.util.Log
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.*
 import me.stageguard.aruku.util.tag
 import kotlin.properties.ReadOnlyProperty
 import kotlin.reflect.KProperty
@@ -27,16 +23,15 @@ class ArukuServiceConnector(
 
     override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
         Log.d(tag(), "service is connected: $name")
-        _delegate = IArukuMiraiInterface.Stub.asInterface(service).apply {
-            addBotListObserver(
-                this@ArukuServiceConnector.toString(),
-                object : IBotListObserver.Stub() {
-                    override fun onChange(newList: LongArray?) {
-                        _botsLiveData.value = newList?.toList() ?: listOf()
-                    }
+        _delegate = IArukuMiraiInterface.Stub.asInterface(service)
+        _delegate?.addBotListObserver(
+            this@ArukuServiceConnector.toString(),
+            object : IBotListObserver.Stub() {
+                override fun onChange(newList: LongArray?) {
+                    _botsLiveData.postValue(newList?.toList() ?: listOf())
                 }
-            )
-        }
+            }
+        )
         connected.value = true
     }
 

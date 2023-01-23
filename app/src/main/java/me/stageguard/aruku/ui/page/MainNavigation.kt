@@ -29,7 +29,7 @@ const val NAV_CHAT = "chat"
 fun Navigation() {
 
     val activeBot = remember { mutableStateOf<Long?>(null) }
-    LaunchedEffect(Unit) {
+    LaunchedEffect(true) {
         Log.i(tag("Navigation"), "setActiveBot ${ArukuPreference.activeBot}")
         activeBot.value = ArukuPreference.activeBot
     }
@@ -37,7 +37,7 @@ fun Navigation() {
     val navController = rememberAnimatedNavController()
     CompositionLocalProvider(
         LocalNavController provides navController,
-        LocalBot provides activeBot.value
+        LocalBot provides (activeBot.value ?: -1L)
     ) {
         AnimatedNavHost(navController, startDestination = NAV_HOME) {
             animatedComposable(NAV_HOME) {

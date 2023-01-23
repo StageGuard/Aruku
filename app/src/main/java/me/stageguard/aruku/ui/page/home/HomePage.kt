@@ -23,6 +23,7 @@ import me.stageguard.aruku.ui.page.login.CaptchaRequired
 import me.stageguard.aruku.ui.page.login.LoginState
 import me.stageguard.aruku.ui.theme.ArukuTheme
 import me.stageguard.aruku.util.stringResC
+import me.stageguard.aruku.util.tag
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
@@ -49,7 +50,7 @@ fun HomePage(
         viewModel.observeAccountState(bot)
     }
     LaunchedEffect(accountState) {
-        Log.i("HomePage", "current account state: $accountState")
+        Log.i(tag("HomePage"), "current account state: $accountState")
         if (accountState is AccountState.Online) rOnLaunchLoginSuccess(accountState.bot)
     }
 

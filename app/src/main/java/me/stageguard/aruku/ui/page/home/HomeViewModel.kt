@@ -56,10 +56,9 @@ class HomeViewModel(
     val loginState: StateFlow<AccountState> get() = _loginState.asStateFlow()
     private val _accounts: MutableStateFlow<List<BasicAccountInfo>> by lazy {
         MutableStateFlow(
-            _accountList.value
-                ?.mapNotNull { repository.queryAccountProfile(it) }
-                ?.map { BasicAccountInfo(it.accountNo, it.nickname, it.avatarUrl) }
-                ?: listOf()
+            (_accountList.value ?: repository.getBots())
+                .mapNotNull { repository.queryAccountProfile(it) }
+                .map { BasicAccountInfo(it.accountNo, it.nickname, it.avatarUrl) }
         )
     }
     private val accountListUpdateFlow = MutableStateFlow(0L)

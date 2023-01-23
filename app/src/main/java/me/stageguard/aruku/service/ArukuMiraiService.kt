@@ -1,25 +1,13 @@
 package me.stageguard.aruku.service
 
-import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.PendingIntent
-import android.app.Service
+import android.app.*
 import android.content.Intent
 import android.os.IBinder
 import android.util.Log
 import androidx.lifecycle.LifecycleService
-import androidx.lifecycle.MutableLiveData
-import androidx.lifecycle.Observer
 import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.CoroutineExceptionHandler
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.cancelAndJoin
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import me.stageguard.aruku.ArukuApplication
@@ -30,18 +18,10 @@ import me.stageguard.aruku.database.contact.toFriendEntity
 import me.stageguard.aruku.database.contact.toGroupEntity
 import me.stageguard.aruku.database.message.MessagePreviewEntity
 import me.stageguard.aruku.database.message.MessageRecordEntity
-import me.stageguard.aruku.domain.data.calculateMessageId
-import me.stageguard.aruku.domain.data.toMessageElements
-import me.stageguard.aruku.service.parcel.AccountInfo
-import me.stageguard.aruku.service.parcel.AccountLoginData
-import me.stageguard.aruku.service.parcel.ArukuAudio
-import me.stageguard.aruku.service.parcel.ArukuContact
-import me.stageguard.aruku.service.parcel.ArukuContactType
-import me.stageguard.aruku.service.parcel.GroupMemberInfo
-import me.stageguard.aruku.service.parcel.toGroupMemberInfo
+import me.stageguard.aruku.domain.data.message.calculateMessageId
+import me.stageguard.aruku.domain.data.message.toMessageElements
+import me.stageguard.aruku.service.parcel.*
 import me.stageguard.aruku.ui.activity.MainActivity
-import me.stageguard.aruku.util.notify
-import me.stageguard.aruku.util.notifyPost
 import me.stageguard.aruku.util.stringRes
 import me.stageguard.aruku.util.tag
 import me.stageguard.aruku.util.weakReference
@@ -52,17 +32,7 @@ import net.mamoe.mirai.contact.Group
 import net.mamoe.mirai.contact.getMember
 import net.mamoe.mirai.contact.nameCardOrNick
 import net.mamoe.mirai.event.ListeningStatus
-import net.mamoe.mirai.event.events.BotEvent
-import net.mamoe.mirai.event.events.BotJoinGroupEvent
-import net.mamoe.mirai.event.events.BotLeaveEvent
-import net.mamoe.mirai.event.events.BotOnlineEvent
-import net.mamoe.mirai.event.events.FriendAddEvent
-import net.mamoe.mirai.event.events.FriendDeleteEvent
-import net.mamoe.mirai.event.events.FriendMessageEvent
-import net.mamoe.mirai.event.events.GroupMessageEvent
-import net.mamoe.mirai.event.events.GroupTempMessageEvent
-import net.mamoe.mirai.event.events.MessageEvent
-import net.mamoe.mirai.event.events.StrangerRelationChangeEvent
+import net.mamoe.mirai.event.events.*
 import net.mamoe.mirai.message.data.Audio
 import net.mamoe.mirai.message.data.MessageChain
 import net.mamoe.mirai.message.data.OnlineAudio
@@ -73,9 +43,6 @@ import net.mamoe.mirai.utils.BotConfiguration.MiraiProtocol
 import org.koin.android.ext.android.inject
 import xyz.cssxsh.mirai.device.MiraiDeviceGenerator
 import java.util.concurrent.ConcurrentHashMap
-import kotlin.collections.component1
-import kotlin.collections.component2
-import kotlin.collections.set
 
 class ArukuMiraiService : LifecycleService() {
     companion object {
@@ -87,17 +54,18 @@ class ArukuMiraiService : LifecycleService() {
     private val database: ArukuDatabase by inject()
     private val audioCache: AudioCache by inject()
 
-    private val bots: MutableLiveData<MutableMap<Long, Bot>> = MutableLiveData(mutableMapOf())
+    private val initializeLock = Any()
+    private val bots: ConcurrentHashMap<Long, Bot> = ConcurrentHashMap()
     private val botJobs: ConcurrentHashMap<Long, Job> = ConcurrentHashMap()
 
-    private val botListObservers: MutableMap<String, Observer<Map<Long, Bot>>> = mutableMapOf()
+    private val botListObservers: MutableMap<String, IBotListObserver> = mutableMapOf()
     private val loginSolvers: MutableMap<Long, ILoginSolver> = mutableMapOf()
 
     private val binderInterface = object : IArukuMiraiInterface.Stub() {
         override fun addBot(info: AccountLoginData?, alsoLogin: Boolean): Boolean {
             Log.i(tag(), "addBot(info=$info)")
             if (info == null) return false
-            this@ArukuMiraiService.addBot(info, true)
+            this@ArukuMiraiService.addBot(info)
             if (alsoLogin) this@ArukuMiraiService.login(info.accountNo)
             return true
         }
@@ -107,11 +75,11 @@ class ArukuMiraiService : LifecycleService() {
         }
 
         override fun getBots(): LongArray {
-            return this@ArukuMiraiService.bots.value?.map { it.key }?.toLongArray() ?: longArrayOf()
+            return this@ArukuMiraiService.bots.map { it.key }.toLongArray()
         }
 
         override fun loginAll() {
-            this@ArukuMiraiService.bots.value?.forEach { (no, _) -> login(no) }
+            this@ArukuMiraiService.bots.forEach { (no, _) -> login(no) }
         }
 
         override fun login(accountNo: Long): Boolean {
@@ -127,25 +95,19 @@ class ArukuMiraiService : LifecycleService() {
                 return
 
             }
-            val lifecycleObserver = Observer { new: Map<Long, Bot> ->
-                observer.onChange(try {
-                    LongArray(new.size) { new.keys.elementAt(it) }
-                } catch (ex: IndexOutOfBoundsException) {
-                    longArrayOf()
-                })
-            }
-            botListObservers[identity] = lifecycleObserver
-            lifecycleScope.launch(Dispatchers.Main) {
-                this@ArukuMiraiService.bots.observe(this@ArukuMiraiService, lifecycleObserver)
-            }
+            botListObservers[identity] = observer
         }
 
         override fun removeBotListObserver(identity: String?) {
             val lifecycleObserver = this@ArukuMiraiService.botListObservers[identity]
             if (lifecycleObserver != null) {
-                this@ArukuMiraiService.bots.removeObserver(lifecycleObserver)
                 this@ArukuMiraiService.botListObservers.remove(identity, lifecycleObserver)
             }
+        }
+
+        fun notifyBotList() {
+            val botList = bots
+            botListObservers.forEach { (_, observer) -> observer.onChange(botList) }
         }
 
         override fun addLoginSolver(bot: Long, solver: ILoginSolver?) {
@@ -213,32 +175,37 @@ class ArukuMiraiService : LifecycleService() {
 
     override fun onCreate() {
         super.onCreate()
-
+        synchronized(initializeLock) {
+            runBlocking(Dispatchers.IO) {
+                database { accounts().getAll() }
+                    .filter { !it.isOfflineManually }
+                    .forEach { account ->
+                        Log.i(
+                            this@ArukuMiraiService.tag(),
+                            "reading account data ${account.accountNo}"
+                        )
+                        val existingBot = bots[account.accountNo]
+                        if (existingBot == null) {
+                            bots[account.accountNo] = createBot(account.into(), false)
+                        }
+                    }
+            }
+        }
+        Log.i(tag(), "ArukuMiraiService is created.")
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
 
         if (ArukuApplication.initialized.get()) {
-            lifecycleScope.launch(Dispatchers.IO) {
-                database { accounts().getAll() }.filter { !it.isOfflineManually }
-                    .forEach { account ->
-                        Log.i(
-                            this@ArukuMiraiService.tag(),
-                            "reading account data ${account.accountNo}"
-                        )
-                        val existingBot = bots.value?.get(account.accountNo)
-                        if (existingBot == null) {
-                            bots.value?.set(
-                                account.accountNo,
-                                createBot(account.into(), pushToDatabase = false)
-                            )
-                            bots.notifyPost()
-                            login(account.accountNo)
-                        }
-                    }
+            if (startId == 1) {
+                synchronized(initializeLock) {
+                    bots.forEach { (l, _) -> login(l) }
+                }
+            } else {
+                bots.forEach { (l, _) -> login(l) }
             }
-            Log.i(tag(), "ArukuMiraiService is created.")
+            Log.i(tag(), "ArukuMiraiService is started.")
         } else {
             Log.e(tag(), "ArukuApplication is not initialized yet.")
         }
@@ -294,114 +261,116 @@ class ArukuMiraiService : LifecycleService() {
     }
 
     override fun onDestroy() {
-        bots.value?.forEach { (_, bot) -> removeBot(bot.id, false) }
+        bots.forEach { (_, bot) -> removeBot(bot.id) }
         super.onDestroy()
     }
 
-    private fun addBot(account: AccountLoginData, notifyPost: Boolean = false): Boolean {
-        if (bots.value?.get(account.accountNo) != null) {
-            removeBot(account.accountNo, notifyPost)
+    private fun addBot(account: AccountLoginData): Boolean {
+        if (bots[account.accountNo] != null) {
+            removeBot(account.accountNo)
         }
-        bots.value?.set(account.accountNo, createBot(account, pushToDatabase = true))
-        if (notifyPost) bots.notifyPost() else bots.notify()
+        bots[account.accountNo] = createBot(account, true)
+        binderInterface.notifyBotList()
         return true
     }
 
-    private fun login(accountNo: Long): Boolean {
-        val targetBot = bots.value?.get(accountNo)
+    private fun login(account: Long): Boolean {
+        val targetBot = bots[account]
         return if (targetBot != null) {
             if (!targetBot.isOnline) {
-                lifecycleScope.launch(Dispatchers.IO) {
-                    database {
-                        val accountDao = accounts()
-                        val account = accountDao[accountNo].singleOrNull()
-                        if (account != null) accountDao.update(account.apply {
-                            isOfflineManually = false
-                        })
+                val existingBotJob = botJobs[account]
+                if (existingBotJob == null || !existingBotJob.isActive) {
+                    lifecycleScope.launch(Dispatchers.IO) {
+                        database {
+                            val accountDao = accounts()
+                            val accountInfo = accountDao[account].singleOrNull()
+                            if (accountInfo != null) accountDao.update(accountInfo.apply {
+                                isOfflineManually = false
+                            })
+                        }
                     }
-                }
-                val existingBotJob = botJobs[accountNo]
-                if (existingBotJob != null) {
-                    existingBotJob.cancel()
-                    botJobs.remove(accountNo, existingBotJob)
-                }
-                val job =
-                    lifecycleScope.launch(context = CoroutineExceptionHandler { _, throwable ->
-                        if (throwable is LoginFailedException) {
-                            Log.e(tag(), "login $accountNo failed.", throwable)
-                            loginSolvers[accountNo]?.onLoginFailed(
-                                accountNo,
-                                throwable.killBot,
-                                throwable.message
-                            )
-                        } else if (throwable is IllegalStateException) {
-                            if (throwable.toString()
-                                    .contains(
+                    botJobs[account] =
+                        lifecycleScope.launch(context = CoroutineExceptionHandler { _, throwable ->
+                            if (throwable is LoginFailedException) {
+                                Log.e(tag(), "login $account failed.", throwable)
+                                loginSolvers[account]?.onLoginFailed(
+                                    account,
+                                    throwable.killBot,
+                                    throwable.message
+                                )
+                            } else if (throwable is IllegalStateException) {
+                                if (throwable.toString().contains(
                                         Regex(
                                             "create a new Bot instance",
                                             RegexOption.IGNORE_CASE
                                         )
                                     )
-                            ) {
-                                Log.w(tag(), "bot closed, recreating new bot instance and logging.")
-                                removeBot(accountNo)
-                                lifecycleScope.launch(Dispatchers.IO + CoroutineExceptionHandler { _, innerThrowable ->
+                                ) {
+                                    Log.w(
+                                        tag(),
+                                        "bot closed, recreating new bot instance and logging."
+                                    )
+                                    removeBot(account)
+                                    lifecycleScope.launch(Dispatchers.IO + CoroutineExceptionHandler { _, innerThrowable ->
+                                        Log.e(
+                                            tag(),
+                                            "uncaught exception while logging $account.",
+                                            innerThrowable
+                                        )
+                                        loginSolvers[account]?.onLoginFailed(
+                                            account,
+                                            true,
+                                            innerThrowable.message
+                                        )
+                                        removeBot(account)
+                                    }) {
+                                        val accountInfo =
+                                            database.accounts()[account].singleOrNull()
+                                        if (accountInfo != null && !accountInfo.isOfflineManually) {
+                                            addBot(accountInfo.into())
+                                            login(account)
+                                        }
+                                    }
+                                } else {
                                     Log.e(
                                         tag(),
-                                        "uncaught exception while logging $accountNo.",
-                                        innerThrowable
+                                        "uncaught exception while logging $account.",
+                                        throwable
                                     )
-                                    loginSolvers[accountNo]?.onLoginFailed(
-                                        accountNo,
+                                    loginSolvers[account]?.onLoginFailed(
+                                        account,
                                         true,
-                                        innerThrowable.message
+                                        throwable.message
                                     )
-                                    removeBot(accountNo)
-
-                                }) {
-                                    val account = database.accounts()[accountNo].singleOrNull()
-                                    if (account != null && !account.isOfflineManually) {
-                                        addBot(account.into(), notifyPost = true)
-                                        login(accountNo)
-                                    }
+                                    removeBot(account)
                                 }
                             } else {
                                 Log.e(
                                     tag(),
-                                    "uncaught exception while logging $accountNo.",
+                                    "uncaught exception while logging $account.",
                                     throwable
                                 )
-                                loginSolvers[accountNo]?.onLoginFailed(
-                                    accountNo,
+                                loginSolvers[account]?.onLoginFailed(
+                                    account,
                                     true,
                                     throwable.message
                                 )
-                                removeBot(accountNo)
+                                removeBot(account)
                             }
-                        } else {
-                            Log.e(tag(), "uncaught exception while logging $accountNo.", throwable)
-                            loginSolvers[accountNo]?.onLoginFailed(
-                                accountNo,
-                                true,
-                                throwable.message
-                            )
-                            removeBot(accountNo)
-                        }
-                    }) {
-                        val eventChannel = targetBot.eventChannel.parentScope(this)
-
-                        eventChannel.subscribeOnce<BotOnlineEvent> {
-                            withContext(this@ArukuMiraiService.lifecycleScope.coroutineContext) {
-                                Log.i(this@ArukuMiraiService.tag(), "login success")
-                                loginSolvers[accountNo]?.onLoginSuccess(accountNo)
+                        }) {
+                            val eventChannel = targetBot.eventChannel.parentScope(this)
+                            eventChannel.subscribeOnce<BotOnlineEvent> {
+                                withContext(this@ArukuMiraiService.lifecycleScope.coroutineContext) {
+                                    Log.i(this@ArukuMiraiService.tag(), "login success")
+                                    loginSolvers[account]?.onLoginSuccess(account)
+                                }
                             }
 
+                            targetBot.login()
+                            doInitAfterLogin(targetBot)
+                            targetBot.join()
                         }
-                        targetBot.login()
-                        doInitAfterLogin(targetBot)
-                        targetBot.join()
-                    }
-                botJobs[accountNo] = job
+                }
             }
             true
         } else false
@@ -606,26 +575,26 @@ class ArukuMiraiService : LifecycleService() {
         }
     }
 
-    private fun removeBot(accountNo: Long, notifyPost: Boolean = true): Boolean {
-        val bot = bots.value?.get(accountNo)
-        val botJob = botJobs[accountNo]
+    private fun removeBot(account: Long): Boolean {
+        val bot = bots[account]
+        val botJob = botJobs[account]
         return bot?.run {
             lifecycleScope.launch {
                 bot.closeAndJoin()
                 botJob?.cancelAndJoin()
             }
-            bots.value?.remove(accountNo)
-            if (notifyPost) bots.notifyPost() else bots.notify()
-            botJobs.remove(accountNo)
+            bots.remove(account)
+            binderInterface.notifyBotList()
+            botJobs.remove(account)
             true
         } ?: false
     }
 
-    private fun createBot(accountInfo: AccountLoginData, pushToDatabase: Boolean = false): Bot {
+    private fun createBot(accountInfo: AccountLoginData, saveAccount: Boolean = false): Bot {
         val miraiWorkingDir = ArukuApplication.INSTANCE.filesDir.resolve("mirai/")
         if (!miraiWorkingDir.exists()) miraiWorkingDir.mkdirs()
 
-        if (pushToDatabase) lifecycleScope.launch(Dispatchers.IO) {
+        if (saveAccount) lifecycleScope.launch(Dispatchers.IO) {
             database {
                 val accountDao = accounts()
                 val existAccountInfo = accountDao[accountInfo.accountNo]

@@ -24,9 +24,6 @@ class ArukuApplication : Application(), ImageLoaderFactory {
     }
 
     override fun onCreate() {
-        initialized.compareAndSet(false, true)
-        INSTANCE = this
-
         startKoin {
             androidLogger(Level.DEBUG)
             androidContext(this@ArukuApplication)
@@ -34,9 +31,12 @@ class ArukuApplication : Application(), ImageLoaderFactory {
         }
 
         registerComponentCallbacks(ArukuPreference)
+        super.onCreate()
+
+        initialized.compareAndSet(false, true)
+        INSTANCE = this
 
         startService(Intent(this, ArukuMiraiService::class.java))
-        super.onCreate()
     }
 
     init {
