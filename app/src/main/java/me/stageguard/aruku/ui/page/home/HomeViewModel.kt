@@ -32,7 +32,7 @@ import me.stageguard.aruku.ArukuApplication
 import me.stageguard.aruku.R
 import me.stageguard.aruku.domain.MainRepository
 import me.stageguard.aruku.preference.ArukuPreference
-import me.stageguard.aruku.service.ILoginSolver
+import me.stageguard.aruku.service.bridge.LoginSolverBridge
 import me.stageguard.aruku.ui.LocalNavController
 import me.stageguard.aruku.ui.page.NAV_CHAT
 import me.stageguard.aruku.ui.page.home.contact.HomeContactPage
@@ -57,7 +57,7 @@ class HomeViewModel(
     private val _accounts: MutableStateFlow<List<BasicAccountInfo>> by lazy {
         MutableStateFlow(
             (_accountList.value ?: repository.getBots())
-                .mapNotNull { repository.queryAccountProfile(it) }
+                .mapNotNull { repository.queryAccountInfo(it) }
                 .map { BasicAccountInfo(it.accountNo, it.nickname, it.avatarUrl) }
         )
     }
@@ -68,13 +68,13 @@ class HomeViewModel(
     fun observeAccountList(owner: LifecycleOwner) {
         _accountList.observe(owner) { list ->
             _accounts.value = list
-                .mapNotNull { repository.queryAccountProfile(it) }
+                .mapNotNull { repository.queryAccountInfo(it) }
                 .map { BasicAccountInfo(it.accountNo, it.nickname, it.avatarUrl) }
         }
     }
 
     private val captchaChannel = Channel<String?>()
-    private val loginSolver = object : ILoginSolver.Stub() {
+    private val loginSolver = object : LoginSolverBridge {
         override fun onSolvePicCaptcha(bot: Long, data: ByteArray?): String? {
             viewModelScope.updateLoginState(
                 if (data == null) {
@@ -166,7 +166,7 @@ class HomeViewModel(
             ).show()
         }
     }
-    private var activeAccountLoginSolver: Pair<Long, ILoginSolver>? = null
+    private var activeAccountLoginSolver: Pair<Long, LoginSolverBridge>? = null
 
     val currentNavSelection = mutableStateOf(homeNaves[HomeNavSelection.MESSAGE]!!)
 

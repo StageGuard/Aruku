@@ -67,8 +67,9 @@ fun Navigation() {
                     nullable = false
                 }),
             ) { entry ->
-                val contact = entry.rememberArgument<ChatPageNav>("contact")
-                    ?: throw IllegalArgumentException("no contact info in bundle of chat page.")
+                val contact =
+                    entry.rememberArgument<me.stageguard.aruku.ui.page.ChatPageNav>("contact")
+                        ?: throw IllegalArgumentException("no contact info in bundle of chat page.")
 
                 ChatPage(contact)
             }

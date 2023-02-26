@@ -70,15 +70,10 @@
 -keep class net.mamoe.mirai.utils.** { *; }
 -keep class net.mamoe.mirai.* { *; }
 
--keep class me.stageguard.aruku.service.IArukuMiraiInterface
--keep class me.stageguard.aruku.service.IBotListObserver
--keep class me.stageguard.aruku.service.ILoginSolver
--keep class me.stageguard.aruku.service.IMessageConsumer
--keep class me.stageguard.aruku.service.parcel.*
-
-# Please add these rules to your existing keep rules in order to suppress warnings.
-# This is generated automatically by the Android Gradle plugin.
 -dontwarn io.ktor.client.engine.okhttp.OkHttpEngineContainer
+-dontwarn net.mamoe.mirai.console.plugin.jvm.JvmPluginDescription
+-dontwarn net.mamoe.mirai.console.plugin.jvm.JvmPluginDescriptionBuilder
+-dontwarn net.mamoe.mirai.console.plugin.jvm.KotlinPlugin
 -dontwarn org.apache.log4j.Level
 -dontwarn org.apache.log4j.Logger
 -dontwarn org.apache.log4j.Priority
@@ -88,9 +83,15 @@
 -dontwarn org.conscrypt.Conscrypt$Version
 -dontwarn org.conscrypt.Conscrypt
 -dontwarn org.conscrypt.ConscryptHostnameVerifier
+-dontwarn org.gradle.api.Plugin
+-dontwarn org.jetbrains.kotlin.compiler.plugin.ComponentRegistrar
 -dontwarn org.openjsse.javax.net.ssl.SSLParameters
 -dontwarn org.openjsse.javax.net.ssl.SSLSocket
 -dontwarn org.openjsse.net.ssl.OpenJSSE
+-dontwarn org.osgi.framework.Bundle
+-dontwarn org.osgi.framework.BundleContext
+-dontwarn org.osgi.framework.FrameworkUtil
+-dontwarn org.osgi.framework.ServiceReference
 -dontwarn org.slf4j.ILoggerFactory
 -dontwarn org.slf4j.Logger
 -dontwarn org.slf4j.LoggerFactory
@@ -99,3 +100,9 @@
 -dontwarn org.slf4j.helpers.MessageFormatter
 -dontwarn org.slf4j.helpers.NOPLoggerFactory
 -dontwarn org.slf4j.spi.LocationAwareLogger
+-dontwarn reactor.blockhound.integration.BlockHoundIntegration
+-keep class me.stageguard.aruku.service.parcel.*
+
+# Please add these rules to your existing keep rules in order to suppress warnings.
+# This is generated automatically by the Android Gradle plugin.
+-printusage build/usage.txt

@@ -2,6 +2,7 @@ package me.stageguard.aruku
 
 import android.util.Log
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
@@ -13,11 +14,12 @@ import me.stageguard.aruku.database.contact.GroupEntity
 import me.stageguard.aruku.database.message.MessagePreviewEntity
 import me.stageguard.aruku.database.message.MessageRecordEntity
 import me.stageguard.aruku.domain.MainRepository
-import me.stageguard.aruku.service.IArukuMiraiInterface
-import me.stageguard.aruku.service.IBotListObserver
-import me.stageguard.aruku.service.ILoginSolver
+import me.stageguard.aruku.service.bridge.BotObserverBridge
+import me.stageguard.aruku.service.bridge.LoginSolverBridge
+import me.stageguard.aruku.service.bridge.ServiceBridge
 import me.stageguard.aruku.service.parcel.AccountInfo
 import me.stageguard.aruku.service.parcel.AccountLoginData
+import me.stageguard.aruku.service.parcel.AccountProfile
 import me.stageguard.aruku.service.parcel.ArukuContact
 import me.stageguard.aruku.service.parcel.ArukuContactType
 import me.stageguard.aruku.service.parcel.GroupMemberInfo
@@ -25,7 +27,7 @@ import me.stageguard.aruku.util.tag
 import java.util.concurrent.ConcurrentHashMap
 
 class MainRepositoryImpl(
-    private val binder: IArukuMiraiInterface?,
+    private val binder: ServiceBridge?,
     private val database: ArukuDatabase,
     private val avatarCache: ConcurrentHashMap<Long, String>,
     private val nicknameCache: ConcurrentHashMap<Long, String>
@@ -42,7 +44,7 @@ class MainRepositoryImpl(
 
     override fun getBots(): List<Long> {
         assertBinderNotNull(binder)
-        return binder?.bots?.asList() ?: listOf()
+        return binder?.getBots()?.asList() ?: listOf()
     }
 
     override fun loginAll() {
@@ -55,7 +57,7 @@ class MainRepositoryImpl(
         return binder?.login(accountNo) ?: false
     }
 
-    override fun addBotListObserver(identity: String, observer: IBotListObserver) {
+    override fun addBotListObserver(identity: String, observer: BotObserverBridge) {
         assertBinderNotNull(binder)
         binder?.addBotListObserver(identity, observer)
     }
@@ -65,7 +67,7 @@ class MainRepositoryImpl(
         binder?.removeBotListObserver(identity)
     }
 
-    override fun addLoginSolver(bot: Long, solver: ILoginSolver) {
+    override fun addLoginSolver(bot: Long, solver: LoginSolverBridge) {
         assertBinderNotNull(binder)
         binder?.addLoginSolver(bot, solver)
     }
@@ -75,10 +77,20 @@ class MainRepositoryImpl(
         binder?.removeLoginSolver(bot)
     }
 
-    override fun queryAccountProfile(account: Long): AccountInfo? {
+    override fun queryAccountInfo(account: Long): AccountInfo? {
         assertBinderNotNull(binder)
         return try {
             binder?.queryAccountInfo(account)
+        } catch (ex: Exception) {
+            Log.w(tag(), "cannot get account info of $account: $ex", ex)
+            null
+        }
+    }
+
+    override fun queryAccountProfile(account: Long): AccountProfile? {
+        assertBinderNotNull(binder)
+        return try {
+            binder?.queryAccountProfile(account)
         } catch (ex: Exception) {
             Log.w(tag(), "cannot get account profile of $account: $ex", ex)
             null
@@ -156,6 +168,8 @@ class MainRepositoryImpl(
             } catch (ex: Exception) {
                 emit(LoadState.Error(ex))
             }
+        }.catch {
+            emit(LoadState.Error(it))
         }
     }
 
@@ -167,6 +181,8 @@ class MainRepositoryImpl(
             } catch (ex: Exception) {
                 emit(LoadState.Error(ex))
             }
+        }.catch {
+            emit(LoadState.Error(it))
         }
     }
 
@@ -178,6 +194,8 @@ class MainRepositoryImpl(
             } catch (ex: Exception) {
                 emit(LoadState.Error(ex))
             }
+        }.catch {
+            emit(LoadState.Error(it))
         }
     }
 
@@ -195,6 +213,8 @@ class MainRepositoryImpl(
             } catch (ex: Exception) {
                 emit(LoadState.Error(ex))
             }
+        }.catch {
+            emit(LoadState.Error(it))
         }
     }
 
@@ -207,7 +227,7 @@ class MainRepositoryImpl(
         }
     }
 
-    private fun assertBinderNotNull(b: IArukuMiraiInterface?) {
-        if (b == null) Log.w(tag(), "IArukuMiraiInterface is null, cannot perform actions.")
+    private fun assertBinderNotNull(b: ServiceBridge?) {
+        if (b == null) Log.w(tag(), "ServiceBridge is null, cannot perform actions.")
     }
 }

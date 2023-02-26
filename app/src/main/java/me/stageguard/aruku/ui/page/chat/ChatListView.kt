@@ -97,8 +97,6 @@ fun ChatListView(
                     is ChatElement.Notification -> item(key = "notification") {
                         Notification(element.content, element.annotated)
                     }
-
-                    null -> {}
                 }
             }
         }

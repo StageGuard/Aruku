@@ -54,6 +54,7 @@ fun HomeContactPage(padding: PaddingValues) {
                     image = R.mipmap.load_loading,
                     modifier = Modifier.fillMaxSize()
                 )
+
                 is LoadState.Error -> WhitePage(
                     message = R.string.list_failed.stringResC,
                     image = R.mipmap.load_error,
@@ -61,6 +62,7 @@ fun HomeContactPage(padding: PaddingValues) {
                         .fillMaxSize()
                         .clickable(onClick = { viewModel.updateContacts() })
                 )
+
                 is LoadState.Ok<List<SimpleContactData>> -> {
                     ContactTabContent(state.data) {
 
@@ -75,6 +77,7 @@ fun HomeContactPage(padding: PaddingValues) {
                     image = R.mipmap.load_loading,
                     modifier = Modifier.fillMaxSize()
                 )
+
                 is LoadState.Error -> WhitePage(
                     message = R.string.list_failed.stringResC,
                     image = R.mipmap.load_error,
@@ -82,6 +85,7 @@ fun HomeContactPage(padding: PaddingValues) {
                         .fillMaxSize()
                         .clickable(onClick = { viewModel.updateContacts() })
                 )
+
                 is LoadState.Ok<List<SimpleContactData>> -> {
                     ContactTabContent(state.data) {
 

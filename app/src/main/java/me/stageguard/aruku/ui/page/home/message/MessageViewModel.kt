@@ -15,8 +15,6 @@ import me.stageguard.aruku.database.mapOk
 import me.stageguard.aruku.domain.MainRepository
 import me.stageguard.aruku.service.parcel.ArukuContact
 import net.mamoe.mirai.utils.Either
-import java.time.LocalDateTime
-import java.time.ZoneOffset
 
 /**
  * Created by LoliBall on 2022/12/31 12:13.
@@ -30,14 +28,14 @@ class MessageViewModel(
     val messages: StateFlow<LoadState<List<SimpleMessagePreview>>> =
         repository.getMessagePreview(bot).combine(messageUpdateFlow) { data, _ -> data }
             .mapOk { data ->
-                data.map {
+                data.sortedBy { it.time }.map {
                     SimpleMessagePreview(
                         contact = it.contact,
                         avatarData = repository.getAvatarUrl(bot, it.contact),
                         name = repository.getNickname(bot, it.contact)
                             ?: it.contact.subject.toString(),
                         preview = it.previewContent,
-                        time = LocalDateTime.ofEpochSecond(it.time, 0, ZoneOffset.UTC),
+                        time = it.time,
                         unreadCount = it.unreadCount,
                         messageId = it.messageId,
                     )
@@ -80,7 +78,7 @@ data class SimpleMessagePreview(
     val avatarData: Any?,
     val name: String,
     val preview: String,
-    val time: LocalDateTime,
+    val time: Long,
     val unreadCount: Int,
     val messageId: Int,
 )

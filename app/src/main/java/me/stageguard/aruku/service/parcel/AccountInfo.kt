@@ -8,9 +8,16 @@ data class AccountInfo(
     val accountNo: Long,
     val nickname: String,
     val avatarUrl: String,
-    /*val age: Int,
+) : Parcelable
+
+@Parcelize
+data class AccountProfile(
+    val accountNo: Long,
+    val nickname: String,
+    val avatarUrl: String,
+    val age: Int,
     val email: String,
     val qLevel: Int,
     val sign: String,
-    val sex: Int,*/
+    val sex: Int,
 ) : Parcelable

@@ -30,7 +30,7 @@ fun MessageSource.calculateMessageId(): Int {
 
 @OptIn(MiraiExperimentalApi::class)
 suspend fun MessageChain.toMessageElements(event: MessageEvent): List<MessageElement> = buildList {
-    this@toMessageElements.forEach { m ->
+    this@toMessageElements.filterNot { it is MessageSource }.forEach { m ->
         when (m) {
             is net.mamoe.mirai.message.data.At -> {
                 add(

@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import me.stageguard.aruku.domain.MainRepository
-import me.stageguard.aruku.service.ILoginSolver
+import me.stageguard.aruku.service.bridge.LoginSolverBridge
 import me.stageguard.aruku.service.parcel.AccountLoginData
 import net.mamoe.mirai.utils.BotConfiguration
 import net.mamoe.mirai.utils.secondsToMillis
@@ -44,7 +44,7 @@ class LoginViewModel(
 
     private val captchaChannel = Channel<String?>()
 
-    private val loginSolver = object : ILoginSolver.Stub() {
+    private val loginSolver = object : LoginSolverBridge {
         override fun onSolvePicCaptcha(bot: Long, data: ByteArray?): String? {
             viewModelScope.updateState(
                 if (data == null) {

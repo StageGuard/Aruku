@@ -66,13 +66,13 @@ fun At(
                 fontWeight = FontWeight.Bold
             ),
             start = 0,
-            end = element.targetName.length + 1
+            end = element.targetName.length
         )
         addStringAnnotation(
             tag = "AT",
             annotation = element.targetId.toString(),
             start = 0,
-            end = element.targetName.length + 1
+            end = element.targetName.length
         )
     }
     ClickableText(

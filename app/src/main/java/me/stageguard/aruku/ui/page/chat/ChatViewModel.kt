@@ -13,10 +13,8 @@ import me.stageguard.aruku.domain.data.message.*
 import me.stageguard.aruku.service.parcel.ArukuContactType
 import me.stageguard.aruku.service.parcel.toArukuAudio
 import me.stageguard.aruku.ui.page.ChatPageNav
-import me.stageguard.aruku.util.formatHHmm
+import me.stageguard.aruku.util.toFormattedTime
 import net.mamoe.mirai.utils.toUHexString
-import java.time.LocalDateTime
-import java.time.ZoneOffset
 
 class ChatViewModel(
     private val repository: MainRepository,
@@ -75,7 +73,7 @@ class ChatViewModel(
                                                     result.progress
                                                 )
                                             }
-                                        }.flowOn(viewModelScope.coroutineContext + Dispatchers.IO)
+                                        }.flowOn(Dispatchers.IO)
 
                                     val identity = it.fileMd5.toUHexString()
                                     _chatAudios[identity] = cache
@@ -90,7 +88,6 @@ class ChatViewModel(
                         }
                     }
 
-
                     ChatElement.Message(
                         senderId = record.sender,
                         senderName = record.senderName,
@@ -99,8 +96,7 @@ class ChatViewModel(
                             ArukuContactType.FRIEND -> repository.getAvatarUrl(bot, record.contact)
                             ArukuContactType.TEMP -> error("temp message is currently unsupported")
                         },
-                        time = LocalDateTime.ofEpochSecond(record.time.toLong(), 0, ZoneOffset.UTC)
-                            .formatHHmm(),
+                        time = record.time.toLong().toFormattedTime(),
                         messageId = record.messageId,
                         visibleMessages = visibleMessages
                     ) as ChatElement

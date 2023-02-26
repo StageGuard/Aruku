@@ -1,6 +1,10 @@
 package me.stageguard.aruku.ui.page.home
 
-import androidx.compose.material3.*
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -31,8 +35,8 @@ fun HomeNavigationBar(
 fun HomeNavigationBarPreview() {
     val homeNavSelection = remember { mutableStateOf(HomeNavSelection.MESSAGE) }
     ArukuTheme {
-        HomeNavigationBar(homeNavSelection.value) { prev, cuur ->
-            homeNavSelection.value = cuur
+        HomeNavigationBar(homeNavSelection.value) { _, curr ->
+            homeNavSelection.value = curr
         }
     }
 }

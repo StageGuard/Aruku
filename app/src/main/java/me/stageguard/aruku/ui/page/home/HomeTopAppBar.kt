@@ -54,7 +54,6 @@ fun HomeTopAppBar(
 @Composable
 fun HomeTopAppBarPreview() {
     val expanded = remember { mutableStateOf(true) }
-    val state by remember { mutableStateOf(AccountState.Default) }
     val botList = remember {
         mutableStateOf(
             listOf(

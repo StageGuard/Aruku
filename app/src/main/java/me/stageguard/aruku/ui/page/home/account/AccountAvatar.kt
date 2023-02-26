@@ -40,7 +40,6 @@ import me.stageguard.aruku.ui.LocalBot
 import me.stageguard.aruku.ui.LocalHomeAccountState
 import me.stageguard.aruku.ui.page.home.AccountState
 import me.stageguard.aruku.ui.page.home.BasicAccountInfo
-import me.stageguard.aruku.ui.page.login.LoginState
 import me.stageguard.aruku.ui.theme.ArukuTheme
 import me.stageguard.aruku.ui.theme.ColorAccountOffline
 import me.stageguard.aruku.ui.theme.ColorAccountOnline
