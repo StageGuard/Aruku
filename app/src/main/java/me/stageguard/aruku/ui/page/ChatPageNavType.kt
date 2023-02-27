@@ -18,7 +18,7 @@ object ChatPageNavType : NavType<ChatPageNav>(false) {
         bundle.putParcelable(key, value as Parcelable?)
     }
 
-    @Suppress("UNCHECKED_CAST", "DEPRECATION")
+    @Suppress("DEPRECATION")
     override fun get(bundle: Bundle, key: String): ChatPageNav {
         return bundle[key] as ChatPageNav
     }

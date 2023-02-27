@@ -3,11 +3,11 @@ package me.stageguard.aruku.ui.page.chat
 import androidx.annotation.DrawableRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.paging.PagingData
+import androidx.paging.map
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import me.stageguard.aruku.cache.AudioCache
-import me.stageguard.aruku.database.LoadState
-import me.stageguard.aruku.database.mapOk
 import me.stageguard.aruku.domain.MainRepository
 import me.stageguard.aruku.domain.data.message.*
 import me.stageguard.aruku.service.parcel.ArukuContactType
@@ -39,9 +39,9 @@ class ChatViewModel(
         null
     )
 
-    val messages: StateFlow<LoadState<List<ChatElement>>> =
+    val messages: Flow<PagingData<ChatElement>> =
         repository.getMessageRecords(bot, chatNav.contact.subject, chatNav.contact.type)
-            .mapOk { data ->
+            .map { data ->
                 data.map { record ->
                     val memberInfo = if (record.contact.type == ArukuContactType.GROUP) {
                         repository.getGroupMemberInfo(
@@ -64,8 +64,8 @@ class ChatViewModel(
                                 is AtAll -> add(VisibleChatMessage.AtAll)
                                 is Face -> add(VisibleChatMessage.Face(it.id))
                                 is Audio -> {
-                                    val cache = audioCache.resolveAsFlow(it.toArukuAudio())
-                                        .map { result ->
+                                    val cache =
+                                        audioCache.resolveAsFlow(it.toArukuAudio()).map { result ->
                                             when (result) {
                                                 is AudioCache.ResolveResult.NotFound -> ChatAudioStatus.NotFound
                                                 is AudioCache.ResolveResult.Ready -> ChatAudioStatus.Ready
@@ -101,7 +101,7 @@ class ChatViewModel(
                         visibleMessages = visibleMessages
                     ) as ChatElement
                 }
-            }.stateIn(viewModelScope, SharingStarted.Lazily, LoadState.Loading())
+            }
 
     private val _chatAudios: MutableMap<String, Flow<ChatAudioStatus>> = mutableMapOf()
     val chatAudios: Map<String, Flow<ChatAudioStatus>> = _chatAudios
@@ -144,8 +144,10 @@ sealed interface ChatElement {
         val visibleMessages: List<VisibleChatMessage>
     ) : ChatElement
 
-    data class Notification(val content: String, val annotated: List<Pair<IntRange, () -> Unit>>) :
-        ChatElement
+    data class Notification(
+        val content: String,
+        val annotated: List<Pair<IntRange, () -> Unit>>
+    ) : ChatElement
 
     data class DateDivider(val date: String) : ChatElement
 }

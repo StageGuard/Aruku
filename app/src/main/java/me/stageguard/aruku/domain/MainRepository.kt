@@ -1,5 +1,6 @@
 package me.stageguard.aruku.domain
 
+import androidx.paging.PagingData
 import kotlinx.coroutines.flow.Flow
 import me.stageguard.aruku.database.LoadState
 import me.stageguard.aruku.database.account.AccountEntity
@@ -43,7 +44,7 @@ interface MainRepository {
         account: Long,
         subject: Long,
         type: ArukuContactType
-    ): Flow<LoadState<List<MessageRecordEntity>>>
+    ): Flow<PagingData<MessageRecordEntity>>
 
     // other data sources
     fun clearUnreadCount(account: Long, contact: ArukuContact)

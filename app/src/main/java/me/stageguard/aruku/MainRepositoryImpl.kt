@@ -1,6 +1,9 @@
 package me.stageguard.aruku
 
 import android.util.Log
+import androidx.paging.Pager
+import androidx.paging.PagingConfig
+import androidx.paging.PagingData
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.emitAll
@@ -203,19 +206,10 @@ class MainRepositoryImpl(
         account: Long,
         subject: Long,
         type: ArukuContactType
-    ): Flow<LoadState<List<MessageRecordEntity>>> {
-        return flow {
-            emit(LoadState.Loading())
-            try {
-                emitAll(
-                    database.messageRecords().getMessages(account, subject, type)
-                        .map { LoadState.Ok(it) })
-            } catch (ex: Exception) {
-                emit(LoadState.Error(ex))
-            }
-        }.catch {
-            emit(LoadState.Error(it))
-        }
+    ): Flow<PagingData<MessageRecordEntity>> {
+        return Pager(PagingConfig(pageSize = 20, enablePlaceholders = false)) {
+            database.messageRecords().getMessagesPaging(account, subject, type)
+        }.flow
     }
 
     override fun clearUnreadCount(account: Long, contact: ArukuContact) {

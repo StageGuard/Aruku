@@ -7,11 +7,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import me.stageguard.aruku.database.LoadState
+import androidx.paging.compose.collectAsLazyPagingItems
 import me.stageguard.aruku.ui.LocalBot
 import me.stageguard.aruku.ui.common.ArrowBack
 import me.stageguard.aruku.ui.page.ChatPageNav
-import me.stageguard.aruku.util.cast
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
 
@@ -29,7 +28,7 @@ fun ChatPage(contact: ChatPageNav) {
     val subjectAvatar by viewModel.subjectAvatar.collectAsState()
     val listState = rememberLazyListState()
 
-    val messages by viewModel.messages.collectAsState()
+    val messages = viewModel.messages.collectAsLazyPagingItems()
     val chatAudios = viewModel.chatAudios
 
     Scaffold(
@@ -55,14 +54,12 @@ fun ChatPage(contact: ChatPageNav) {
             }
         }
     ) { paddingValues ->
-        if (messages is LoadState.Ok) {
-            ChatListView(
-                chatList = messages.cast<LoadState.Ok<List<ChatElement>>>().data,
-                lazyListState = listState,
-                chatAudio = chatAudios,
-                paddingValues = paddingValues,
-            )
-        }
+        ChatListView(
+            chatList = messages.itemSnapshotList.items,
+            lazyListState = listState,
+            chatAudio = chatAudios,
+            paddingValues = paddingValues,
+        )
     }
 
 }
