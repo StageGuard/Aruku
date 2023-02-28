@@ -10,14 +10,14 @@ import me.stageguard.aruku.service.parcel.ArukuContactType
 @Dao
 abstract class MessageRecordDao : BaseDao<MessageRecordEntity> {
     // query all messages
-    @Query("select * from message_record where account_id=:account and type=:type and subject=:subject")
+    @Query("select * from message_record where account_id=:account and type=:type and subject=:subject order by time desc")
     abstract fun getMessages(
         account: Long,
         subject: Long,
         type: ArukuContactType
     ): Flow<List<MessageRecordEntity>>
 
-    @Query("select * from message_record where account_id=:account and type=:type and subject=:subject")
+    @Query("select * from message_record where account_id=:account and type=:type and subject=:subject order by time desc")
     abstract fun getMessagesPaging(
         account: Long,
         subject: Long,

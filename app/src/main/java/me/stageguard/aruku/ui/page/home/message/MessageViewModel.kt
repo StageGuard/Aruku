@@ -28,7 +28,7 @@ class MessageViewModel(
     val messages: StateFlow<LoadState<List<SimpleMessagePreview>>> =
         repository.getMessagePreview(bot).combine(messageUpdateFlow) { data, _ -> data }
             .mapOk { data ->
-                data.sortedBy { it.time }.map {
+                data.map {
                     SimpleMessagePreview(
                         contact = it.contact,
                         avatarData = repository.getAvatarUrl(bot, it.contact),

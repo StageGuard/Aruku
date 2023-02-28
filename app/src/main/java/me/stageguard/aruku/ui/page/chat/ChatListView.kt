@@ -28,6 +28,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -59,17 +60,26 @@ fun ChatListView(
     val bot = LocalBot.current
     val context = LocalContext.current
 
+    LaunchedEffect(true) {
+        lazyListState.scrollToItem(0)
+    }
+
+    LaunchedEffect(key1 = chatList) {
+        println(chatList.size)
+    }
+
     Box(modifier = modifier) {
         LazyColumn(
             state = lazyListState,
             contentPadding = paddingValues,
+            reverseLayout = true,
             modifier = Modifier.fillMaxSize()
         ) {
             chatList.forEachIndexed { index, element ->
                 when (element) {
                     is ChatElement.Message -> item(key = "${index}-${element.messageId}") {
-                        val lastSentByCurrent =
-                            if (index - 1 < 0) false else chatList[index - 1].run {
+                        val nextSentByCurrent =
+                            if (index + 1 >= chatList.size) false else chatList[index + 1].run {
                                 this is ChatElement.Message && this.senderId == element.senderId
                             }
                         Mesasge(
@@ -79,13 +89,13 @@ fun ChatListView(
                             senderName = element.senderName,
                             senderAvatarData = element.senderAvatarUrl,
                             sentByBot = element.senderId == bot,
-                            showSender = !lastSentByCurrent,
+                            showSender = !nextSentByCurrent,
                             time = element.time,
                             messages = element.visibleMessages,
                             chatAudio = chatAudio,
                             modifier = Modifier.padding(
                                 horizontal = 10.dp,
-                                vertical = if (lastSentByCurrent) 2.dp else 5.dp
+                                vertical = if (nextSentByCurrent) 2.dp else 5.dp
                             )
                         ) { }
                     }
