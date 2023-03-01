@@ -41,6 +41,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.paging.compose.LazyPagingItems
+import androidx.paging.compose.itemsIndexed
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.google.accompanist.flowlayout.FlowRow
@@ -51,7 +53,7 @@ import me.stageguard.aruku.ui.theme.ArukuTheme
 
 @Composable
 fun ChatListView(
-    chatList: List<ChatElement>,
+    chatList: LazyPagingItems<ChatElement>,
     lazyListState: LazyListState,
     chatAudio: Map<String, Flow<ChatAudioStatus>>,
     paddingValues: PaddingValues,
@@ -65,7 +67,7 @@ fun ChatListView(
     }
 
     LaunchedEffect(key1 = chatList) {
-        println(chatList.size)
+        println(chatList.itemCount)
     }
 
     Box(modifier = modifier) {
@@ -75,11 +77,11 @@ fun ChatListView(
             reverseLayout = true,
             modifier = Modifier.fillMaxSize()
         ) {
-            chatList.forEachIndexed { index, element ->
+            itemsIndexed(chatList, { index, element -> element.uniqueKey }) { index, element ->
                 when (element) {
-                    is ChatElement.Message -> item(key = "${index}-${element.messageId}") {
+                    is ChatElement.Message -> {
                         val nextSentByCurrent =
-                            if (index + 1 >= chatList.size) false else chatList[index + 1].run {
+                            if (index + 1 >= chatList.itemCount) false else chatList[index + 1].run {
                                 this is ChatElement.Message && this.senderId == element.senderId
                             }
                         Mesasge(
@@ -100,13 +102,15 @@ fun ChatListView(
                         ) { }
                     }
 
-                    is ChatElement.DateDivider -> item(key = "date_divider") {
+                    is ChatElement.DateDivider -> {
                         DateDivider(element.date)
                     }
 
-                    is ChatElement.Notification -> item(key = "notification") {
+                    is ChatElement.Notification -> {
                         Notification(element.content, element.annotated)
                     }
+
+                    else -> {}
                 }
             }
         }
@@ -451,7 +455,7 @@ fun ChatListPreview() {
                 ),
             )
 
-            ChatListView(list, listState, mapOf(), PaddingValues())
+            //ChatListView(, listState, mapOf(), PaddingValues())
         }
     }
 }

@@ -135,6 +135,8 @@ sealed interface VisibleChatMessage {
 }
 
 sealed interface ChatElement {
+    val uniqueKey: Any
+
     data class Message(
         val senderId: Long,
         val senderName: String,
@@ -142,14 +144,20 @@ sealed interface ChatElement {
         val time: String,
         val messageId: Int,
         val visibleMessages: List<VisibleChatMessage>
-    ) : ChatElement
+    ) : ChatElement {
+        override val uniqueKey = messageId
+    }
 
     data class Notification(
         val content: String,
         val annotated: List<Pair<IntRange, () -> Unit>>
-    ) : ChatElement
+    ) : ChatElement {
+        override val uniqueKey = content + hashCode()
+    }
 
-    data class DateDivider(val date: String) : ChatElement
+    data class DateDivider(val date: String) : ChatElement {
+        override val uniqueKey = date + hashCode()
+    }
 }
 
 sealed interface ChatAudioStatus {

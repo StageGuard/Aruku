@@ -55,7 +55,7 @@ fun ChatPage(contact: ChatPageNav) {
         }
     ) { paddingValues ->
         ChatListView(
-            chatList = messages.itemSnapshotList.items,
+            chatList = messages,
             lazyListState = listState,
             chatAudio = chatAudios,
             paddingValues = paddingValues,

@@ -289,8 +289,6 @@ data class HomeNav(
     val icon: ImageVector,
     @StringRes val label: Int,
     val content: @Composable (PaddingValues) -> Unit,
-    val topBar: (@Composable (PaddingValues) -> Unit)? = null,
-    val overly: (@Composable () -> Unit)? = null,
 )
 
 sealed class AccountState(val bot: Long) {

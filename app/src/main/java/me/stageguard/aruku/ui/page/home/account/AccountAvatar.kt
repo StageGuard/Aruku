@@ -51,7 +51,7 @@ import me.stageguard.aruku.util.stringResC
  */
 @Composable
 fun AccountAvatar(
-    botList: State<List<BasicAccountInfo>>,
+    accounts: List<BasicAccountInfo>,
     onAddAccount: () -> Unit,
     onSwitchAccount: (Long) -> Unit
 ) {
@@ -62,58 +62,12 @@ fun AccountAvatar(
 
     val showProgress = accountState is AccountState.Login
     val online = accountState is AccountState.Online
-    val currentAccount by remember { derivedStateOf { botList.value.find { it.id == bot } } }
+    val currentAccount by remember { derivedStateOf { accounts.find { it.id == bot } } }
 
-    IconButton(onClick = {
-        if (botList.value.isEmpty()) {
-            onAddAccount()
-        } else {
-            viewModel.accountMenuExpanded.value = true
-        }
-    }) {
-        Box(Modifier.size(45.dp), contentAlignment = Alignment.Center) {
-            if (currentAccount == null) {
-                Icon(
-                    Icons.Outlined.AccountCircle,
-                    contentDescription = "account avatar url",
-                    modifier = Modifier
-                        .size(45.dp)
-                        .border(
-                            1.5.dp, if (showProgress) Color.Transparent
-                            else if (online) ColorAccountOnline
-                            else ColorAccountOffline, CircleShape
-                        )
-                        .border(3.dp, MaterialTheme.colorScheme.surface, CircleShape)
-                        .clip(CircleShape)
-                )
-            } else {
-                AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(currentAccount!!.avatarUrl)
-                        .crossfade(true)
-                        .build(),
-                    contentDescription = "account avatar url",
-                    modifier = Modifier
-                        .size(45.dp)
-                        .border(
-                            1.5.dp, if (showProgress) Color.Transparent
-                            else if (online) ColorAccountOnline
-                            else ColorAccountOffline, CircleShape
-                        )
-                        .border(3.dp, MaterialTheme.colorScheme.surface, CircleShape)
-                        .clip(CircleShape)
-                )
-            }
-            if (showProgress) CircularProgressIndicator(
-                modifier = Modifier.fillMaxWidth(),
-                strokeWidth = 4.5.dp,
-                trackColor = MaterialTheme.colorScheme.primary
-            )
-        }
-    }
+
 
     AccountMenu(
-        botList.value,
+        accounts,
         viewModel.accountMenuExpanded,
         onClickAccountItem = {
             viewModel.accountMenuExpanded.value = false
@@ -225,13 +179,9 @@ fun AccountAvatarPreview() {
     ArukuTheme {
         CompositionLocalProvider(LocalHomeAccountState provides AccountState.Default) {
             Row {
-                AccountAvatar(remember { mutableStateOf(listOf()) }, {}, {})
-                AccountAvatar(
-                    remember { mutableStateOf(listOf()) },
-                    {},
-                    {}
-                )
-                AccountAvatar(remember { mutableStateOf(listOf()) }, {}, {})
+                AccountAvatar(remember { listOf() }, {}, {})
+                AccountAvatar(remember { listOf() }, {}, {})
+                AccountAvatar(remember { listOf() }, {}, {})
             }
         }
     }
