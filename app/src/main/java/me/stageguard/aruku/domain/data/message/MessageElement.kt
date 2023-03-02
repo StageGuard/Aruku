@@ -19,13 +19,11 @@ sealed interface MessageElement : Parcelable {
 }
 
 fun MessageSource.calculateMessageId(): Int {
-    var result = botId.hashCode()
-    result = 31 * result + time.hashCode()
-    result = 31 * result + fromId.hashCode()
-    result = 31 * result + targetId.hashCode()
-    ids.forEach { id -> result = 31 * result + id.hashCode() }
-    internalIds.forEach { id -> result = 31 * result + id.hashCode() }
-    return result
+    return arrayOf<Any>(
+        time, fromId, targetId, *ids.toTypedArray(), internalIds.toTypedArray()
+    )
+        .map { it.hashCode() }
+        .foldRight(botId.hashCode()) { hash, acc -> 31 * acc + hash }
 }
 
 @OptIn(MiraiExperimentalApi::class)

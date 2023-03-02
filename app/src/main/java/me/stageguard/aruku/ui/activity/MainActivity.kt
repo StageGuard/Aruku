@@ -16,7 +16,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.core.view.WindowCompat
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
+import com.heyanle.okkv2.core.Okkv
 import me.stageguard.aruku.service.ArukuServiceConnector
+import me.stageguard.aruku.ui.LocalOkkvProvider
 import me.stageguard.aruku.ui.LocalStringLocale
 import me.stageguard.aruku.ui.LocalSystemUiController
 import me.stageguard.aruku.ui.common.MoeSnackBar
@@ -32,6 +34,7 @@ val unitProp = Unit
 class MainActivity : ComponentActivity() {
 
     private val serviceConnector: ArukuServiceConnector by inject()
+    private val okkv: Okkv by inject()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -56,7 +59,8 @@ class MainActivity : ComponentActivity() {
                 ) {
                     CompositionLocalProvider(
                         LocalStringLocale provides StringLocale(this@MainActivity),
-                        LocalSystemUiController provides systemUiController
+                        LocalSystemUiController provides systemUiController,
+                        LocalOkkvProvider provides okkv
                     ) {
                         if (serviceConnected.value) {
                             Navigation()

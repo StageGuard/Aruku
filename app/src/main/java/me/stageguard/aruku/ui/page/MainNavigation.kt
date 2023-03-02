@@ -5,12 +5,12 @@ import androidx.compose.runtime.*
 import androidx.navigation.navArgument
 import com.google.accompanist.navigation.animation.AnimatedNavHost
 import com.google.accompanist.navigation.animation.rememberAnimatedNavController
-import com.heyanle.okkv2.core.okkv
-import loli.ball.okkv2.observeAsState
 import me.stageguard.aruku.ui.LocalBot
 import me.stageguard.aruku.ui.LocalNavController
 import me.stageguard.aruku.ui.common.animatedComposable
+import me.stageguard.aruku.ui.common.observeAsState
 import me.stageguard.aruku.ui.common.rememberArgument
+import me.stageguard.aruku.ui.common.rememberOkkvNullable
 import me.stageguard.aruku.ui.page.chat.ChatPage
 import me.stageguard.aruku.ui.page.home.HomePage
 import me.stageguard.aruku.ui.page.login.LoginPage
@@ -26,8 +26,7 @@ const val NAV_CHAT = "chat"
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun Navigation() {
-
-    val activeAccountPref = remember { okkv<Long>("pref_active_bot") }
+    val activeAccountPref = rememberOkkvNullable<Long>(key = "pref_active_bot")
     val activeBot by activeAccountPref.observeAsState()
     val navController = rememberAnimatedNavController()
 

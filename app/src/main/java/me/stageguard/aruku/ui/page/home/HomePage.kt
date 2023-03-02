@@ -6,6 +6,7 @@ import androidx.compose.animation.AnimatedContentScope
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.with
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -20,7 +21,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -78,7 +78,7 @@ fun HomePage(
         HomeView(
             currentNavSelection = viewModel.currentNavSelection,
             accounts = accounts,
-            navigateToLoginPage = { navController.navigate(NAV_LOGIN) },
+            onNavigateToLoginPage = { navController.navigate(NAV_LOGIN) },
             onSwitchAccount = rOnSwitchAccount,
             onRetryCaptcha = { accountNo -> viewModel.submitCaptcha(accountNo, null) },
             onSubmitCaptcha = { accountNo, result -> viewModel.submitCaptcha(accountNo, result) },
@@ -93,7 +93,7 @@ fun HomePage(
 private fun HomeView(
     currentNavSelection: State<HomeNav>,
     accounts: List<BasicAccountInfo>,
-    navigateToLoginPage: () -> Unit,
+    onNavigateToLoginPage: () -> Unit,
     onSwitchAccount: (Long) -> Unit,
     onRetryCaptcha: (Long) -> Unit,
     onSubmitCaptcha: (Long, String) -> Unit,
@@ -114,9 +114,7 @@ private fun HomeView(
     val scrollState = TopAppBarDefaults.pinnedScrollBehavior()
 
     val currNavPage by remember(HomeNavSelection.MESSAGE) { currentNavSelection }
-    val currAccount by remember {
-        derivedStateOf { bot?.let { id -> accounts.find { it.id == id } } }
-    }
+    val currAccount = bot?.let { id -> accounts.find { it.id == id } }
     val showAccountDialog = remember { mutableStateOf(false) }
 
     SideEffect {
@@ -124,59 +122,82 @@ private fun HomeView(
         systemUiController.setStatusBarColor(backgroundColor.copy(0.13f))
     }
 
-    Surface(
-        color = backgroundColor,
-        modifier = Modifier.fillMaxSize()
-    ) {
-        Scaffold(
-            modifier = Modifier
-                .fillMaxSize()
-                .nestedScroll(scrollState.nestedScrollConnection),
-            containerColor = Color.Transparent,
-            contentWindowInsets = WindowInsets(0.dp, 0.dp, 0.dp, 0.dp),
-            topBar = {
-                HomeTopAppBar(
-                    title = currNavPage.label.stringResC,
-                    account = currAccount,
-                    barColors = topAppBarColors,
-                    scrollBehavior = scrollState,
-                    onAvatarClick = {
-                        if (accounts.isEmpty()) {
-                            navigateToLoginPage()
-                        } else {
-                            showAccountDialog.value = true
+    Box(modifier = Modifier.fillMaxSize()) {
+        Surface(
+            color = backgroundColor,
+            modifier = Modifier.fillMaxSize()
+        ) {
+            Scaffold(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .nestedScroll(scrollState.nestedScrollConnection),
+                containerColor = Color.Transparent,
+                contentWindowInsets = WindowInsets(0.dp, 0.dp, 0.dp, 0.dp),
+                topBar = {
+                    HomeTopAppBar(
+                        title = currNavPage.label.stringResC,
+                        account = currAccount,
+                        barColors = topAppBarColors,
+                        scrollBehavior = scrollState,
+                        onAvatarClick = {
+                            if (accounts.isEmpty()) {
+                                onNavigateToLoginPage()
+                            } else {
+                                showAccountDialog.value = true
+                            }
                         }
-                    }
-                )
-            },
-            bottomBar = {
-                HomeNavigationBar(
-                    selection = currNavPage.selection,
-                    containerColor = navigationContainerColor,
-                    onNavigate = onHomeNavigate
-                )
-            }
-        ) { padding ->
-            AnimatedContent(
-                targetState = currNavPage,
-                transitionSpec = trans@{
-                    val spec = tween<IntOffset>(500)
-                    val direction =
-                        if (targetState.selection.id > initialState.selection.id) {
-                            AnimatedContentScope.SlideDirection.Left
-                        } else {
-                            AnimatedContentScope.SlideDirection.Right
-                        }
-                    slideIntoContainer(direction, spec) with slideOutOfContainer(direction, spec)
+                    )
+                },
+                bottomBar = {
+                    HomeNavigationBar(
+                        selection = currNavPage.selection,
+                        containerColor = navigationContainerColor,
+                        onNavigate = onHomeNavigate
+                    )
                 }
-            ) { targetState ->
-                targetState.content(padding)
+            ) { padding ->
+                AnimatedContent(
+                    targetState = currNavPage,
+                    transitionSpec = trans@{
+                        val spec = tween<IntOffset>(500)
+                        val direction =
+                            if (targetState.selection.id > initialState.selection.id) {
+                                AnimatedContentScope.SlideDirection.Left
+                            } else {
+                                AnimatedContentScope.SlideDirection.Right
+                            }
+                        slideIntoContainer(direction, spec) with slideOutOfContainer(
+                            direction,
+                            spec
+                        )
+                    },
+                ) { targetState ->
+                    targetState.content(padding)
+                }
             }
         }
-    }
 
-    if (showAccountDialog.value) {
-
+        if (showAccountDialog.value) {
+            AccountDialog(
+                activeAccount = currAccount,
+                accountState = state,
+                accounts = accounts.filter { it.id != bot },
+                onSwitchAccount = {
+                    showAccountDialog.value = false
+                    onSwitchAccount(it)
+                },
+                onLogout = {
+                    showAccountDialog.value = false
+                },
+                onNavigateToLoginPage = {
+                    showAccountDialog.value = false
+                    onNavigateToLoginPage()
+                },
+                onDismiss = {
+                    showAccountDialog.value = false
+                }
+            )
+        }
     }
 
 

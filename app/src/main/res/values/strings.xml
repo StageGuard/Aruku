@@ -55,5 +55,11 @@
     <string name="contact_tab_group">Group</string>
     <string name="message_at_all">All</string>
     <string name="time_yesterday">YDA.</string>
-    <string name="home_search_conversation">Search conversations...</string>
+    <string name="home_search_conversation">Search conversations…</string>
+    <string name="home_account_dialog_offline">Currently offline</string>
+    <string name="home_account_dialog_online">Currently online</string>
+    <string name="home_account_dialog_logout">LOGOUT</string>
+    <string name="home_account_dialog_new">ADD BOT</string>
+    <string name="home_account_dialog_show_all">SWITCH BOT</string>
+    <string name="home_account_dialog_hide_all">HIDE BOTS</string>
 </resources>

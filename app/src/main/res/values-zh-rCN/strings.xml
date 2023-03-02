@@ -50,5 +50,11 @@
     <string name="contact_tab_group">群组</string>
     <string name="message_at_all">全体成员</string>
     <string name="time_yesterday">昨天</string>
-    <string name="home_search_conversation">搜索会话...</string>
+    <string name="home_search_conversation">搜索会话…</string>
+    <string name="home_account_dialog_online">当前在线</string>
+    <string name="home_account_dialog_offline">当前离线</string>
+    <string name="home_account_dialog_logout">登出账号</string>
+    <string name="home_account_dialog_new">添加账号</string>
+    <string name="home_account_dialog_show_all">切换账号</string>
+    <string name="home_account_dialog_hide_all">隐藏列表</string>
 </resources>
