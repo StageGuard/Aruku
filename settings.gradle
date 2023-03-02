@@ -10,8 +10,9 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        maven { url "https://repo.mirai.mamoe.net/snapshots" }
         maven { url 'https://jitpack.io' }
+        maven { url "https://androidx.dev/storage/compose-compiler/repository/" }
+        maven { url "https://repo.mirai.mamoe.net/snapshots" }
     }
 }
 rootProject.name = "Aruku"

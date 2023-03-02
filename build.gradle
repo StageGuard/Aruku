@@ -2,24 +2,27 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 buildscript {
     ext {
-        compose_version = '1.4.0-alpha02'
-        mirai_version = '2.14.0-RC'
-        lifecycle_version = '2.6.0-alpha04'
-        koin_version = '3.2.1'
+        compose_version = '1.4.0-beta02'
+        compose_compiler_version = "1.4.3"
+        mirai_version = '2.14.0'
+        lifecycle_version = '2.6.0-rc01'
+        koin_version = '3.3.3'
         room_version = '2.5.0'
         accompanist_version = '0.28.0'
-        okkv2_version = '1.1.0'
-        kotlinx_serialization_version = "1.4.1"
-        kotlin_version = "1.7.21"
+        okkv2_version = '1.2.2'
+        kotlinx_serialization_version = '1.5.0'
+        kotlin_version = "1.8.10"
         coil_version = "2.2.2"
         remoter_version = "2.0.4"
+        parceler_version = "1.1.13"
     }
 }// Top-level build file where you can add configuration options common to all sub-projects/modules.
 plugins {
-    id 'com.android.application' version '7.4.0' apply false
-    id 'com.android.library' version '7.4.0' apply false
+    id 'com.android.application' version '7.4.2' apply false
+    id 'com.android.library' version '7.4.2' apply false
     id 'org.jetbrains.kotlin.android' version '1.7.21' apply false
-    id 'org.jetbrains.kotlin.plugin.serialization' version '1.7.21' apply false
+    id 'org.jetbrains.kotlin.plugin.serialization' version '1.8.10' apply false
+    id 'com.google.devtools.ksp' version '1.8.10-1.0.9' apply false
 }
 
 tasks.register('clean') {
@@ -28,8 +31,7 @@ tasks.register('clean') {
 
 allprojects {
     tasks.withType(KotlinCompile).configureEach {
-        kotlinOptions {
-            freeCompilerArgs += "-Xcontext-receivers"
-        }
+        kotlinOptions.freeCompilerArgs += "-Xcontext-receivers"
+        kotlinOptions.jvmTarget = "11"
     }
 }

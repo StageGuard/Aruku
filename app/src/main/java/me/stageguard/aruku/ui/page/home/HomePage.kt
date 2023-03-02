@@ -60,20 +60,21 @@ fun HomePage(
     }
 
     val coroutineScope = rememberCoroutineScope()
-    val accountState by viewModel.loginState.collectAsState(coroutineScope.coroutineContext)
+    val loginState by viewModel.loginState.collectAsState(coroutineScope.coroutineContext)
     val accounts by viewModel.accounts.collectAsState(listOf(), coroutineScope.coroutineContext)
+    val accountsUpdater by viewModel.accountListUpdaterState
     val rOnSwitchAccount by rememberUpdatedState(onSwitchAccount)
     val rOnLaunchLoginSuccess by rememberUpdatedState(onLaunchLoginSuccess)
 
-    LaunchedEffect(bot) {
+    LaunchedEffect(bot, accountsUpdater) {
         viewModel.observeAccountState(bot)
     }
-    LaunchedEffect(accountState) {
-        Log.i(tag("HomePage"), "current account state: $accountState")
-        if (accountState is AccountState.Online) rOnLaunchLoginSuccess(accountState.bot)
+    LaunchedEffect(loginState) {
+        Log.i(tag("HomePage"), "current account state: $loginState")
+        if (loginState is AccountState.Online) rOnLaunchLoginSuccess(loginState.bot)
     }
 
-    CompositionLocalProvider(LocalHomeAccountState provides accountState) {
+    CompositionLocalProvider(LocalHomeAccountState provides loginState) {
         HomeView(
             currentNavSelection = viewModel.currentNavSelection,
             accounts = accounts,
@@ -174,17 +175,18 @@ private fun HomeView(
         }
     }
 
+    if (showAccountDialog.value) {
+
+    }
 
 
-    if (state is AccountState.Login) {
-        if (state.state is LoginState.CaptchaRequired) {
-            CaptchaRequired(
-                state = state.state,
-                onRetryCaptcha = onRetryCaptcha,
-                onSubmitCaptcha = onSubmitCaptcha,
-                onCancelLogin = onCancelLogin,
-            )
-        }
+    if (state is AccountState.Login && state.state is LoginState.CaptchaRequired) {
+        CaptchaRequired(
+            state = state.state,
+            onRetryCaptcha = onRetryCaptcha,
+            onSubmitCaptcha = onSubmitCaptcha,
+            onCancelLogin = onCancelLogin,
+        )
     }
 
 }

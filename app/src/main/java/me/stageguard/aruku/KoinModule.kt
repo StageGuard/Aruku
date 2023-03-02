@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.heyanle.okkv2.MMKVStore
 import com.heyanle.okkv2.core.Okkv
+import loli.ball.okkv2.composeInterceptor
 import me.stageguard.aruku.cache.AudioCache
 import me.stageguard.aruku.database.ArukuDatabase
 import me.stageguard.aruku.database.DBTypeConverters
@@ -33,7 +34,14 @@ val applicationModule = module {
             .addTypeConverter(DBTypeConverters())
             .build()
     }
-    single { Okkv.Builder().store(MMKVStore(get())).cache(true).build().init().default() }
+    single {
+        Okkv.Builder(MMKVStore(get()))
+            .cache(true)
+            .composeInterceptor()
+            .build()
+            .init()
+            .default()
+    }
 
     // service
     single { ArukuServiceConnector(get()) }

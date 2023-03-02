@@ -5,7 +5,6 @@ import android.content.Intent
 import android.util.Log
 import coil.ImageLoader
 import coil.ImageLoaderFactory
-import me.stageguard.aruku.preference.ArukuPreference
 import me.stageguard.aruku.service.ArukuMiraiService
 import me.stageguard.aruku.util.AnimatedPngDecoder
 import me.stageguard.aruku.util.tag
@@ -30,7 +29,6 @@ class ArukuApplication : Application(), ImageLoaderFactory {
             modules(applicationModule)
         }
 
-        registerComponentCallbacks(ArukuPreference)
         super.onCreate()
 
         initialized.compareAndSet(false, true)
