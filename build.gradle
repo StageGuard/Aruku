@@ -9,7 +9,7 @@ buildscript {
         koin_version = '3.3.3'
         room_version = '2.5.0'
         accompanist_version = '0.28.0'
-        okkv2_version = '1.2.2'
+        okkv2_version = '1.2.4'
         kotlinx_serialization_version = '1.5.0'
         kotlin_version = "1.8.10"
         coil_version = "2.2.2"
