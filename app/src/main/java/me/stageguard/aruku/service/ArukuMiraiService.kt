@@ -14,6 +14,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -114,6 +115,10 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
             return this@ArukuMiraiService.removeBot(accountNo)
         }
 
+        override fun deleteBot(accountNo: Long): Boolean {
+            return this@ArukuMiraiService.deleteBot(accountNo)
+        }
+
         override fun getBots(): List<Long> {
             return this@ArukuMiraiService.bots.keys().toList()
 
@@ -125,6 +130,10 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
 
         override fun login(accountNo: Long): Boolean {
             return this@ArukuMiraiService.login(accountNo)
+        }
+
+        override fun logout(accountNo: Long): Boolean {
+            return this@ArukuMiraiService.logout(accountNo)
         }
 
         override fun addBotListObserver(identity: String, observer: BotObserverBridge) {
@@ -322,8 +331,8 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
             return true
         }
 
-        launch(Dispatchers.IO) {
-            database {
+        launch {
+            databaseIO {
                 val accountDao = accounts()
                 val accountInfo = accountDao[account].singleOrNull()
                 if (accountInfo != null) accountDao.update(accountInfo.apply {
@@ -331,7 +340,8 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
                 })
             }
         }
-        val ceh = CoroutineExceptionHandler { _, th ->
+
+        botJobs[account] = launch(context = CoroutineExceptionHandler { _, th ->
             if (th is LoginFailedException) {
                 Log.e(tag(), "login $account failed.", th)
                 loginSolvers[account]?.onLoginFailed(account, th.killBot, th.message)
@@ -361,9 +371,7 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
                 loginSolvers[account]?.onLoginFailed(account, true, th.message)
                 removeBot(account)
             }
-        }
-
-        botJobs[account] = launch(context = ceh) {
+        }) {
             val eventChannel = targetBot.eventChannel.parentScope(this)
 
             eventChannel.subscribeOnce<BotOnlineEvent> {
@@ -589,16 +597,31 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
         }
     }
 
-    private fun processMessageChain(bot: Bot, subject: ArukuContact, message: MessageChain) {
-        message.forEach {
-            if (it is Audio) {
-                audioCache.appendDownloadJob(
-                    lifecycleScope,
-                    ArukuAudio(it.filename, it.fileMd5, it.fileSize, it.codec.formatName),
-                    (it as OnlineAudio).urlForDownload
-                )
+    private fun logout(account: Long): Boolean {
+        val targetBot = bots[account] ?: return false
+        if (!targetBot.isOnline) return true
+
+        val existingBotJob = botJobs[account]
+        if (existingBotJob == null || !existingBotJob.isActive) {
+            Log.e(tag(), "bot $account is already offline.")
+            return true
+        }
+
+        existingBotJob.cancel()
+        targetBot.cancel()
+
+        launch {
+            databaseIO {
+                val accountDao = accounts()
+                val accountInfo = accountDao[account].singleOrNull()
+                if (accountInfo != null) accountDao.update(accountInfo.apply {
+                    isOfflineManually = true
+                })
             }
         }
+
+        botJobs.remove(account)
+        return true
     }
 
     private fun removeBot(account: Long): Boolean {
@@ -614,6 +637,30 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
             botJobs.remove(account)
             true
         } ?: false
+    }
+
+    private fun deleteBot(account: Long): Boolean {
+        val r = removeBot(account)
+        launch {
+            databaseIO {
+                val accountDao = accounts()
+                val existing = accountDao[account].singleOrNull()
+                if (existing != null) accountDao.delete(existing)
+            }
+        }
+        return r
+    }
+
+    private fun processMessageChain(bot: Bot, subject: ArukuContact, message: MessageChain) {
+        message.forEach {
+            if (it is Audio) {
+                audioCache.appendDownloadJob(
+                    lifecycleScope,
+                    ArukuAudio(it.filename, it.fileMd5, it.fileSize, it.codec.formatName),
+                    (it as OnlineAudio).urlForDownload
+                )
+            }
+        }
     }
 
     private fun createBot(accountInfo: AccountLoginData, saveAccount: Boolean = false): Bot {

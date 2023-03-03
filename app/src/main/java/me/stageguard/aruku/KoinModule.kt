@@ -11,6 +11,7 @@ import me.stageguard.aruku.database.DBTypeConverters
 import me.stageguard.aruku.domain.MainRepository
 import me.stageguard.aruku.domain.RetrofitDownloadService
 import me.stageguard.aruku.service.ArukuServiceConnector
+import me.stageguard.aruku.ui.page.MainViewModel
 import me.stageguard.aruku.ui.page.chat.ChatViewModel
 import me.stageguard.aruku.ui.page.home.HomeViewModel
 import me.stageguard.aruku.ui.page.home.account.AccountAvatarViewModel
@@ -75,6 +76,7 @@ val applicationModule = module {
 
     // view model
     viewModel { LoginViewModel(get()) }
+    viewModel { MainViewModel(get(), get()) }
     viewModel { params -> HomeViewModel(get(), get<ArukuServiceConnector>().bots, params.get()) }
     viewModel { MessageViewModel(get()) }
     viewModel { params -> ContactViewModel(get(), params.get()) }

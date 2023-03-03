@@ -12,9 +12,11 @@ import remoter.annotations.Remoter
 interface ServiceBridge {
     fun addBot(@ParamIn info: AccountLoginData?, alsoLogin: Boolean): Boolean
     fun removeBot(accountNo: Long): Boolean
+    fun deleteBot(accountNo: Long): Boolean
     fun getBots(): List<Long>
     fun loginAll()
     fun login(accountNo: Long): Boolean
+    fun logout(accountNo: Long): Boolean
     fun addBotListObserver(identity: String, @ParamIn observer: BotObserverBridge)
     fun removeBotListObserver(identity: String)
     fun addLoginSolver(bot: Long, @ParamIn solver: LoginSolverBridge)

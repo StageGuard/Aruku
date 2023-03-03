@@ -21,9 +21,11 @@ interface MainRepository {
     // binder
     fun addBot(info: AccountLoginData, alsoLogin: Boolean): Boolean
     fun removeBot(accountNo: Long): Boolean
+    fun deleteBot(accountNo: Long): Boolean
     fun getBots(): List<Long>
     fun loginAll()
     fun login(accountNo: Long): Boolean
+    fun logout(accountNo: Long): Boolean
     fun addBotListObserver(identity: String, observer: BotObserverBridge)
     fun removeBotListObserver(identity: String)
     fun addLoginSolver(bot: Long, solver: LoginSolverBridge)

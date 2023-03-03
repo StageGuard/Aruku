@@ -22,7 +22,7 @@ import me.stageguard.aruku.ui.LocalOkkvProvider
 import me.stageguard.aruku.ui.LocalStringLocale
 import me.stageguard.aruku.ui.LocalSystemUiController
 import me.stageguard.aruku.ui.common.MoeSnackBar
-import me.stageguard.aruku.ui.page.Navigation
+import me.stageguard.aruku.ui.page.MainPage
 import me.stageguard.aruku.ui.page.ServiceConnectingPage
 import me.stageguard.aruku.ui.theme.ArukuTheme
 import me.stageguard.aruku.util.StringLocale
@@ -63,7 +63,7 @@ class MainActivity : ComponentActivity() {
                         LocalOkkvProvider provides okkv
                     ) {
                         if (serviceConnected.value) {
-                            Navigation()
+                            MainPage()
                         } else {
                             ServiceConnectingPage(serviceConnector.weakReference())
                         }

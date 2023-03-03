@@ -64,6 +64,7 @@ fun AccountDialog(
     accountState: AccountState? = AccountState.Default,
     accounts: List<BasicAccountInfo> = listOf(),
     onSwitchAccount: (Long) -> Unit,
+    onLogin: (Long) -> Unit,
     onLogout: (Long) -> Unit,
     onNavigateToLoginPage: () -> Unit,
     onDismiss: () -> Unit = { },
@@ -172,13 +173,17 @@ fun AccountDialog(
                         exit = fadeOut() + shrinkHorizontally(shrinkTowards = Alignment.Start),
                     ) {
                         OutlinedButton(
-                            onClick = { onLogout(activeAccount!!.id) },
+                            onClick = {
+                                if(accountState is AccountState.Online) onLogout(activeAccount!!.id)
+                                    else onLogin(activeAccount!!.id)
+                          },
                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                             shape = RoundedCornerShape(16.dp)
 
                         ) {
                             Text(
-                                text = R.string.home_account_dialog_logout.stringResC,
+                                text = (if(accountState is AccountState.Online) R.string.home_account_dialog_logout
+                                        else R.string.home_account_dialog_login).stringResC,
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     fontWeight = FontWeight.Bold
                                 )
@@ -310,6 +315,7 @@ fun AccountDialogPreview() {
             ),
             onSwitchAccount = {},
             onLogout = {},
+            onLogin = {},
             onNavigateToLoginPage = {},
             onDismiss = {}
         )

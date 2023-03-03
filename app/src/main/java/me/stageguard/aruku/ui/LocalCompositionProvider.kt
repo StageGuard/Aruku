@@ -20,7 +20,7 @@ val LocalSystemUiController: ProvidableCompositionLocal<SystemUiController> =
 
 val LocalBot: ProvidableCompositionLocal<Long?> = compositionLocalOf { null }
 
-val LocalHomeAccountState: ProvidableCompositionLocal<AccountState> =
+val LocalAccountState: ProvidableCompositionLocal<AccountState> =
     compositionLocalOf { AccountState.Default }
 
 val LocalOkkvProvider: ProvidableCompositionLocal<Okkv> =

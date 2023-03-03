@@ -1,6 +1,5 @@
 package me.stageguard.aruku.ui.page.home
 
-import android.util.Log
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedContentScope
 import androidx.compose.animation.ExperimentalAnimationApi
@@ -16,15 +15,12 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -32,53 +28,37 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import me.stageguard.aruku.ui.LocalAccountState
 import me.stageguard.aruku.ui.LocalBot
-import me.stageguard.aruku.ui.LocalHomeAccountState
 import me.stageguard.aruku.ui.LocalNavController
 import me.stageguard.aruku.ui.LocalSystemUiController
 import me.stageguard.aruku.ui.page.NAV_LOGIN
-import me.stageguard.aruku.ui.page.login.CaptchaRequired
-import me.stageguard.aruku.ui.page.login.LoginState
 import me.stageguard.aruku.ui.theme.ArukuTheme
 import me.stageguard.aruku.util.stringResC
-import me.stageguard.aruku.util.tag
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
 
 @Composable
 fun HomePage(
     onSwitchAccount: (Long) -> Unit,
-    onLaunchLoginSuccess: (Long) -> Unit
+    onLogin: (Long) -> Unit,
+    onLogout: (Long) -> Unit,
 ) {
-    val bot = LocalBot.current
     val navController = LocalNavController.current
     val lifecycle = LocalLifecycleOwner.current
+
     val viewModel: HomeViewModel = koinViewModel { parametersOf(lifecycle) }
-
-    val loginState by viewModel.loginState.collectAsState()
     val accounts by viewModel.accounts.collectAsState()
-    val rOnLaunchLoginSuccess by rememberUpdatedState(onLaunchLoginSuccess)
 
-    LaunchedEffect(bot) {
-        viewModel.observeAccountState(bot)
-    }
-    LaunchedEffect(loginState) {
-        Log.i(tag("HomePage"), "current account state: $loginState")
-        if (loginState is AccountState.Online) rOnLaunchLoginSuccess(loginState.bot)
-    }
-
-    CompositionLocalProvider(LocalHomeAccountState provides loginState) {
-        HomeView(
-            currentNavSelection = viewModel.currentNavSelection,
-            accounts = accounts,
-            onNavigateToLoginPage = { navController.navigate(NAV_LOGIN) },
-            onSwitchAccount = onSwitchAccount,
-            onRetryCaptcha = { accountNo -> viewModel.submitCaptcha(accountNo, null) },
-            onSubmitCaptcha = { accountNo, result -> viewModel.submitCaptcha(accountNo, result) },
-            onCancelLogin = { viewModel.cancelLogin(it) },
-            onHomeNavigate = { _, curr -> viewModel.currentNavSelection.value = homeNaves[curr]!! }
-        )
-    }
+    HomeView(
+        currentNavSelection = viewModel.currentNavSelection,
+        accounts = accounts,
+        onNavigateToLoginPage = { navController.navigate(NAV_LOGIN) },
+        onSwitchAccount = onSwitchAccount,
+        onLogin = onLogin,
+        onLogout = onLogout,
+        onHomeNavigate = { _, curr -> viewModel.currentNavSelection.value = homeNaves[curr]!! }
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class)
@@ -88,13 +68,12 @@ private fun HomeView(
     accounts: List<BasicAccountInfo>,
     onNavigateToLoginPage: () -> Unit,
     onSwitchAccount: (Long) -> Unit,
-    onRetryCaptcha: (Long) -> Unit,
-    onSubmitCaptcha: (Long, String) -> Unit,
-    onCancelLogin: (Long) -> Unit,
+    onLogin: (Long) -> Unit,
+    onLogout: (Long) -> Unit,
     onHomeNavigate: (HomeNavSelection, HomeNavSelection) -> Unit
 ) {
     val bot = LocalBot.current
-    val state = LocalHomeAccountState.current
+    val state = LocalAccountState.current
     val systemUiController = LocalSystemUiController.current
 
     val backgroundColor = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp)
@@ -181,6 +160,11 @@ private fun HomeView(
                 },
                 onLogout = {
                     showAccountDialog.value = false
+                    onLogout(it)
+                },
+                onLogin = {
+                    showAccountDialog.value = false
+                    onLogin(it)
                 },
                 onNavigateToLoginPage = {
                     showAccountDialog.value = false
@@ -191,16 +175,6 @@ private fun HomeView(
                 }
             )
         }
-    }
-
-
-    if (state is AccountState.Login && state.state is LoginState.CaptchaRequired) {
-        CaptchaRequired(
-            state = state.state,
-            onRetryCaptcha = onRetryCaptcha,
-            onSubmitCaptcha = onSubmitCaptcha,
-            onCancelLogin = onCancelLogin,
-        )
     }
 
 }
@@ -214,7 +188,7 @@ fun HomeViewPreview() {
     ArukuTheme {
         HomeView(
             navState, accounts = list,
-            {}, {}, {}, { _, _ -> }, {}, { _, _ -> },
+            {}, {}, {}, {}, { _, _ -> },
         )
     }
 }

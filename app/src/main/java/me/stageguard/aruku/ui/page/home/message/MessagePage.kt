@@ -16,6 +16,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -147,6 +148,7 @@ fun ContactMessageItem(
         Surface(
             modifier = Modifier
                 .padding(horizontal = 16.dp, vertical = 5.dp)
+                .clip(RoundedCornerShape(8.dp))
                 .clickable { currentOnClickItem() },
             color = MaterialTheme.colorScheme.surface,
             shape = RoundedCornerShape(8.dp),

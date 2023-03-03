@@ -45,6 +45,11 @@ class MainRepositoryImpl(
         return binder?.removeBot(accountNo) ?: false
     }
 
+    override fun deleteBot(accountNo: Long): Boolean {
+        assertBinderNotNull(binder)
+        return binder?.deleteBot(accountNo) ?: false
+    }
+
     override fun getBots(): List<Long> {
         assertBinderNotNull(binder)
         return binder?.getBots() ?: listOf()
@@ -58,6 +63,11 @@ class MainRepositoryImpl(
     override fun login(accountNo: Long): Boolean {
         assertBinderNotNull(binder)
         return binder?.login(accountNo) ?: false
+    }
+
+    override fun logout(accountNo: Long): Boolean {
+        assertBinderNotNull(binder)
+        return binder?.logout(accountNo) ?: false
     }
 
     override fun addBotListObserver(identity: String, observer: BotObserverBridge) {

@@ -44,7 +44,6 @@ fun LoginPage(
 
     val loginState by viewModel.state.collectAsState(coroutineScope.coroutineContext)
     LaunchedEffect(loginState) {
-        Log.i(tag("LoginPageLaunchedEffect"), loginState.toString())
         if (loginState is LoginState.Success) onLoginSuccess(viewModel.accountInfo.value.accountNo)
     }
 

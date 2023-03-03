@@ -62,4 +62,5 @@
     <string name="home_account_dialog_new">ADD BOT</string>
     <string name="home_account_dialog_show_all">SWITCH BOT</string>
     <string name="home_account_dialog_hide_all">HIDE BOTS</string>
+    <string name="home_account_dialog_login">LOGIN</string>
 </resources>
