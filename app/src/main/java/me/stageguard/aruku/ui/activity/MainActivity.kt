@@ -5,10 +5,11 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.material.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -17,7 +18,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.core.view.WindowCompat
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
 import com.heyanle.okkv2.core.Okkv
-import me.stageguard.aruku.service.ArukuServiceConnector
+import me.stageguard.aruku.service.ServiceConnector
 import me.stageguard.aruku.ui.LocalOkkvProvider
 import me.stageguard.aruku.ui.LocalStringLocale
 import me.stageguard.aruku.ui.LocalSystemUiController
@@ -33,23 +34,26 @@ val unitProp = Unit
 
 class MainActivity : ComponentActivity() {
 
-    private val serviceConnector: ArukuServiceConnector by inject()
+    private val serviceConnector: ServiceConnector by inject()
     private val okkv: Okkv by inject()
+
+    init {
+        lifecycle.addObserver(serviceConnector)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        lifecycle.addObserver(serviceConnector)
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
         setContent {
-            val serviceConnected = serviceConnector.connected.observeAsState(false)
+            val focusManager = LocalFocusManager.current
             val systemUiController = rememberSystemUiController(window)
+            val serviceConnected = serviceConnector.connected.observeAsState(false)
+            val isDarkTheme = isSystemInDarkTheme()
             ArukuTheme {
-                val focusManager = LocalFocusManager.current
-                systemUiController.setStatusBarColor(
-                    Color.Transparent,
-                    MaterialTheme.colors.isLight
-                )
+                SideEffect {
+                    systemUiController.setStatusBarColor(Color.Transparent, isDarkTheme)
+                }
                 Box(
                     modifier = Modifier
                         .clickable(

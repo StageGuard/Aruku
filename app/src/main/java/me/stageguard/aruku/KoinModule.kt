@@ -10,7 +10,7 @@ import me.stageguard.aruku.database.ArukuDatabase
 import me.stageguard.aruku.database.DBTypeConverters
 import me.stageguard.aruku.domain.MainRepository
 import me.stageguard.aruku.domain.RetrofitDownloadService
-import me.stageguard.aruku.service.ArukuServiceConnector
+import me.stageguard.aruku.service.ServiceConnector
 import me.stageguard.aruku.ui.page.MainViewModel
 import me.stageguard.aruku.ui.page.chat.ChatViewModel
 import me.stageguard.aruku.ui.page.home.HomeViewModel
@@ -45,7 +45,7 @@ val applicationModule = module {
     }
 
     // service
-    single { ArukuServiceConnector(get()) }
+    single { ServiceConnector(get()) }
 
     // cache
     single { Retrofit.Builder().baseUrl("http://localhost/").build() }
@@ -64,7 +64,7 @@ val applicationModule = module {
 
     // repo
     factory<MainRepository> {
-        val connector: ArukuServiceConnector = get()
+        val connector: ServiceConnector = get()
         val binder by connector
         MainRepositoryImpl(
             binder = if (connector.connected.value == true) binder else null,
@@ -77,7 +77,7 @@ val applicationModule = module {
     // view model
     viewModel { LoginViewModel(get()) }
     viewModel { MainViewModel(get(), get()) }
-    viewModel { params -> HomeViewModel(get(), get<ArukuServiceConnector>().bots, params.get()) }
+    viewModel { params -> HomeViewModel(get(), get<ServiceConnector>().bots, params.get()) }
     viewModel { MessageViewModel(get()) }
     viewModel { params -> ContactViewModel(get(), params.get()) }
     viewModel { AccountAvatarViewModel() }

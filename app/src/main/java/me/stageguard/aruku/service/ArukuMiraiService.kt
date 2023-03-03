@@ -92,7 +92,7 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
     private val database: ArukuDatabase by inject()
     private val audioCache: AudioCache by inject()
 
-    private val initializeLock = Any()
+    private val initializeLock = Mutex(true)
     private val bots: ConcurrentHashMap<Long, Bot> = ConcurrentHashMap()
     private val botJobs: ConcurrentHashMap<Long, Job> = ConcurrentHashMap()
 
@@ -162,20 +162,56 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
 
         override fun getAvatarUrl(account: Long, contact: ArukuContact): String? {
             val bot = Bot.getInstanceOrNull(account)
-            return if (bot != null) when (contact.type) {
-                ArukuContactType.GROUP -> bot.getGroup(contact.subject)?.avatarUrl
-                ArukuContactType.FRIEND -> bot.getFriend(contact.subject)?.avatarUrl
-                ArukuContactType.TEMP -> bot.getStranger(contact.subject)?.avatarUrl
-            } else null
+            return when (contact.type) {
+                ArukuContactType.GROUP -> {
+                    if (bot != null) {
+                        bot.getGroup(contact.subject)?.avatarUrl
+                    } else runBlocking {
+                        databaseIO {
+                            groups().getGroup(account, contact.subject).firstOrNull()?.avatarUrl
+                        }
+                    }
+                }
+
+                ArukuContactType.FRIEND -> {
+                    if (bot != null) {
+                        bot.getFriend(contact.subject)?.avatarUrl
+                    } else runBlocking {
+                        databaseIO {
+                            friends().getFriend(account, contact.subject).firstOrNull()?.avatarUrl
+                        }
+                    }
+                }
+
+                ArukuContactType.TEMP -> bot?.getStranger(contact.subject)?.avatarUrl
+            }
         }
 
         override fun getNickname(account: Long, contact: ArukuContact): String? {
             val bot = Bot.getInstanceOrNull(account)
-            return if (bot != null) when (contact.type) {
-                ArukuContactType.GROUP -> bot.getGroup(contact.subject)?.name
-                ArukuContactType.FRIEND -> bot.getFriend(contact.subject)?.nick
-                ArukuContactType.TEMP -> bot.getStranger(contact.subject)?.nick
-            } else null
+            return when (contact.type) {
+                ArukuContactType.GROUP -> {
+                    if (bot != null) {
+                        bot.getGroup(contact.subject)?.name
+                    } else runBlocking {
+                        databaseIO {
+                            groups().getGroup(account, contact.subject).firstOrNull()?.name
+                        }
+                    }
+                }
+
+                ArukuContactType.FRIEND -> {
+                    if (bot != null) {
+                        bot.getFriend(contact.subject)?.nick
+                    } else runBlocking {
+                        databaseIO {
+                            friends().getFriend(account, contact.subject).firstOrNull()?.name
+                        }
+                    }
+                }
+
+                ArukuContactType.TEMP -> bot?.getStranger(contact.subject)?.nick
+            }
         }
 
         override fun getGroupMemberInfo(
@@ -230,18 +266,17 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
     override fun onCreate() {
         super.onCreate()
         val service = this
-        synchronized(initializeLock) {
-            runBlocking {
-                databaseIO {
-                    accounts()
-                        .getAll()
-                        .filter { !it.isOfflineManually }
-                        .forEach { account ->
-                            Log.i(service.tag(), "reading account data ${account.accountNo}")
-                            bots.putIfAbsent(account.accountNo, createBot(account.into(), false))
-                        }
-                }
+        runBlocking {
+            databaseIO {
+                accounts()
+                    .getAll()
+                    .forEach { account ->
+                        Log.i(service.tag(), "reading account data ${account.accountNo}.")
+                        bots.putIfAbsent(account.accountNo, createBot(account.into(), false))
+                    }
             }
+            bridge.notifyBotList() // may not notify any observer
+            initializeLock.unlock()
         }
         Log.i(tag(), "ArukuMiraiService is created.")
     }
@@ -250,12 +285,24 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
         super.onStartCommand(intent, flags, startId)
 
         if (ArukuApplication.initialized.get()) {
-            if (startId == 1) {
-                synchronized(initializeLock) {
-                    bots.forEach { (l, _) -> login(l) }
+            launch {
+                if (startId == 1) {
+                    initializeLock.lock()
+                    // on start is called after bind service in service connector
+                    bridge.notifyBotList()
                 }
-            } else {
-                bots.forEach { (l, _) -> login(l) }
+                databaseIO {
+                    val accountDao = accounts()
+                    bots.forEach { (account, _) ->
+                        val offlineManually = accountDao[account].firstOrNull()?.isOfflineManually
+                            ?: return@forEach
+
+                        if (!offlineManually) login(account)
+
+                    }
+
+                }
+                if (startId == 1) initializeLock.unlock()
             }
             Log.i(tag(), "ArukuMiraiService is started.")
         } else {

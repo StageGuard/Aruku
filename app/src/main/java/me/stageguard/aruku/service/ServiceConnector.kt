@@ -19,7 +19,7 @@ import remoter.annotations.ParamOut
 import kotlin.properties.ReadOnlyProperty
 import kotlin.reflect.KProperty
 
-class ArukuServiceConnector(
+class ServiceConnector(
     private val context: Context
 ) : ServiceConnection, LifecycleEventObserver, ReadOnlyProperty<Nothing?, ServiceBridge?> {
     private var _delegate: ServiceBridge? = null
@@ -34,7 +34,7 @@ class ArukuServiceConnector(
         if (service != null) {
             val proxy = ServiceBridge_Proxy(service)
             proxy.addBotListObserver(
-                this@ArukuServiceConnector.toString(),
+                this@ServiceConnector.toString(),
                 object : BotObserverBridge {
                     override fun onChange(@ParamOut bots: List<Long>) {
                         _botsLiveData.postValue(bots)
@@ -51,7 +51,8 @@ class ArukuServiceConnector(
 
     override fun onServiceDisconnected(name: ComponentName?) {
         Log.d(tag(), "service is disconnected: $name")
-        _delegate?.removeBotListObserver(this@ArukuServiceConnector.toString())
+        _delegate?.removeBotListObserver(this@ServiceConnector.toString())
+        _delegate = null
         connected.value = false
     }
 
