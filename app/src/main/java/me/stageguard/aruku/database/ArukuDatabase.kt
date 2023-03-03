@@ -1,11 +1,9 @@
 package me.stageguard.aruku.database
 
+import androidx.room.AutoMigration
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.DelicateCoroutinesApi
-import kotlinx.coroutines.newSingleThreadContext
 import me.stageguard.aruku.database.account.AccountDao
 import me.stageguard.aruku.database.account.AccountEntity
 import me.stageguard.aruku.database.contact.FriendDao
@@ -17,9 +15,6 @@ import me.stageguard.aruku.database.message.MessagePreviewEntity
 import me.stageguard.aruku.database.message.MessageRecordDao
 import me.stageguard.aruku.database.message.MessageRecordEntity
 
-@OptIn(DelicateCoroutinesApi::class)
-private val databaseScope by lazy { CoroutineScope(newSingleThreadContext("ArukuDB")) }
-
 @Database(
     entities = [
         AccountEntity::class,
@@ -28,7 +23,11 @@ private val databaseScope by lazy { CoroutineScope(newSingleThreadContext("Aruku
         GroupEntity::class,
         FriendEntity::class
     ],
-    version = 1
+    version = 2,
+    autoMigrations = [
+        AutoMigration(from = 1, to = 2)
+    ],
+    exportSchema = true
 )
 @TypeConverters(DBTypeConverters::class)
 abstract class ArukuDatabase : RoomDatabase() {

@@ -20,6 +20,8 @@ data class AccountLoginData(
     override fun into(): AccountEntity {
         return AccountEntity(
             accountNo = this@AccountLoginData.accountNo,
+            nickname = "",
+            avatarUrl = "",
             passwordMd5 = this@AccountLoginData.passwordMd5,
             loginProtocol = this@AccountLoginData.protocol,
             heartbeatStrategy = this@AccountLoginData.heartbeatStrategy,

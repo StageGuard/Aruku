@@ -37,10 +37,8 @@ import me.stageguard.aruku.database.ok
 import me.stageguard.aruku.service.parcel.ArukuContact
 import me.stageguard.aruku.service.parcel.ArukuContactType
 import me.stageguard.aruku.ui.LocalBot
-import me.stageguard.aruku.ui.LocalHomeAccountState
 import me.stageguard.aruku.ui.common.FastScrollToTopFab
 import me.stageguard.aruku.ui.common.WhitePage
-import me.stageguard.aruku.ui.page.home.AccountState
 import me.stageguard.aruku.ui.page.home.HomeSearchBar
 import me.stageguard.aruku.ui.theme.ArukuTheme
 import me.stageguard.aruku.util.stringResC
@@ -60,11 +58,10 @@ import java.time.ZoneOffset
 @Composable
 fun HomeMessagePage(padding: PaddingValues, onContactClick: (ArukuContact, Int) -> Unit) {
     val bot = LocalBot.current
-    val accountState = LocalHomeAccountState.current
     val viewModel: MessageViewModel = koinViewModel { parametersOf(bot) }
 
-    LaunchedEffect(accountState) {
-        if (accountState is AccountState.Online) viewModel.updateMessages()
+    LaunchedEffect(bot) {
+        viewModel.setActiveBot(bot)
     }
 
     val messages by viewModel.messages.collectAsState()

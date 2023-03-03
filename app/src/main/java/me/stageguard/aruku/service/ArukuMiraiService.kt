@@ -4,7 +4,6 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
-import android.app.Service
 import android.content.Intent
 import android.os.IBinder
 import android.util.Log
@@ -115,8 +114,9 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
             return this@ArukuMiraiService.removeBot(accountNo)
         }
 
-        override fun getBots(): LongArray {
-            return this@ArukuMiraiService.bots.map { it.key }.toLongArray()
+        override fun getBots(): List<Long> {
+            return this@ArukuMiraiService.bots.keys().toList()
+
         }
 
         override fun loginAll() {
@@ -180,12 +180,21 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
         }
 
         override fun queryAccountInfo(account: Long): AccountInfo? {
-            val bot = Bot.getInstanceOrNull(account) ?: return null
-            return AccountInfo(
+            val bot = Bot.getInstanceOrNull(account)
+            return if (bot != null) AccountInfo(
                 accountNo = bot.id,
                 nickname = bot.nick,
                 avatarUrl = bot.avatarUrl
-            )
+            ) else runBlocking {
+                databaseIO {
+                    val data = accounts()[account].firstOrNull()
+                    if (data == null) null else AccountInfo(
+                        accountNo = data.accountNo,
+                        nickname = data.nickname,
+                        avatarUrl = data.avatarUrl
+                    )
+                }
+            }
         }
 
         override fun queryAccountProfile(account: Long): AccountProfile? {
@@ -211,20 +220,18 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
 
     override fun onCreate() {
         super.onCreate()
+        val service = this
         synchronized(initializeLock) {
-            runBlocking(Dispatchers.IO) {
-                database { accounts().getAll() }
-                    .filter { !it.isOfflineManually }
-                    .forEach { account ->
-                        Log.i(
-                            this@ArukuMiraiService.tag(),
-                            "reading account data ${account.accountNo}"
-                        )
-                        val existingBot = bots[account.accountNo]
-                        if (existingBot == null) {
-                            bots[account.accountNo] = createBot(account.into(), false)
+            runBlocking {
+                databaseIO {
+                    accounts()
+                        .getAll()
+                        .filter { !it.isOfflineManually }
+                        .forEach { account ->
+                            Log.i(service.tag(), "reading account data ${account.accountNo}")
+                            bots.putIfAbsent(account.accountNo, createBot(account.into(), false))
                         }
-                    }
+                }
             }
         }
         Log.i(tag(), "ArukuMiraiService is created.")
@@ -248,7 +255,7 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
 
         createNotification()
 
-        return Service.START_STICKY
+        return START_STICKY
     }
 
     private fun createNotification() {
@@ -361,27 +368,27 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
 
             eventChannel.subscribeOnce<BotOnlineEvent> {
                 withContext(this@ArukuMiraiService.coroutineContext) {
-                    Log.i(this@ArukuMiraiService.tag(), "bot ${it.bot.id} login success")
+                    Log.i(this@ArukuMiraiService.tag(), "bot ${it.bot.id} login success.")
                     loginSolvers[account]?.onLoginSuccess(account)
                 }
             }
 
             targetBot.login()
-            doInitAfterLogin(targetBot)
+            initializeLoggedBot(targetBot)
 
             targetBot.join()
         }
         return true
     }
 
-    private fun doInitAfterLogin(bot: Bot) {
+    // should use bot coroutine scope
+    private fun initializeLoggedBot(bot: Bot) {
+        // cache contacts and profile
         val syncContactLock = Mutex(true)
-
-        launch(Dispatchers.IO) {
-            // cache contacts
+        bot.launch {
             Log.i(tag("Contact"), "syncing contacts to database.")
-            kotlin.run {
-                val (groupDao, friendDao) = database { groups() to friends() }
+            databaseIO {
+                val (groupDao, friendDao) = groups() to friends()
 
                 val (onlineGroups, onlineGroupsIds) = bot.groups.run { this to this.map { it.id } }
                 val (cachedGroups, cachedGroupsIds) = groupDao.getGroups(bot.id)
@@ -412,8 +419,21 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
             Log.i(tag("Contact"), "sync contacts complete.")
             syncContactLock.unlock()
         }
-        launch {
-            // subscribe messages
+        // update basic account info
+        bot.launch {
+            databaseIO {
+                val accountDao = accounts()
+                val account = accountDao[bot.id].first()
+                accountDao.update(
+                    account.copy(
+                        nickname = bot.nick,
+                        avatarUrl = bot.avatarUrl
+                    )
+                )
+            }
+        }
+        // subscribe events
+        bot.launch {
             bot.eventChannel.parentScope(this)
                 .subscribe<MessageEvent>(coroutineContext = CoroutineExceptionHandler { _, throwable ->
                     if (throwable is IllegalStateException && throwable.toString()
@@ -488,7 +508,7 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
                 }
 
             // subscribe contact changes
-            bot.eventChannel.parentScope(this).subscribe<BotEvent> { event ->
+            bot.eventChannel.subscribe<BotEvent> { event ->
                 if (!this@launch.isActive) return@subscribe ListeningStatus.STOPPED
                 if (
                     event !is FriendAddEvent &&
@@ -597,8 +617,9 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
     }
 
     private fun createBot(accountInfo: AccountLoginData, saveAccount: Boolean = false): Bot {
-        val miraiWorkingDir = ArukuApplication.INSTANCE.filesDir.resolve("mirai/")
-        if (!miraiWorkingDir.exists()) miraiWorkingDir.mkdirs()
+        val botWorkingDir =
+            ArukuApplication.INSTANCE.filesDir.resolve("mirai/${accountInfo.accountNo}/")
+        if (!botWorkingDir.exists()) botWorkingDir.mkdirs()
 
         if (saveAccount) launch(Dispatchers.IO) {
             database {
@@ -622,7 +643,7 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
         }
 
         return botFactory.newBot(accountInfo.accountNo, accountInfo.passwordMd5) {
-            workingDir = miraiWorkingDir
+            workingDir = botWorkingDir
             parentCoroutineContext = coroutineContext
             protocol = MiraiProtocol.valueOf(accountInfo.protocol)
             autoReconnectOnForceOffline = accountInfo.autoReconnect
@@ -635,7 +656,7 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
             botLoggerSupplier = { ArukuMiraiLogger("Bot.${it.id}", true) }
             networkLoggerSupplier = { ArukuMiraiLogger("Net.${it.id}", true) }
 
-            val deviceInfoFile = miraiWorkingDir.resolve("device-${accountInfo.accountNo}.json")
+            val deviceInfoFile = botWorkingDir.resolve("device.json")
             if (deviceInfoFile.exists()) {
                 fileBasedDeviceInfo(deviceInfoFile.absolutePath)
             } else {
@@ -653,5 +674,5 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
     }
 
     private suspend fun <T> databaseIO(block: ArukuDatabase.() -> T) =
-        suspendCoroutine { it.resume(database(block)) }
+        withContext(Dispatchers.IO) { suspendCoroutine { it.resume(database(block)) } }
 }

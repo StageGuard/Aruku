@@ -19,12 +19,17 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.channels.produce
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -47,32 +52,29 @@ import net.mamoe.mirai.event.events.BotOfflineEvent
 
 class HomeViewModel(
     private val repository: MainRepository,
-    private val _accountList: LiveData<List<Long>>,
+    @Suppress("LocalVariableName") _accountList: LiveData<List<Long>>,
+    composableLifecycleOwner: LifecycleOwner,
 ) : ViewModel() {
     // represents state of current account
     // it is only changed at [observeAccountState] and [loginSolver]
     private val _loginState: MutableStateFlow<AccountState> = MutableStateFlow(AccountState.Default)
     val loginState: StateFlow<AccountState> get() = _loginState.asStateFlow()
-    private val _accounts: MutableStateFlow<List<BasicAccountInfo>> by lazy {
-        MutableStateFlow(
-            (_accountList.value ?: repository.getBots())
-                .mapNotNull { repository.queryAccountInfo(it) }
-                .map { BasicAccountInfo(it.accountNo, it.nickname, it.avatarUrl) }
-        )
-    }
-    private val accountListUpdateFlow = MutableStateFlow(0L)
-    val accounts: Flow<List<BasicAccountInfo>> =
-        _accounts.combine(accountListUpdateFlow) { info, _ -> info }
-    val accountListUpdaterState = mutableStateOf(Any())
 
-    fun observeAccountList(owner: LifecycleOwner) {
-        _accountList.observe(owner) { list ->
-            _accounts.value = list
-                .mapNotNull { repository.queryAccountInfo(it) }
-                .map { BasicAccountInfo(it.accountNo, it.nickname, it.avatarUrl) }
-            accountListUpdaterState.value = Any()
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val accountObserver = viewModelScope.produce {
+        send(_accountList.value ?: listOf())
+        _accountList.observe(composableLifecycleOwner) {
+            launch { send(it) }
         }
     }
+    private val accountListUpdateFlow = MutableStateFlow(0L)
+    val accounts: StateFlow<List<BasicAccountInfo>> = accountObserver
+        .receiveAsFlow()
+        .combine(accountListUpdateFlow) { info, _ -> info }
+        .map { list ->
+            list.mapNotNull { repository.queryAccountInfo(it) }
+                .map { BasicAccountInfo(it.accountNo, it.nickname, it.avatarUrl) }
+        }.stateIn(viewModelScope, SharingStarted.Lazily, listOf())
 
     private val captchaChannel = Channel<String?>()
     private val loginSolver = object : LoginSolverBridge {

@@ -47,7 +47,7 @@ class MainRepositoryImpl(
 
     override fun getBots(): List<Long> {
         assertBinderNotNull(binder)
-        return binder?.getBots()?.asList() ?: listOf()
+        return binder?.getBots() ?: listOf()
     }
 
     override fun loginAll() {

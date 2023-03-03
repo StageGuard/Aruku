@@ -31,15 +31,21 @@ class ArukuServiceConnector(
 
     override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
         Log.d(tag(), "service is connected: $name")
-        _delegate = if (service != null) ServiceBridge_Proxy(service) else null
-        _delegate?.addBotListObserver(
-            this@ArukuServiceConnector.toString(),
-            object : BotObserverBridge {
-                override fun onChange(@ParamOut bots: List<Long>) {
-                    _botsLiveData.postValue(bots)
+        if (service != null) {
+            val proxy = ServiceBridge_Proxy(service)
+            proxy.addBotListObserver(
+                this@ArukuServiceConnector.toString(),
+                object : BotObserverBridge {
+                    override fun onChange(@ParamOut bots: List<Long>) {
+                        _botsLiveData.postValue(bots)
+                    }
                 }
-            }
-        )
+            )
+            _botsLiveData.value = proxy.getBots()
+            _delegate = proxy
+        } else {
+            Log.w(tag(), "service binder is null while aruku service is connected.")
+        }
         connected.value = true
     }
 

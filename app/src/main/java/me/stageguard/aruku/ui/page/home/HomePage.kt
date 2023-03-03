@@ -24,7 +24,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -44,6 +43,7 @@ import me.stageguard.aruku.ui.theme.ArukuTheme
 import me.stageguard.aruku.util.stringResC
 import me.stageguard.aruku.util.tag
 import org.koin.androidx.compose.koinViewModel
+import org.koin.core.parameter.parametersOf
 
 @Composable
 fun HomePage(
@@ -53,20 +53,13 @@ fun HomePage(
     val bot = LocalBot.current
     val navController = LocalNavController.current
     val lifecycle = LocalLifecycleOwner.current
-    val viewModel: HomeViewModel = koinViewModel()
+    val viewModel: HomeViewModel = koinViewModel { parametersOf(lifecycle) }
 
-    LaunchedEffect(true) {
-        viewModel.observeAccountList(lifecycle)
-    }
-
-    val coroutineScope = rememberCoroutineScope()
-    val loginState by viewModel.loginState.collectAsState(coroutineScope.coroutineContext)
-    val accounts by viewModel.accounts.collectAsState(listOf(), coroutineScope.coroutineContext)
-    val accountsUpdater by viewModel.accountListUpdaterState
-    val rOnSwitchAccount by rememberUpdatedState(onSwitchAccount)
+    val loginState by viewModel.loginState.collectAsState()
+    val accounts by viewModel.accounts.collectAsState()
     val rOnLaunchLoginSuccess by rememberUpdatedState(onLaunchLoginSuccess)
 
-    LaunchedEffect(bot, accountsUpdater) {
+    LaunchedEffect(bot) {
         viewModel.observeAccountState(bot)
     }
     LaunchedEffect(loginState) {
@@ -79,7 +72,7 @@ fun HomePage(
             currentNavSelection = viewModel.currentNavSelection,
             accounts = accounts,
             onNavigateToLoginPage = { navController.navigate(NAV_LOGIN) },
-            onSwitchAccount = rOnSwitchAccount,
+            onSwitchAccount = onSwitchAccount,
             onRetryCaptcha = { accountNo -> viewModel.submitCaptcha(accountNo, null) },
             onSubmitCaptcha = { accountNo, result -> viewModel.submitCaptcha(accountNo, result) },
             onCancelLogin = { viewModel.cancelLogin(it) },

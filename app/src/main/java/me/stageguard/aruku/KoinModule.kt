@@ -65,9 +65,8 @@ val applicationModule = module {
     factory<MainRepository> {
         val connector: ArukuServiceConnector = get()
         val binder by connector
-        val connected = connector.connected.value == true
         MainRepositoryImpl(
-            binder = if (connected) binder else null,
+            binder = if (connector.connected.value == true) binder else null,
             database = get(),
             avatarCache = get(qualifier = qualifier("avatar_cache")),
             nicknameCache = get(qualifier = qualifier("nickname_cache")),
@@ -76,8 +75,8 @@ val applicationModule = module {
 
     // view model
     viewModel { LoginViewModel(get()) }
-    viewModel { HomeViewModel(get(), get<ArukuServiceConnector>().bots) }
-    viewModel { params -> MessageViewModel(get(), params.get()) }
+    viewModel { params -> HomeViewModel(get(), get<ArukuServiceConnector>().bots, params.get()) }
+    viewModel { MessageViewModel(get()) }
     viewModel { params -> ContactViewModel(get(), params.get()) }
     viewModel { AccountAvatarViewModel() }
     viewModel { params -> ChatViewModel(get(), params.get(), get(), params.get()) }
