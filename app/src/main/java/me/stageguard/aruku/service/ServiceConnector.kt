@@ -16,18 +16,17 @@ import me.stageguard.aruku.service.bridge.ServiceBridge
 import me.stageguard.aruku.service.bridge.ServiceBridge_Proxy
 import me.stageguard.aruku.util.tag
 import remoter.annotations.ParamOut
-import kotlin.properties.ReadOnlyProperty
-import kotlin.reflect.KProperty
 
 class ServiceConnector(
     private val context: Context
-) : ServiceConnection, LifecycleEventObserver, ReadOnlyProperty<Nothing?, ServiceBridge?> {
+) : ServiceConnection, LifecycleEventObserver {
     private var _delegate: ServiceBridge? = null
     val connected: MutableLiveData<Boolean> = MutableLiveData(false)
 
     private val _botsLiveData: MutableLiveData<List<Long>> = MutableLiveData()
 
     val bots: LiveData<List<Long>> = _botsLiveData
+    val binder get() = _delegate
 
     override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
         Log.d(tag(), "service is connected: $name")
@@ -75,12 +74,5 @@ class ServiceConnector(
 
             else -> {}
         }
-    }
-
-    override fun getValue(thisRef: Nothing?, property: KProperty<*>): ServiceBridge? {
-        if (_delegate == null) {
-            Log.w(tag(), "binder IArukuMiraiInterface hasn't yet initialized.")
-        }
-        return _delegate
     }
 }

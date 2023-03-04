@@ -10,11 +10,9 @@ import me.stageguard.aruku.database.ArukuDatabase
 import me.stageguard.aruku.database.DBTypeConverters
 import me.stageguard.aruku.domain.MainRepository
 import me.stageguard.aruku.domain.RetrofitDownloadService
-import me.stageguard.aruku.service.ServiceConnector
 import me.stageguard.aruku.ui.page.MainViewModel
 import me.stageguard.aruku.ui.page.chat.ChatViewModel
 import me.stageguard.aruku.ui.page.home.HomeViewModel
-import me.stageguard.aruku.ui.page.home.account.AccountAvatarViewModel
 import me.stageguard.aruku.ui.page.home.contact.ContactViewModel
 import me.stageguard.aruku.ui.page.home.message.MessageViewModel
 import me.stageguard.aruku.ui.page.login.LoginViewModel
@@ -44,9 +42,6 @@ val applicationModule = module {
             .default()
     }
 
-    // service
-    single { ServiceConnector(get()) }
-
     // cache
     single { Retrofit.Builder().baseUrl("http://localhost/").build() }
     single {
@@ -63,11 +58,9 @@ val applicationModule = module {
     }
 
     // repo
-    factory<MainRepository> {
-        val connector: ServiceConnector = get()
-        val binder by connector
+    single<MainRepository> { params ->
         MainRepositoryImpl(
-            binder = if (connector.connected.value == true) binder else null,
+            connectorRef = params.get(),
             database = get(),
             avatarCache = get(qualifier = qualifier("avatar_cache")),
             nicknameCache = get(qualifier = qualifier("nickname_cache")),
@@ -76,10 +69,9 @@ val applicationModule = module {
 
     // view model
     viewModel { LoginViewModel(get()) }
-    viewModel { MainViewModel(get(), get()) }
-    viewModel { params -> HomeViewModel(get(), get<ServiceConnector>().bots, params.get()) }
+    viewModel { params -> MainViewModel(get(), get(), params.get(), params.get()) }
+    viewModel { HomeViewModel(get()) }
     viewModel { MessageViewModel(get()) }
     viewModel { params -> ContactViewModel(get(), params.get()) }
-    viewModel { AccountAvatarViewModel() }
     viewModel { params -> ChatViewModel(get(), params.get(), get(), params.get()) }
 }

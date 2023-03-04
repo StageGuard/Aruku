@@ -17,8 +17,9 @@ import me.stageguard.aruku.database.contact.GroupEntity
 import me.stageguard.aruku.database.message.MessagePreviewEntity
 import me.stageguard.aruku.database.message.MessageRecordEntity
 import me.stageguard.aruku.domain.MainRepository
+import me.stageguard.aruku.service.ServiceConnector
+import me.stageguard.aruku.service.bridge.AccountStateBridge
 import me.stageguard.aruku.service.bridge.BotObserverBridge
-import me.stageguard.aruku.service.bridge.LoginSolverBridge
 import me.stageguard.aruku.service.bridge.ServiceBridge
 import me.stageguard.aruku.service.parcel.AccountInfo
 import me.stageguard.aruku.service.parcel.AccountLoginData
@@ -27,71 +28,74 @@ import me.stageguard.aruku.service.parcel.ArukuContact
 import me.stageguard.aruku.service.parcel.ArukuContactType
 import me.stageguard.aruku.service.parcel.GroupMemberInfo
 import me.stageguard.aruku.util.tag
+import java.lang.ref.WeakReference
 import java.util.concurrent.ConcurrentHashMap
 
 class MainRepositoryImpl(
-    private val binder: ServiceBridge?,
+    private val connectorRef: WeakReference<ServiceConnector>,
     private val database: ArukuDatabase,
     private val avatarCache: ConcurrentHashMap<Long, String>,
     private val nicknameCache: ConcurrentHashMap<Long, String>
 ) : MainRepository {
+    private val binder: ServiceBridge? get() = connectorRef.get()?.binder
+
     override fun addBot(info: AccountLoginData, alsoLogin: Boolean): Boolean {
-        assertBinderNotNull(binder)
+        assertServiceConnected()
         return binder?.addBot(info, alsoLogin) ?: false
     }
 
     override fun removeBot(accountNo: Long): Boolean {
-        assertBinderNotNull(binder)
+        assertServiceConnected()
         return binder?.removeBot(accountNo) ?: false
     }
 
     override fun deleteBot(accountNo: Long): Boolean {
-        assertBinderNotNull(binder)
+        assertServiceConnected()
         return binder?.deleteBot(accountNo) ?: false
     }
 
     override fun getBots(): List<Long> {
-        assertBinderNotNull(binder)
+        assertServiceConnected()
         return binder?.getBots() ?: listOf()
     }
 
     override fun loginAll() {
-        assertBinderNotNull(binder)
+        assertServiceConnected()
         binder?.loginAll()
     }
 
     override fun login(accountNo: Long): Boolean {
-        assertBinderNotNull(binder)
+        assertServiceConnected()
         return binder?.login(accountNo) ?: false
     }
 
     override fun logout(accountNo: Long): Boolean {
-        assertBinderNotNull(binder)
+        assertServiceConnected()
         return binder?.logout(accountNo) ?: false
     }
 
     override fun addBotListObserver(identity: String, observer: BotObserverBridge) {
-        assertBinderNotNull(binder)
+        assertServiceConnected()
         binder?.addBotListObserver(identity, observer)
     }
 
     override fun removeBotListObserver(identity: String) {
-        assertBinderNotNull(binder)
+        assertServiceConnected()
         binder?.removeBotListObserver(identity)
     }
 
-    override fun addLoginSolver(bot: Long, solver: LoginSolverBridge) {
-        assertBinderNotNull(binder)
-        binder?.addLoginSolver(bot, solver)
+    override fun setAccountStateBridge(bridge: AccountStateBridge) {
+        assertServiceConnected()
+        binder?.setAccountStateBridge(bridge)
     }
 
-    override fun removeLoginSolver(bot: Long) {
-        assertBinderNotNull(binder)
-        binder?.removeLoginSolver(bot)
+    override fun getAccountOnlineState(account: Long): Boolean? {
+        assertServiceConnected()
+        return binder?.getAccountOnlineState(account)
     }
 
     override fun queryAccountInfo(account: Long): AccountInfo? {
-        assertBinderNotNull(binder)
+        assertServiceConnected()
         return try {
             binder?.queryAccountInfo(account)
         } catch (ex: Exception) {
@@ -101,7 +105,7 @@ class MainRepositoryImpl(
     }
 
     override fun queryAccountProfile(account: Long): AccountProfile? {
-        assertBinderNotNull(binder)
+        assertServiceConnected()
         return try {
             binder?.queryAccountProfile(account)
         } catch (ex: Exception) {
@@ -113,7 +117,7 @@ class MainRepositoryImpl(
     override fun getAvatarUrl(account: Long, contact: ArukuContact): String? {
         val cache = avatarCache[contact.subject]
         return if (cache != null) cache else {
-            assertBinderNotNull(binder)
+            assertServiceConnected()
             try {
                 binder?.getAvatarUrl(account, contact)?.also {
                     avatarCache[contact.subject] = it
@@ -129,7 +133,7 @@ class MainRepositoryImpl(
     override fun getNickname(account: Long, contact: ArukuContact): String? {
         val cache = nicknameCache[contact.subject]
         return if (cache != null) cache else {
-            assertBinderNotNull(binder)
+            assertServiceConnected()
             try {
                 binder?.getNickname(account, contact)?.also {
                     nicknameCache[contact.subject] = it
@@ -146,7 +150,7 @@ class MainRepositoryImpl(
         groupId: Long,
         memberId: Long
     ): GroupMemberInfo? {
-        assertBinderNotNull(binder)
+        assertServiceConnected()
         return try {
             binder?.getGroupMemberInfo(account, groupId, memberId)
         } catch (ex: Exception) {
@@ -231,7 +235,14 @@ class MainRepositoryImpl(
         }
     }
 
-    private fun assertBinderNotNull(b: ServiceBridge?) {
-        if (b == null) Log.w(tag(), "ServiceBridge is null, cannot perform actions.")
+    private fun assertServiceConnected() {
+        val connector = connectorRef.get()
+        if (connector == null) {
+            Log.w(tag(), "ServiceConnector has been collected by gc.")
+            return
+        }
+        if (connector.connected.value != true) {
+            Log.w(tag(), "ServiceConnector is not connected to service.")
+        }
     }
 }

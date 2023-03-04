@@ -52,6 +52,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import me.stageguard.aruku.R
 import me.stageguard.aruku.ui.common.ExpandedAnimatedVisibility
+import me.stageguard.aruku.ui.page.AccountState
 import me.stageguard.aruku.ui.theme.ArukuTheme
 import me.stageguard.aruku.ui.theme.ColorAccountOffline
 import me.stageguard.aruku.ui.theme.ColorAccountOnline
@@ -174,16 +175,16 @@ fun AccountDialog(
                     ) {
                         OutlinedButton(
                             onClick = {
-                                if(accountState is AccountState.Online) onLogout(activeAccount!!.id)
-                                    else onLogin(activeAccount!!.id)
-                          },
+                                if (accountState is AccountState.Online) onLogout(activeAccount!!.id)
+                                else onLogin(activeAccount!!.id)
+                            },
                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                             shape = RoundedCornerShape(16.dp)
 
                         ) {
                             Text(
-                                text = (if(accountState is AccountState.Online) R.string.home_account_dialog_logout
-                                        else R.string.home_account_dialog_login).stringResC,
+                                text = (if (accountState is AccountState.Online) R.string.home_account_dialog_logout
+                                else R.string.home_account_dialog_login).stringResC,
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     fontWeight = FontWeight.Bold
                                 )

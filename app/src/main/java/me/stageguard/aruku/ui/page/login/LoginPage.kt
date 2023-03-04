@@ -2,7 +2,6 @@ package me.stageguard.aruku.ui.page.login
 
 import android.annotation.SuppressLint
 import android.content.res.Configuration.UI_MODE_NIGHT_NO
-import android.util.Log
 import androidx.compose.animation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -27,10 +26,12 @@ import androidx.compose.ui.unit.sp
 import com.google.accompanist.permissions.*
 import me.stageguard.aruku.R
 import me.stageguard.aruku.service.parcel.AccountLoginData
+import me.stageguard.aruku.ui.LocalAccountsState
 import me.stageguard.aruku.ui.common.SingleItemLazyColumn
+import me.stageguard.aruku.ui.page.AccountState
+import me.stageguard.aruku.ui.page.MainViewModel
 import me.stageguard.aruku.ui.theme.ArukuTheme
 import me.stageguard.aruku.util.stringResC
-import me.stageguard.aruku.util.tag
 import net.mamoe.mirai.utils.BotConfiguration
 import net.mamoe.mirai.utils.secondsToMillis
 import org.koin.androidx.compose.koinViewModel
@@ -40,19 +41,32 @@ fun LoginPage(
     onLoginSuccess: (Long) -> Unit
 ) {
     val viewModel: LoginViewModel = koinViewModel()
-    val coroutineScope = rememberCoroutineScope()
+    val mainSharedViewModel: MainViewModel = koinViewModel()
+    var loginAccount: Long? by remember { mutableStateOf(null) }
 
-    val loginState by viewModel.state.collectAsState(coroutineScope.coroutineContext)
-    LaunchedEffect(loginState) {
-        if (loginState is LoginState.Success) onLoginSuccess(viewModel.accountInfo.value.accountNo)
+    val currentAccountState = LocalAccountsState.current[loginAccount]
+
+    val state by remember {
+        derivedStateOf {
+            if (currentAccountState is AccountState.Login) {
+                currentAccountState.state
+            } else LoginState.Default
+        }
+    }
+
+    LaunchedEffect(state) {
+        if (state is LoginState.Success) onLoginSuccess(viewModel.accountInfo.value.accountNo)
     }
 
     LoginView(accountInfo = viewModel.accountInfo,
-        state = loginState,
-        onLoginClick = { viewModel.doLogin(it) },
-        onLoginFailedClick = { viewModel.removeBotAndClearState(it) },
-        onRetryCaptchaClick = { viewModel.retryCaptcha() },
-        onSubmitCaptchaClick = { _, result -> viewModel.submitCaptcha(result) }
+        state = state,
+        onLoginClick = {
+            mainSharedViewModel.doLogin(it)
+            loginAccount = it
+        },
+        onLoginFailedClick = { mainSharedViewModel.removeAccount(it) },
+        onRetryCaptchaClick = { mainSharedViewModel.retryCaptcha(it) },
+        onSubmitCaptchaClick = { acc, result -> mainSharedViewModel.submitCaptcha(acc, result) }
     )
 }
 

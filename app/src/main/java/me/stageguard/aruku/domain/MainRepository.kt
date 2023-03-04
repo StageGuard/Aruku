@@ -8,8 +8,8 @@ import me.stageguard.aruku.database.contact.FriendEntity
 import me.stageguard.aruku.database.contact.GroupEntity
 import me.stageguard.aruku.database.message.MessagePreviewEntity
 import me.stageguard.aruku.database.message.MessageRecordEntity
+import me.stageguard.aruku.service.bridge.AccountStateBridge
 import me.stageguard.aruku.service.bridge.BotObserverBridge
-import me.stageguard.aruku.service.bridge.LoginSolverBridge
 import me.stageguard.aruku.service.parcel.AccountInfo
 import me.stageguard.aruku.service.parcel.AccountLoginData
 import me.stageguard.aruku.service.parcel.AccountProfile
@@ -28,8 +28,8 @@ interface MainRepository {
     fun logout(accountNo: Long): Boolean
     fun addBotListObserver(identity: String, observer: BotObserverBridge)
     fun removeBotListObserver(identity: String)
-    fun addLoginSolver(bot: Long, solver: LoginSolverBridge)
-    fun removeLoginSolver(bot: Long)
+    fun setAccountStateBridge(bridge: AccountStateBridge)
+    fun getAccountOnlineState(account: Long): Boolean?
     fun queryAccountInfo(account: Long): AccountInfo?
     fun queryAccountProfile(account: Long): AccountProfile?
     fun getAvatarUrl(account: Long, contact: ArukuContact): String?

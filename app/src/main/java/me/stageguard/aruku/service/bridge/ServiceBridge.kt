@@ -19,9 +19,9 @@ interface ServiceBridge {
     fun logout(accountNo: Long): Boolean
     fun addBotListObserver(identity: String, @ParamIn observer: BotObserverBridge)
     fun removeBotListObserver(identity: String)
-    fun addLoginSolver(bot: Long, @ParamIn solver: LoginSolverBridge)
-    fun removeLoginSolver(bot: Long)
+    fun setAccountStateBridge(@ParamIn bridge: AccountStateBridge)
 
+    fun getAccountOnlineState(account: Long): Boolean
     fun queryAccountInfo(account: Long): AccountInfo?
     fun queryAccountProfile(account: Long): AccountProfile?
     fun getAvatarUrl(account: Long, @ParamIn contact: ArukuContact): String?

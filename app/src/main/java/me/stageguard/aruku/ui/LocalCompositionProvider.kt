@@ -6,7 +6,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.navigation.NavController
 import com.google.accompanist.systemuicontroller.SystemUiController
 import com.heyanle.okkv2.core.Okkv
-import me.stageguard.aruku.ui.page.home.AccountState
+import me.stageguard.aruku.ui.page.AccountState
 import me.stageguard.aruku.util.StringLocale
 
 val LocalNavController: ProvidableCompositionLocal<NavController> =
@@ -20,8 +20,8 @@ val LocalSystemUiController: ProvidableCompositionLocal<SystemUiController> =
 
 val LocalBot: ProvidableCompositionLocal<Long?> = compositionLocalOf { null }
 
-val LocalAccountState: ProvidableCompositionLocal<AccountState> =
-    compositionLocalOf { AccountState.Default }
+val LocalAccountsState: ProvidableCompositionLocal<Map<Long, AccountState>> =
+    compositionLocalOf { mapOf() }
 
 val LocalOkkvProvider: ProvidableCompositionLocal<Okkv> =
     compositionLocalOf { error("No Okkv provided.") }

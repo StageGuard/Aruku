@@ -15,6 +15,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
@@ -24,14 +25,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import me.stageguard.aruku.ui.LocalAccountState
+import me.stageguard.aruku.ui.LocalAccountsState
 import me.stageguard.aruku.ui.LocalBot
 import me.stageguard.aruku.ui.LocalNavController
 import me.stageguard.aruku.ui.LocalSystemUiController
+import me.stageguard.aruku.ui.page.AccountState
 import me.stageguard.aruku.ui.page.NAV_LOGIN
 import me.stageguard.aruku.ui.theme.ArukuTheme
 import me.stageguard.aruku.util.stringResC
@@ -44,14 +45,20 @@ fun HomePage(
     onLogin: (Long) -> Unit,
     onLogout: (Long) -> Unit,
 ) {
+    val bot = LocalBot.current
     val navController = LocalNavController.current
-    val lifecycle = LocalLifecycleOwner.current
+    val accountsState = LocalAccountsState.current
 
-    val viewModel: HomeViewModel = koinViewModel { parametersOf(lifecycle) }
+    val viewModel: HomeViewModel = koinViewModel { parametersOf() }
     val accounts by viewModel.accounts.collectAsState()
+
+    LaunchedEffect(accountsState) {
+        viewModel.updateAccounts(accountsState)
+    }
 
     HomeView(
         currentNavSelection = viewModel.currentNavSelection,
+        state = accountsState[bot] ?: AccountState.Default,
         accounts = accounts,
         onNavigateToLoginPage = { navController.navigate(NAV_LOGIN) },
         onSwitchAccount = onSwitchAccount,
@@ -65,6 +72,7 @@ fun HomePage(
 @Composable
 private fun HomeView(
     currentNavSelection: State<HomeNav>,
+    state: AccountState,
     accounts: List<BasicAccountInfo>,
     onNavigateToLoginPage: () -> Unit,
     onSwitchAccount: (Long) -> Unit,
@@ -73,7 +81,6 @@ private fun HomeView(
     onHomeNavigate: (HomeNavSelection, HomeNavSelection) -> Unit
 ) {
     val bot = LocalBot.current
-    val state = LocalAccountState.current
     val systemUiController = LocalSystemUiController.current
 
     val backgroundColor = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp)
@@ -187,7 +194,7 @@ fun HomeViewPreview() {
     val navState = remember { mutableStateOf(homeNaves[HomeNavSelection.MESSAGE]!!) }
     ArukuTheme {
         HomeView(
-            navState, accounts = list,
+            navState, state = AccountState.Default, accounts = list,
             {}, {}, {}, {}, { _, _ -> },
         )
     }
