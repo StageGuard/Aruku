@@ -134,6 +134,9 @@ class MainViewModel(
         }
     }
 
+    // TODO: maybe we should change _accountList to List<AccountState>
+    // so we can control all account state in service,
+    // and just receive at here
     val accountsState: Flow<Map<Long, AccountState>> = channelFlow {
         val list = mutableListOf<Pair<Long, AccountState>>()
 
@@ -145,6 +148,10 @@ class MainViewModel(
             }
         }
 
+        // first receive state
+        _accountList.value?.map { it to getAccountOnlineState(it) }?.let(list::addAll)
+
+        // list update state
         _accountList.observe(composableLifecycleOwner) { bots ->
             if (list.isEmpty()) {
                 list.addAll(bots.map { it to getAccountOnlineState(it) })
@@ -161,6 +168,7 @@ class MainViewModel(
             trySend(list.toMap())
         }
 
+        // state bridge
         accountStateProducer.consumeAsFlow().collect { p ->
             list.removeIf { it.first == p.first }
             list.add(p)
