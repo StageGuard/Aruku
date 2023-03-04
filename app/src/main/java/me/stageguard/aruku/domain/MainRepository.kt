@@ -30,14 +30,14 @@ interface MainRepository {
     fun removeBotListObserver(identity: String)
     fun setAccountStateBridge(bridge: AccountStateBridge)
     fun getAccountOnlineState(account: Long): Boolean?
-    fun queryAccountInfo(account: Long): AccountInfo?
+    suspend fun queryAccountInfo(account: Long): AccountInfo?
     fun queryAccountProfile(account: Long): AccountProfile?
-    fun getAvatarUrl(account: Long, contact: ArukuContact): String?
-    fun getNickname(account: Long, contact: ArukuContact): String?
+    suspend fun getAvatarUrl(account: Long, contact: ArukuContact): String?
+    suspend fun getNickname(account: Long, contact: ArukuContact): String?
     fun getGroupMemberInfo(account: Long, groupId: Long, memberId: Long): GroupMemberInfo?
 
     // database
-    fun getAccount(account: Long): AccountEntity?
+    suspend fun getAccount(account: Long): AccountEntity?
     fun setAccountOfflineManually(account: Long)
     fun getMessagePreview(account: Long): Flow<LoadState<List<MessagePreviewEntity>>>
     fun getGroups(account: Long): Flow<LoadState<List<GroupEntity>>>

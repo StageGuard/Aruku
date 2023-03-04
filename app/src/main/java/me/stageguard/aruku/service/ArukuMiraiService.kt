@@ -183,26 +183,8 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
         override fun getAvatarUrl(account: Long, contact: ArukuContact): String? {
             val bot = Bot.getInstanceOrNull(account)
             return when (contact.type) {
-                ArukuContactType.GROUP -> {
-                    if (bot != null) {
-                        bot.getGroup(contact.subject)?.avatarUrl
-                    } else runBlocking {
-                        databaseIO {
-                            groups().getGroup(account, contact.subject).firstOrNull()?.avatarUrl
-                        }
-                    }
-                }
-
-                ArukuContactType.FRIEND -> {
-                    if (bot != null) {
-                        bot.getFriend(contact.subject)?.avatarUrl
-                    } else runBlocking {
-                        databaseIO {
-                            friends().getFriend(account, contact.subject).firstOrNull()?.avatarUrl
-                        }
-                    }
-                }
-
+                ArukuContactType.GROUP -> bot?.getGroup(contact.subject)?.avatarUrl
+                ArukuContactType.FRIEND -> bot?.getFriend(contact.subject)?.avatarUrl
                 ArukuContactType.TEMP -> bot?.getStranger(contact.subject)?.avatarUrl
             }
         }
@@ -210,26 +192,8 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
         override fun getNickname(account: Long, contact: ArukuContact): String? {
             val bot = Bot.getInstanceOrNull(account)
             return when (contact.type) {
-                ArukuContactType.GROUP -> {
-                    if (bot != null) {
-                        bot.getGroup(contact.subject)?.name
-                    } else runBlocking {
-                        databaseIO {
-                            groups().getGroup(account, contact.subject).firstOrNull()?.name
-                        }
-                    }
-                }
-
-                ArukuContactType.FRIEND -> {
-                    if (bot != null) {
-                        bot.getFriend(contact.subject)?.nick
-                    } else runBlocking {
-                        databaseIO {
-                            friends().getFriend(account, contact.subject).firstOrNull()?.name
-                        }
-                    }
-                }
-
+                ArukuContactType.GROUP -> bot?.getGroup(contact.subject)?.name
+                ArukuContactType.FRIEND -> bot?.getFriend(contact.subject)?.nick
                 ArukuContactType.TEMP -> bot?.getStranger(contact.subject)?.nick
             }
         }
@@ -250,16 +214,7 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
                 accountNo = bot.id,
                 nickname = bot.nick,
                 avatarUrl = bot.avatarUrl
-            ) else runBlocking {
-                databaseIO {
-                    val data = accounts()[account].firstOrNull()
-                    if (data == null) null else AccountInfo(
-                        accountNo = data.accountNo,
-                        nickname = data.nickname,
-                        avatarUrl = data.avatarUrl
-                    )
-                }
-            }
+            ) else null
         }
 
         override fun queryAccountProfile(account: Long): AccountProfile? {

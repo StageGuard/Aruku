@@ -4,11 +4,13 @@ import android.util.Log
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import me.stageguard.aruku.database.ArukuDatabase
 import me.stageguard.aruku.database.LoadState
 import me.stageguard.aruku.database.account.AccountEntity
@@ -94,14 +96,18 @@ class MainRepositoryImpl(
         return binder?.getAccountOnlineState(account)
     }
 
-    override fun queryAccountInfo(account: Long): AccountInfo? {
+    override suspend fun queryAccountInfo(account: Long): AccountInfo? {
         assertServiceConnected()
-        return try {
-            binder?.queryAccountInfo(account)
-        } catch (ex: Exception) {
-            Log.w(tag(), "cannot get account info of $account: $ex", ex)
-            null
+        val result = binder?.queryAccountInfo(account)
+        if (result != null) {
+            return result
         }
+        return withContext(Dispatchers.IO) {
+            database.accounts()[account].firstOrNull()?.run {
+                AccountInfo(accountNo, nickname, avatarUrl)
+            }
+        }
+
     }
 
     override fun queryAccountProfile(account: Long): AccountProfile? {
@@ -114,35 +120,44 @@ class MainRepositoryImpl(
         }
     }
 
-    override fun getAvatarUrl(account: Long, contact: ArukuContact): String? {
+    override suspend fun getAvatarUrl(account: Long, contact: ArukuContact): String? {
         val cache = avatarCache[contact.subject]
-        return if (cache != null) cache else {
-            assertServiceConnected()
-            try {
-                binder?.getAvatarUrl(account, contact)?.also {
-                    avatarCache[contact.subject] = it
-                }
-            } catch (ex: Exception) {
-                Log.w(tag(), "cannot get avatar url on $contact of bot $account: $ex", ex)
-                null
+        if (cache != null) return cache
+
+        var result = binder?.getAvatarUrl(account, contact)
+        if (result == null) result = withContext(Dispatchers.IO) {
+            when (contact.type) {
+                ArukuContactType.FRIEND ->
+                    database.friends().getFriend(account, contact.subject).firstOrNull()?.avatarUrl
+
+                ArukuContactType.GROUP ->
+                    database.groups().getGroup(account, contact.subject).firstOrNull()?.avatarUrl
+
+                else -> null
             }
         }
-
+        if (result != null) avatarCache[contact.subject] = result
+        return result
     }
 
-    override fun getNickname(account: Long, contact: ArukuContact): String? {
+    override suspend fun getNickname(account: Long, contact: ArukuContact): String? {
         val cache = nicknameCache[contact.subject]
-        return if (cache != null) cache else {
-            assertServiceConnected()
-            try {
-                binder?.getNickname(account, contact)?.also {
-                    nicknameCache[contact.subject] = it
-                }
-            } catch (ex: Exception) {
-                Log.w(tag(), "cannot get nickname on $contact of bot $account: $ex", ex)
-                null
+        if (cache != null) return cache
+
+        var result = binder?.getNickname(account, contact)
+        if (result == null) result = withContext(Dispatchers.IO) {
+            when (contact.type) {
+                ArukuContactType.FRIEND ->
+                    database.friends().getFriend(account, contact.subject).firstOrNull()?.name
+
+                ArukuContactType.GROUP ->
+                    database.groups().getGroup(account, contact.subject).firstOrNull()?.name
+
+                else -> null
             }
         }
+        if (result != null) nicknameCache[contact.subject] = result
+        return result
     }
 
     override fun getGroupMemberInfo(
@@ -163,7 +178,7 @@ class MainRepositoryImpl(
         }
     }
 
-    override fun getAccount(account: Long): AccountEntity? {
+    override suspend fun getAccount(account: Long): AccountEntity? {
         val result = database.accounts()[account]
         return if (result.isEmpty()) null else (result.singleOrNull() ?: result.first().also {
             Log.w(tag(), "get account $account has multiple results, peaking first.")
