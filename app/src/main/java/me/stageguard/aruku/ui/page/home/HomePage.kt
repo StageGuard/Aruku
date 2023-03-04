@@ -37,7 +37,6 @@ import me.stageguard.aruku.ui.page.NAV_LOGIN
 import me.stageguard.aruku.ui.theme.ArukuTheme
 import me.stageguard.aruku.util.stringResC
 import org.koin.androidx.compose.koinViewModel
-import org.koin.core.parameter.parametersOf
 
 @Composable
 fun HomePage(
@@ -49,7 +48,7 @@ fun HomePage(
     val navController = LocalNavController.current
     val accountsState = LocalAccountsState.current
 
-    val viewModel: HomeViewModel = koinViewModel { parametersOf() }
+    val viewModel: HomeViewModel = koinViewModel()
     val accounts by viewModel.accounts.collectAsState()
 
     LaunchedEffect(accountsState) {

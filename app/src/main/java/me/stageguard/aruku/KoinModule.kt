@@ -58,7 +58,7 @@ val applicationModule = module {
     }
 
     // repo
-    single<MainRepository> { params ->
+    single<MainRepository>(createdAtStart = false) { params ->
         MainRepositoryImpl(
             connectorRef = params.get(),
             database = get(),
@@ -67,9 +67,11 @@ val applicationModule = module {
         )
     }
 
+    single(createdAtStart = false) { params ->
+        MainViewModel(get(), get(), params.get(), params.get())
+    }
     // view model
     viewModel { LoginViewModel(get()) }
-    viewModel { params -> MainViewModel(get(), get(), params.get(), params.get()) }
     viewModel { HomeViewModel(get()) }
     viewModel { MessageViewModel(get()) }
     viewModel { params -> ContactViewModel(get(), params.get()) }
