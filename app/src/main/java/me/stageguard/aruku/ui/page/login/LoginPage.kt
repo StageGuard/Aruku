@@ -2,6 +2,7 @@ package me.stageguard.aruku.ui.page.login
 
 import android.annotation.SuppressLint
 import android.content.res.Configuration.UI_MODE_NIGHT_NO
+import android.util.Log
 import androidx.compose.animation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -42,26 +43,24 @@ fun LoginPage(
 ) {
     val viewModel: LoginViewModel = koinViewModel()
     val mainSharedViewModel: MainViewModel = koinViewModel()
+
+    val accountsState = LocalAccountsState.current
     var loginAccount: Long? by remember { mutableStateOf(null) }
+    val state = remember(accountsState, loginAccount) { accountsState[loginAccount] }
 
-    val currentAccountState = LocalAccountsState.current[loginAccount]
-
-    val state by remember {
-        derivedStateOf {
-            if (currentAccountState is AccountState.Login) {
-                currentAccountState.state
-            } else LoginState.Default
+    val currentOnLoginSuccess by rememberUpdatedState(onLoginSuccess)
+    LaunchedEffect(state) {
+        Log.i("LoginState", state.toString())
+        if (state is AccountState.Online) {
+            currentOnLoginSuccess(viewModel.accountInfo.value.accountNo)
         }
     }
 
-    LaunchedEffect(state) {
-        if (state is LoginState.Success) onLoginSuccess(viewModel.accountInfo.value.accountNo)
-    }
-
-    LoginView(accountInfo = viewModel.accountInfo,
-        state = state,
+    LoginView(
+        accountInfo = viewModel.accountInfo,
+        state = if (state is AccountState.Login) state.state else LoginState.Default,
         onLoginClick = {
-            mainSharedViewModel.doLogin(it)
+            mainSharedViewModel.doLogin(it, viewModel.accountInfo.value)
             loginAccount = it
         },
         onLoginFailedClick = { mainSharedViewModel.removeAccount(it) },

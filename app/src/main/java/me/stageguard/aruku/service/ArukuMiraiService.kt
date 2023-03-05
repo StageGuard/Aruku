@@ -768,7 +768,7 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
                 fileBasedDeviceInfo(deviceInfoFile.absolutePath)
             } else {
                 deviceInfo = {
-                    MiraiDeviceGenerator().load(it).also { generated ->
+                    MiraiDeviceGenerator().generate().also { generated ->
                         deviceInfoFile.createNewFile()
                         deviceInfoFile.writeText(Json.encodeToString(generated))
                     }

@@ -19,6 +19,7 @@ import me.stageguard.aruku.ArukuApplication
 import me.stageguard.aruku.R
 import me.stageguard.aruku.domain.MainRepository
 import me.stageguard.aruku.service.bridge.AccountStateBridge
+import me.stageguard.aruku.service.parcel.AccountLoginData
 import me.stageguard.aruku.ui.page.login.CaptchaType
 import me.stageguard.aruku.ui.page.login.LoginState
 import me.stageguard.aruku.util.stringRes
@@ -113,6 +114,7 @@ class MainViewModel(
         }
 
         override fun onLoginSuccess(bot: Long) {
+            updateAccountState(bot, AccountState.Login(LoginState.Success(bot)))
             updateAccountState(bot, AccountState.Online)
         }
 
@@ -202,6 +204,11 @@ class MainViewModel(
     fun doLogin(account: Long) {
         updateAccountState(account, AccountState.Login(LoginState.Logging))
         repository.login(account)
+    }
+
+    fun doLogin(account: Long, info: AccountLoginData) {
+        updateAccountState(account, AccountState.Login(LoginState.Logging))
+        repository.addBot(info, true)
     }
 
     fun retryCaptcha(account: Long) {

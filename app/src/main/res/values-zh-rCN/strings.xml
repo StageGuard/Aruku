@@ -10,8 +10,8 @@
     <string name="auto_reconnect">自动重连</string>
     <string name="login">登录</string>
     <string name="internet_permission">请授予网络权限</string>
-    <string name="login_failed">登陆失败</string>
-    <string name="login_failed_message">%1$s 登陆失败： \n %2$s</string>
+    <string name="login_failed">登录失败</string>
+    <string name="login_failed_message">%1$s 登录失败： \n %2$s</string>
     <string name="confirm">确定</string>
     <string name="captcha_required">需要验证</string>
     <string name="cancel">取消</string>

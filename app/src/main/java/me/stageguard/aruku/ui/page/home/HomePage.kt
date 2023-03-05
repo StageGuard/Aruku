@@ -91,7 +91,7 @@ private fun HomeView(
     )
     val scrollState = TopAppBarDefaults.pinnedScrollBehavior()
 
-    val currNavPage by remember(HomeNavSelection.MESSAGE) { currentNavSelection }
+    val currNavPage by remember { currentNavSelection }
     val currAccount = bot?.let { id -> accounts.find { it.id == id } }
     val showAccountDialog = remember { mutableStateOf(false) }
 

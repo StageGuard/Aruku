@@ -71,14 +71,14 @@ fun HomeMessagePage(padding: PaddingValues, onContactClick: (ArukuContact, Int) 
     val currentOnContactClick by rememberUpdatedState(onContactClick)
     val searchBarHeight = 52.dp
 
-    val currentFirstVisibleIndex = remember { mutableStateOf(listState.firstVisibleItemIndex) }
+    var currentFirstVisibleIndex by remember { mutableStateOf(listState.firstVisibleItemIndex) }
     LaunchedEffect(messages) {
         if (messages is LoadState.Ok) {
             val first = messages.ok().data.firstOrNull()
-            if (first != null && listState.firstVisibleItemIndex > currentFirstVisibleIndex.value) {
+            if (first != null && listState.firstVisibleItemIndex > currentFirstVisibleIndex) {
                 listState.animateScrollToItem((listState.firstVisibleItemIndex - 1).coerceAtLeast(0))
             }
-            currentFirstVisibleIndex.value = listState.firstVisibleItemIndex
+            currentFirstVisibleIndex = listState.firstVisibleItemIndex
         }
     }
 
