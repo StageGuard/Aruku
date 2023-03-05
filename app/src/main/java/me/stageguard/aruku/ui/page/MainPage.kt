@@ -81,10 +81,7 @@ fun MainPage(
                     state = loginState.state,
                     onRetryCaptcha = { accountNo -> viewModel.submitCaptcha(accountNo, null) },
                     onSubmitCaptcha = { accountNo, result ->
-                        viewModel.submitCaptcha(
-                            accountNo,
-                            result
-                        )
+                        viewModel.submitCaptcha(accountNo, result)
                     },
                     onCancelLogin = { viewModel.cancelLogin(it) },
                 )

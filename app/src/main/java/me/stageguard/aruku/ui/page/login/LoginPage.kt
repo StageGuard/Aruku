@@ -2,7 +2,6 @@ package me.stageguard.aruku.ui.page.login
 
 import android.annotation.SuppressLint
 import android.content.res.Configuration.UI_MODE_NIGHT_NO
-import android.util.Log
 import androidx.compose.animation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -46,19 +45,22 @@ fun LoginPage(
 
     val accountsState = LocalAccountsState.current
     var loginAccount: Long? by remember { mutableStateOf(null) }
-    val state = remember(accountsState, loginAccount) { accountsState[loginAccount] }
+    val accountState = remember(accountsState, loginAccount) { accountsState[loginAccount] }
+
+    var lastLoginState: LoginState by remember { mutableStateOf(LoginState.Default) }
 
     val currentOnLoginSuccess by rememberUpdatedState(onLoginSuccess)
-    LaunchedEffect(state) {
-        Log.i("LoginState", state.toString())
-        if (state is AccountState.Online) {
-            currentOnLoginSuccess(viewModel.accountInfo.value.accountNo)
+    LaunchedEffect(accountState) {
+        when (accountState) {
+            is AccountState.Login -> lastLoginState = accountState.state
+            is AccountState.Online -> currentOnLoginSuccess(viewModel.accountInfo.value.accountNo)
+            else -> {}
         }
     }
 
     LoginView(
         accountInfo = viewModel.accountInfo,
-        state = if (state is AccountState.Login) state.state else LoginState.Default,
+        state = lastLoginState,
         onLoginClick = {
             mainSharedViewModel.doLogin(it, viewModel.accountInfo.value)
             loginAccount = it

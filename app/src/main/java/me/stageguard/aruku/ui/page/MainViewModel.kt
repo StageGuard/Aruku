@@ -152,6 +152,7 @@ class MainViewModel(
 
         // first receive state
         _accountList.value?.map { it to getAccountOnlineState(it) }?.let(list::addAll)
+        send(list.toMap())
 
         // list update state
         _accountList.observe(composableLifecycleOwner) { bots ->
