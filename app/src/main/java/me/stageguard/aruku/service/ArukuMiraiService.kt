@@ -378,13 +378,15 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
      *             BotJobScope     BotScope
      *                  |             |
      *            EventChannels   bot.launch
-     * ```
+     *  ```
      *
      *  if we want to completely stop a bot, we should cancel bot first,
      *
+     *  so that the BotOfflineEvent can broadcast to event channel
+     *
      *  at that time the bot job is completed because bot.join() is finished.
      *
-     *  then cancel bot job to ensure all jobs is stopped.
+     *  then cancel bot job to ensure that event channels and all jobs is stopped.
      */
     private fun login(account: Long): Boolean {
         val bot = bots[account] ?: return false
@@ -418,7 +420,7 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
             Log.e(service.tag(), "uncaught exception while logging $account.", th)
             stateChannel.trySend(AccountState.LoginFailed(account, true, th.message))
             removeBot(account)
-        }) {
+        } + SupervisorJob()) {
             val scopedEventChannel = bot.eventChannel.parentScope(this)
 
             scopedEventChannel.subscribe<BotOnlineEvent> { event ->
