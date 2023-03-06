@@ -46,7 +46,7 @@ abstract class MessagePreviewDao : BaseDao<MessagePreviewEntity> {
             update(preview.apply {
                 time = entity.time
                 previewContent = entity.previewContent
-                unreadCount = entity.unreadCount
+                unreadCount = entity.unreadCount + 1
                 messageId = entity.messageId
             })
         } else {
