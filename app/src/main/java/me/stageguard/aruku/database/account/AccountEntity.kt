@@ -9,8 +9,8 @@ import me.stageguard.aruku.util.Into
 @Entity(tableName = "account")
 data class AccountEntity(
     @PrimaryKey @ColumnInfo(name = "account_no") val accountNo: Long,
-    @ColumnInfo(name = "nickname", defaultValue = "") val nickname: String,
-    @ColumnInfo(name = "avatar_url", defaultValue = "") val avatarUrl: String,
+    @ColumnInfo(name = "nickname", defaultValue = "") var nickname: String,
+    @ColumnInfo(name = "avatar_url", defaultValue = "") var avatarUrl: String,
     @ColumnInfo(name = "password_md5") var passwordMd5: String,
     @ColumnInfo(name = "login_protocol") var loginProtocol: String,
     @ColumnInfo(name = "heartbeat_strategy") var heartbeatStrategy: String,

@@ -34,4 +34,23 @@ abstract class MessagePreviewDao : BaseDao<MessagePreviewEntity> {
         subject: Long,
         type: ArukuContactType
     ): List<MessagePreviewEntity>
+
+    fun upsertP(entity: MessagePreviewEntity) {
+        val preview = getExactMessagePreview(
+            entity.account,
+            entity.contact.subject,
+            entity.contact.type
+        ).singleOrNull()
+
+        if (preview != null) {
+            update(preview.apply {
+                time = entity.time
+                previewContent = entity.previewContent
+                unreadCount = entity.unreadCount
+                messageId = entity.messageId
+            })
+        } else {
+            insert(entity)
+        }
+    }
 }

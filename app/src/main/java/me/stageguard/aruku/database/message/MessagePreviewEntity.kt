@@ -4,7 +4,6 @@ import androidx.room.ColumnInfo
 import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.Index
-import androidx.room.PrimaryKey
 import kotlinx.serialization.Serializable
 import me.stageguard.aruku.service.parcel.ArukuContact
 
@@ -12,14 +11,7 @@ import me.stageguard.aruku.service.parcel.ArukuContact
 @Entity(
     tableName = "message_preview",
     indices = [Index(value = ["account_id", "subject", "type"], unique = true)],
-//    foreignKeys = [
-//        ForeignKey(
-//            entity = AccountEntity::class,
-//            parentColumns = arrayOf("account_no"),
-//            childColumns = arrayOf("account_id"),
-//            onDelete = ForeignKey.CASCADE
-//        )
-//    ]
+    primaryKeys = ["account_id", "subject", "type"]
 )
 data class MessagePreviewEntity(
     @ColumnInfo(name = "account_id") val account: Long,
@@ -27,6 +19,7 @@ data class MessagePreviewEntity(
     @ColumnInfo(name = "time") var time: Long,
     @ColumnInfo(name = "preview") var previewContent: String,
     @ColumnInfo(name = "unread_count") var unreadCount: Int,
+    // message id is calculated by account, contact and other properties
+    // so it can represents combined column (account, contact) as primary key
     @ColumnInfo(name = "message_id") var messageId: Int,
-    @PrimaryKey(autoGenerate = true) @ColumnInfo(name = "_prim_key") val _prim_key: Int = 0,
 )

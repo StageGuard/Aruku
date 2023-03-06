@@ -6,6 +6,7 @@ import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 import me.stageguard.aruku.database.BaseDao
 
+// TODO: add custom upsert method for group and friend
 @Dao
 abstract class GroupDao : BaseDao<GroupEntity> {
     @Query("select * from `group` where account_id=:account")

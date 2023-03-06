@@ -3,6 +3,7 @@ package me.stageguard.aruku.database
 import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.Update
+import androidx.room.Upsert
 
 interface BaseDao<T> {
     @Insert
@@ -13,4 +14,7 @@ interface BaseDao<T> {
 
     @Update
     fun update(vararg entities: T)
+
+    @Upsert
+    fun upsert(vararg entities: T)
 }

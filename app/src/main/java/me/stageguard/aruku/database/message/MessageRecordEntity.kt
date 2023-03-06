@@ -1,6 +1,10 @@
 package me.stageguard.aruku.database.message
 
-import androidx.room.*
+import androidx.room.ColumnInfo
+import androidx.room.Embedded
+import androidx.room.Entity
+import androidx.room.Index
+import androidx.room.PrimaryKey
 import kotlinx.serialization.Serializable
 import me.stageguard.aruku.domain.data.message.MessageElement
 import me.stageguard.aruku.service.parcel.ArukuContact
