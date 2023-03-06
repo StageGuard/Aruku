@@ -21,7 +21,6 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import me.stageguard.aruku.ArukuApplication
@@ -58,6 +57,7 @@ import net.mamoe.mirai.contact.Friend
 import net.mamoe.mirai.contact.Group
 import net.mamoe.mirai.contact.getMember
 import net.mamoe.mirai.contact.nameCardOrNick
+import net.mamoe.mirai.event.EventChannel
 import net.mamoe.mirai.event.ListeningStatus
 import net.mamoe.mirai.event.events.BotEvent
 import net.mamoe.mirai.event.events.BotJoinGroupEvent
@@ -84,8 +84,6 @@ import xyz.cssxsh.mirai.device.MiraiDeviceGenerator
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 import kotlin.coroutines.CoroutineContext
-import kotlin.coroutines.resume
-import kotlin.coroutines.suspendCoroutine
 
 class ArukuMiraiService : LifecycleService(), CoroutineScope {
     companion object {
@@ -164,6 +162,7 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
         override fun setAccountStateBridge(bridge: AccountStateBridge) {
             stateBridge = bridge
 
+            // dispatch latest cached state of each bot.
             val dispatched = mutableListOf<Long>()
             var state = stateCacheQueue.poll()
             while (state != null) {
@@ -243,19 +242,21 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
         launch {
             stateChannel.consumeAsFlow().collect { state ->
                 if (stateBridge == null) {
-                    // this often happens that login process is started but ui is not ready.
-                    // so we need to cache login state and emit all when state bridge is set.
+                    // cache state
+                    // this often happens that login process has already produced states
+                    // but no state bridge to consume.
+                    // so we cache state and dispatch all when state bridge is set.
                     stateCacheQueue.offer(state)
                     return@collect
                 }
-                // consumes state to state bridge
+                // dispatch state to bridge directly
                 stateBridge?.dispatchState(state)
             }
         }
 
         val service = this
         launch {
-            databaseIO {
+            database.suspendIO {
                 accounts()
                     .getAll()
                     .forEach { account ->
@@ -279,7 +280,7 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
                     // on start is called after bind service in service connector
                     serviceBridge.notifyBotList()
                 }
-                databaseIO {
+                database.suspendIO {
                     val accountDao = accounts()
                     bots.forEach { (account, _) ->
                         val offlineManually = accountDao[account].firstOrNull()?.isOfflineManually
@@ -356,6 +357,31 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
         return true
     }
 
+    /**
+     *  bot job is to hold suspension of bot which is sub job of service,
+     *  bot is also the sub job of service.
+     *
+     *  all coroutines launched by `bot.launch` should be cancelled if bot is closed.
+     *
+     *  all event listener should be cancelled if bot job is closed.
+     *
+     *  coroutine scope graph :
+     *  ```
+     *                    ServiceScope
+     *                         |
+     *                  +------+------+
+     *                  |             |
+     *             BotJobScope     BotScope
+     *                  |             |
+     *            EventChannels   bot.launch
+     * ```
+     *
+     *  if we want to completely stop a bot, we should cancel bot first,
+     *
+     *  at that time the bot job is completed because bot.join() is finished.
+     *
+     *  then cancel bot job to ensure all jobs is stopped.
+     */
     private fun login(account: Long): Boolean {
         val bot = bots[account] ?: return false
         if (bot.isOnline) return true
@@ -367,13 +393,7 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
         }
 
         launch {
-            databaseIO {
-                val accountDao = accounts()
-                val accountInfo = accountDao[account].singleOrNull()
-                if (accountInfo != null) {
-                    accountDao.update(accountInfo.apply { isOfflineManually = false })
-                }
-            }
+            database.suspendIO { accounts().setManuallyOffline(account, false) }
         }
 
         botJobs[account] = launch(context = CoroutineExceptionHandler { context, th ->
@@ -395,19 +415,20 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
             stateChannel.trySend(AccountState.LoginFailed(account, true, th.message))
             removeBot(account)
         }) {
-            val eventChannel = bot.eventChannel
+            val scopedEventChannel = bot.eventChannel.parentScope(this)
 
-            eventChannel.subscribeOnce<BotOnlineEvent> { ev ->
-                Log.i(this@ArukuMiraiService.tag(), "bot ${ev.bot.id} login success.")
+            scopedEventChannel.subscribe<BotOnlineEvent> { event ->
+                Log.i(this@ArukuMiraiService.tag(), "bot ${event.bot.id} login success.")
                 stateChannel.send(AccountState.LoginSuccess(account))
+                if (bot.isActive) ListeningStatus.LISTENING else ListeningStatus.STOPPED
             }
 
-            eventChannel.subscribe<BotOfflineEvent> { ev ->
+            scopedEventChannel.subscribe<BotOfflineEvent> { event ->
                 val message: String
                 var stopSubscription = false
 
                 @OptIn(MiraiExperimentalApi::class)
-                val offlineCause = when (ev) {
+                val offlineCause = when (event) {
                     is BotOfflineEvent.Active -> {
                         message = "offline manually"
                         stopSubscription = true
@@ -415,37 +436,39 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
                     }
 
                     is BotOfflineEvent.Force -> {
-                        message = ev.message
-                        stopSubscription = ev.reconnect
+                        message = event.message
+                        stopSubscription = event.reconnect
                         OfflineCause.FORCE
                     }
 
                     else -> {
-                        message = (ev as BotOfflineEvent.CauseAware).cause?.message ?: "dropped"
+                        message =
+                            (event as? BotOfflineEvent.CauseAware)?.cause?.message ?: "dropped"
                         OfflineCause.DISCONNECTED
-
                     }
                 }
-                stateChannel.trySend(AccountState.Offline(bot.id, offlineCause, message))
+                stateChannel.send(AccountState.Offline(bot.id, offlineCause, message))
                 if (stopSubscription) ListeningStatus.STOPPED else ListeningStatus.LISTENING
             }
 
             stateChannel.send(AccountState.Logging(bot.id))
             bot.login()
-            initializeBot(bot)
+            initializeBot(bot, scopedEventChannel)
 
             bot.join()
         }
         return true
     }
 
-    private fun renewBotAndLogin(account: Long) = launch {
-        botJobs[account]?.also { job ->
-            job.cancelAndJoin()
-            botJobs.remove(account, job)
-        }
+    private suspend fun closeBotAndJoin(account: Long) {
         bots[account]?.closeAndJoin()
-        val info = databaseIO { database.accounts()[account].singleOrNull() }
+        botJobs[account]?.cancelAndJoin()
+    }
+
+    private fun renewBotAndLogin(account: Long) = launch {
+        closeBotAndJoin(account)
+        botJobs.remove(account)
+        val info = database.suspendIO { database.accounts()[account].singleOrNull() }
         if (info != null) {
             bots[account] = createBot(info.into())
         }
@@ -453,12 +476,14 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
     }
 
     // should use bot coroutine scope
-    private fun initializeBot(bot: Bot) {
-        // cache contacts and profile
+    private fun initializeBot(bot: Bot, scopedEventChannel: EventChannel<BotEvent>) {
+        // ensure that process contacts after syncing complete
         val syncContactLock = Mutex(true)
+        // cache contacts and profile
         bot.launch {
-            Log.i(tag("Contact"), "syncing contacts to database.")
-            databaseIO {
+            val tag = this@ArukuMiraiService.tag("Contact")
+            Log.i(tag, "syncing contacts of bot ${bot.id} to database.")
+            database.suspendIO {
                 val (groupDao, friendDao) = groups() to friends()
 
                 val (onlineGroups, onlineGroupsIds) = bot.groups.run { this to this.map { it.id } }
@@ -487,38 +512,33 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
                 )
                 friendDao.insert(*newFriends.map(Friend::toFriendEntity).toTypedArray())
             }
-            Log.i(tag("Contact"), "sync contacts complete.")
+            Log.i(tag, "sync contact of bot ${bot.id} complete.")
             syncContactLock.unlock()
         }
         // update basic account info
         bot.launch {
-            databaseIO {
+            database.suspendIO {
                 val accountDao = accounts()
                 val account = accountDao[bot.id].first()
-                accountDao.update(
-                    account.copy(
-                        nickname = bot.nick,
-                        avatarUrl = bot.avatarUrl
-                    )
-                )
+                accountDao.update(account.apply {
+                    nickname = bot.nick
+                    avatarUrl = bot.avatarUrl
+                })
             }
         }
-        // subscribe message event
-        bot.eventChannel.parentScope(this)
+        // subscribe message events
+        scopedEventChannel
             .subscribe<MessageEvent>(coroutineContext = CoroutineExceptionHandler { _, throwable ->
-                if (throwable is IllegalStateException && throwable.toString()
-                        .contains(Regex("UNKNOWN_MESSAGE_EVENT_TYPE"))
+                val tag = tag("Message")
+                if (throwable is IllegalStateException &&
+                    throwable.toString().contains(Regex("UNKNOWN_MESSAGE_EVENT_TYPE"))
                 ) {
-                    Log.w(tag("Message"), "Unknown message type while listening ${bot.id}")
-                } else {
-                    Log.e(
-                        tag("Message"),
-                        "Error while subscribing message of ${bot.id}",
-                        throwable
-                    )
+                    Log.w(tag, "Unknown message type while listening ${bot.id}")
+                    return@CoroutineExceptionHandler
                 }
+                Log.e(tag, "Error while subscribing message of ${bot.id}", throwable)
             }) { event ->
-                if (!this@ArukuMiraiService.isActive) return@subscribe ListeningStatus.STOPPED
+                if (!bot.isActive) return@subscribe ListeningStatus.STOPPED
 
                 val contact = ArukuContact(
                     when (event) {
@@ -529,30 +549,26 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
                     }, subject.id
                 )
 
-                val messageElements = event.message.toMessageElements(this@subscribe)
-                processMessageChain(bot, contact, event.message)
-                databaseIO {
-                    // insert message event to records
-                    messageRecords().insert(
-                        MessageRecordEntity(
-                            account = bot.id,
-                            contact = contact,
-                            sender = event.sender.id,
-                            senderName = event.sender.nameCardOrNick,
-                            messageId = event.message.source.calculateMessageId(),
-                            message = messageElements,
-                            time = event.time
+                // process in service coroutine scope to ensure that
+                // message must be processed if bot is closed in the middle of processing.
+                this@ArukuMiraiService.launch {
+                    val messageElements = event.message.toMessageElements(this@subscribe)
+                    processMessageChain(bot, contact, event.message)
+                    database.suspendIO {
+                        // insert message event to records
+                        messageRecords().upsert(
+                            MessageRecordEntity(
+                                account = bot.id,
+                                contact = contact,
+                                sender = event.sender.id,
+                                senderName = event.sender.nameCardOrNick,
+                                messageId = event.message.source.calculateMessageId(),
+                                message = messageElements,
+                                time = event.time
+                            )
                         )
-                    )
-                    // update message preview
-                    val preview = messagePreview()
-                    val messagePreview = preview.getExactMessagePreview(
-                        event.bot.id,
-                        contact.subject,
-                        contact.type
-                    )
-                    if (messagePreview.isEmpty()) {
-                        preview.insert(
+                        // update message preview
+                        messagePreview().upsertP(
                             MessagePreviewEntity(
                                 event.bot.id,
                                 contact,
@@ -562,23 +578,14 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
                                 event.message.source.calculateMessageId()
                             )
                         )
-                    } else {
-                        preview.update(messagePreview.single().apply p@{
-                            this@p.time = event.time.toLong()
-                            this@p.previewContent =
-                                event.sender.nameCardOrNick + ": " + event.message.contentToString()
-                            this@p.unreadCount = this@p.unreadCount + 1
-                            this@p.messageId = event.message.source.calculateMessageId()
-                        })
                     }
-
                 }
 
                 return@subscribe ListeningStatus.LISTENING
             }
 
         // subscribe contact changes
-        bot.eventChannel.subscribe<BotEvent> { event ->
+        scopedEventChannel.subscribe<BotEvent> { event ->
             if (!bot.isActive) return@subscribe ListeningStatus.STOPPED
             if (
                 event !is FriendAddEvent &&
@@ -589,67 +596,29 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
             ) return@subscribe ListeningStatus.LISTENING
 
             syncContactLock.lock()
+            val tag = this@ArukuMiraiService.tag("Contact")
             when (event) {
                 is FriendAddEvent, is StrangerRelationChangeEvent.Friended -> {
                     val friend =
                         if (event is FriendAddEvent) event.friend else (event as StrangerRelationChangeEvent.Friended).friend
 
-                    databaseIO {
-                        val friendDao = friends()
-                        val existing = friendDao.getFriend(event.bot.id, friend.id)
-                        if (existing.isEmpty()) {
-                            friendDao.insert(friend.toFriendEntity())
-                        } else {
-                            friendDao.update(existing.single().apply e@{
-                                this@e.name = friend.nick
-                                this@e.group = friend.friendGroup.id
-                            })
-                        }
-                    }
-                    Log.i(
-                        this@ArukuMiraiService.tag("Contact"),
-                        "friend added via event, friend=${friend}"
-                    )
+                    database.suspendIO { friends().upsert(friend.toFriendEntity()) }
+                    Log.i(tag, "friend added via event, friend=${friend}.")
                 }
 
                 is FriendDeleteEvent -> {
-                    databaseIO {
-                        val friendDao = friends()
-                        friendDao.deleteViaId(event.bot.id, event.friend.id)
-                    }
-                    Log.i(
-                        this@ArukuMiraiService.tag("Contact"),
-                        "friend deleted via event, friend=${event.friend}"
-                    )
+                    database.suspendIO { friends().deleteViaId(event.bot.id, event.friend.id) }
+                    Log.i(tag, "friend deleted via event, friend=${event.friend}")
                 }
 
                 is BotJoinGroupEvent -> {
-                    databaseIO {
-                        val groupDao = groups()
-                        val existing = groupDao.getGroup(event.bot.id, event.groupId)
-                        if (existing.isEmpty()) {
-                            groupDao.insert(event.group.toGroupEntity())
-                        } else {
-                            groupDao.update(existing.single().apply e@{
-                                this@e.name = event.group.name
-                            })
-                        }
-                    }
-                    Log.i(
-                        this@ArukuMiraiService.tag("Contact"),
-                        "group added via event, friend=${event.group}"
-                    )
+                    database.suspendIO { groups().upsert(event.group.toGroupEntity()) }
+                    Log.i(tag, "group added via event, friend=${event.group}")
                 }
 
                 is BotLeaveEvent -> {
-                    databaseIO {
-                        val groupDao = groups()
-                        groupDao.deleteViaId(event.bot.id, event.groupId)
-                    }
-                    Log.i(
-                        this@ArukuMiraiService.tag("Contact"),
-                        "group deleted via event, friend=${event.group}"
-                    )
+                    database.suspendIO { groups().deleteViaId(event.bot.id, event.groupId) }
+                    Log.i(tag, "group deleted via event, friend=${event.group}")
                 }
             }
 
@@ -669,16 +638,9 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
             return true
         }
         launch {
-            bot.closeAndJoin()
-            job.cancelAndJoin()
+            closeBotAndJoin(account)
 
-            databaseIO {
-                val accountDao = accounts()
-                val accountInfo = accountDao[account].singleOrNull()
-                if (accountInfo != null) {
-                    accountDao.update(accountInfo.apply { isOfflineManually = true })
-                }
-            }
+            database.suspendIO { accounts().setManuallyOffline(account, true) }
 
             val rm = botJobs.remove(account, job)
             if (!rm) Log.w(service.tag(), "bot job $account is not removed after logout.")
@@ -687,24 +649,18 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
     }
 
     private fun removeBot(account: Long): Boolean {
-        val bot = bots[account]
-        val job = botJobs[account]
-        return bot?.run {
-            launch {
-                bot.closeAndJoin()
-                job?.cancelAndJoin()
-            }
-            bots.remove(account)
-            serviceBridge.notifyBotList()
-            botJobs.remove(account)
-            true
-        } ?: false
+        val bot = bots[account] ?: return false
+        launch { closeBotAndJoin(account) }
+        bots.remove(account, bot)
+        botJobs.remove(account)
+        serviceBridge.notifyBotList()
+        return true
     }
 
     private fun deleteBot(account: Long): Boolean {
         val r = removeBot(account)
         launch {
-            databaseIO {
+            database.suspendIO {
                 val accountDao = accounts()
                 val existing = accountDao[account].singleOrNull()
                 if (existing != null) accountDao.delete(existing)
@@ -730,8 +686,8 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
             ArukuApplication.INSTANCE.filesDir.resolve("mirai/${accountInfo.accountNo}/")
         if (!botWorkingDir.exists()) botWorkingDir.mkdirs()
 
-        if (saveAccount) launch(Dispatchers.IO) {
-            database {
+        if (saveAccount) launch {
+            database.suspendIO {
                 val accountDao = accounts()
                 val existAccountInfo = accountDao[accountInfo.accountNo]
                 if (existAccountInfo.isEmpty()) {
@@ -781,6 +737,7 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
         }
     }
 
+    // dispatch a state to binder bridge
     private fun AccountStateBridge.dispatchState(state: AccountState) {
         when (state) {
             is AccountState.Logging -> onLogging(state.account)
@@ -800,30 +757,22 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
                 }
 
                 AccountState.CaptchaType.SLIDER -> {
-                    val result = onSolveSliderCaptcha(
-                        state.account,
-                        state.data.toString(Charsets.UTF_8)
-                    )
+                    val result = onSolveSliderCaptcha(state.account, state.data.decodeToString())
                     launch {
                         loginSolutionChannel.send(Solution.SliderCaptcha(state.account, result))
                     }
                 }
 
                 AccountState.CaptchaType.SMS -> {
-                    val result = onSolveSMSRequest(
-                        state.account,
-                        state.data.toString(Charsets.UTF_8)
-                    )
+                    val result = onSolveSMSRequest(state.account, state.data.decodeToString())
                     launch {
                         loginSolutionChannel.send(Solution.SMSResult(state.account, result))
                     }
                 }
 
                 AccountState.CaptchaType.USF -> {
-                    val result = onSolveUnsafeDeviceLoginVerify(
-                        state.account,
-                        state.data.toString(Charsets.UTF_8)
-                    )
+                    val result =
+                        onSolveUnsafeDeviceLoginVerify(state.account, state.data.decodeToString())
                     launch {
                         loginSolutionChannel.send(Solution.USFResult(state.account, result))
                     }
@@ -846,7 +795,4 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
 
         enum class CaptchaType { PIC, SLIDER, USF, SMS }
     }
-
-    private suspend fun <T> databaseIO(block: ArukuDatabase.() -> T) =
-        withContext(Dispatchers.IO) { suspendCoroutine { it.resume(database(block)) } }
 }
