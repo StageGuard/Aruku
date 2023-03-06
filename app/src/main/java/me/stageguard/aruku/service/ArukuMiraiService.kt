@@ -108,41 +108,44 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
     private val stateCacheQueue: ConcurrentLinkedQueue<AccountState> = ConcurrentLinkedQueue()
     private val loginSolutionChannel = Channel<Solution>()
 
+    private val service = this
+
     override val coroutineContext: CoroutineContext
         get() = lifecycleScope.coroutineContext + SupervisorJob()
 
     private val serviceBridge = object : ServiceBridge {
+
         override fun addBot(info: AccountLoginData?, alsoLogin: Boolean): Boolean {
-            Log.i(tag(), "addBot(info=$info)")
+            Log.i(service.tag(), "addBot(info=$info)")
             if (info == null) return false
-            this@ArukuMiraiService.addBot(info)
-            if (alsoLogin) this@ArukuMiraiService.login(info.accountNo)
+            service.addBot(info)
+            if (alsoLogin) service.login(info.accountNo)
             return true
         }
 
         override fun removeBot(accountNo: Long): Boolean {
-            return this@ArukuMiraiService.removeBot(accountNo)
+            return service.removeBot(accountNo)
         }
 
         override fun deleteBot(accountNo: Long): Boolean {
-            return this@ArukuMiraiService.deleteBot(accountNo)
+            return service.deleteBot(accountNo)
         }
 
         override fun getBots(): List<Long> {
-            return this@ArukuMiraiService.bots.keys().toList()
+            return service.bots.keys().toList()
 
         }
 
         override fun loginAll() {
-            this@ArukuMiraiService.bots.forEach { (no, _) -> login(no) }
+            service.bots.forEach { (no, _) -> login(no) }
         }
 
         override fun login(accountNo: Long): Boolean {
-            return this@ArukuMiraiService.login(accountNo)
+            return service.login(accountNo)
         }
 
         override fun logout(accountNo: Long): Boolean {
-            return this@ArukuMiraiService.logout(accountNo)
+            return service.logout(accountNo)
         }
 
         override fun addBotListObserver(identity: String, observer: BotObserverBridge) {
@@ -150,9 +153,9 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
         }
 
         override fun removeBotListObserver(identity: String) {
-            val lifecycleObserver = this@ArukuMiraiService.botListObservers[identity]
+            val lifecycleObserver = service.botListObservers[identity]
             if (lifecycleObserver != null) {
-                this@ArukuMiraiService.botListObservers.remove(identity, lifecycleObserver)
+                service.botListObservers.remove(identity, lifecycleObserver)
             }
         }
 
@@ -256,7 +259,6 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
             }
         }
 
-        val service = this
         launch {
             database.suspendIO {
                 accounts()
@@ -294,8 +296,8 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
 
                 }
                 if (startId == 1) initializeLock.unlock()
+                Log.i(service.tag(), "ArukuMiraiService is started.")
             }
-            Log.i(tag(), "ArukuMiraiService is started.")
         } else {
             Log.e(tag(), "ArukuApplication is not initialized yet.")
         }
@@ -400,27 +402,27 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
 
         botJobs[account] = launch(context = CoroutineExceptionHandler { context, th ->
             if (th is LoginFailedException) {
-                Log.e(tag(), "login $account failed.", th)
+                Log.e(service.tag(), "login $account failed.", th)
                 stateChannel.trySend(AccountState.LoginFailed(account, th.killBot, th.message))
                 return@CoroutineExceptionHandler
             }
 
             val matcher = Regex("create a new bot instance", RegexOption.IGNORE_CASE)
             if (th is IllegalStateException && th.toString().contains(matcher)) {
-                Log.w(tag(), "bot isn't recoverable, renewing bot and logging.")
+                Log.w(service.tag(), "bot isn't recoverable, renewing bot and logging.")
                 context[Job]?.cancel()
                 renewBotAndLogin(account)
                 return@CoroutineExceptionHandler
             }
 
-            Log.e(tag(), "uncaught exception while logging $account.", th)
+            Log.e(service.tag(), "uncaught exception while logging $account.", th)
             stateChannel.trySend(AccountState.LoginFailed(account, true, th.message))
             removeBot(account)
         }) {
             val scopedEventChannel = bot.eventChannel.parentScope(this)
 
             scopedEventChannel.subscribe<BotOnlineEvent> { event ->
-                Log.i(this@ArukuMiraiService.tag(), "bot ${event.bot.id} login success.")
+                Log.i(service.tag(), "bot ${event.bot.id} login success.")
                 stateChannel.send(AccountState.LoginSuccess(account))
                 if (bot.isActive) ListeningStatus.LISTENING else ListeningStatus.STOPPED
             }
@@ -633,11 +635,10 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
     private fun logout(account: Long): Boolean {
         val bot = bots[account] ?: return false
         if (!bot.isOnline) return true
-        val service = this
 
         val job = botJobs[account]
         if (job == null || !job.isActive) {
-            Log.e(bot.tag(), "bot $account is already offline.")
+            Log.e(service.tag(), "bot $account is already offline.")
             return true
         }
         launch {
