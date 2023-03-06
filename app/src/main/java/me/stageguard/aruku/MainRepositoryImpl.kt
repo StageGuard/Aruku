@@ -185,11 +185,8 @@ class MainRepositoryImpl(
         })
     }
 
-    override fun setAccountOfflineManually(account: Long) {
-        val dao = database.accounts()
-        val results = dao[account]
-        results.forEach { it.isOfflineManually = true }
-        dao.update(*results.toTypedArray())
+    override suspend fun setAccountOfflineManually(account: Long) {
+        database.accounts().setManuallyOffline(account, true)
     }
 
     override fun getMessagePreview(account: Long): Flow<LoadState<List<MessagePreviewEntity>>> {
@@ -236,7 +233,7 @@ class MainRepositoryImpl(
         subject: Long,
         type: ArukuContactType
     ): Flow<PagingData<MessageRecordEntity>> {
-        return Pager(PagingConfig(pageSize = 20, enablePlaceholders = false)) {
+        return Pager(PagingConfig(pageSize = 12, enablePlaceholders = false)) {
             database.messageRecords().getMessagesPaging(account, subject, type)
         }.flow
     }

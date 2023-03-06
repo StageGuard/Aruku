@@ -38,7 +38,7 @@ interface MainRepository {
 
     // database
     suspend fun getAccount(account: Long): AccountEntity?
-    fun setAccountOfflineManually(account: Long)
+    suspend fun setAccountOfflineManually(account: Long)
     fun getMessagePreview(account: Long): Flow<LoadState<List<MessagePreviewEntity>>>
     fun getGroups(account: Long): Flow<LoadState<List<GroupEntity>>>
     fun getFriends(account: Long): Flow<LoadState<List<FriendEntity>>>

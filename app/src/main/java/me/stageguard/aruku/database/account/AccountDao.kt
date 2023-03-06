@@ -5,10 +5,17 @@ import androidx.room.Query
 import me.stageguard.aruku.database.BaseDao
 
 @Dao
-interface AccountDao : BaseDao<AccountEntity> {
+abstract class AccountDao : BaseDao<AccountEntity> {
     @Query("select * from account")
-    fun getAll(): List<AccountEntity>
+    abstract fun getAll(): List<AccountEntity>
 
     @Query("select * from account where account_no=:accountNo")
-    operator fun get(accountNo: Long): List<AccountEntity>
+    abstract operator fun get(accountNo: Long): List<AccountEntity>
+
+    fun setManuallyOffline(account: Long, v: Boolean) {
+        val accountInfo = get(account).singleOrNull()
+        if (accountInfo != null) {
+            update(accountInfo.apply { isOfflineManually = v })
+        }
+    }
 }
