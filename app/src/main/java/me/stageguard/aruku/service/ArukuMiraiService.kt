@@ -67,7 +67,9 @@ import net.mamoe.mirai.event.events.BotOnlineEvent
 import net.mamoe.mirai.event.events.FriendAddEvent
 import net.mamoe.mirai.event.events.FriendDeleteEvent
 import net.mamoe.mirai.event.events.FriendMessageEvent
+import net.mamoe.mirai.event.events.FriendMessageSyncEvent
 import net.mamoe.mirai.event.events.GroupMessageEvent
+import net.mamoe.mirai.event.events.GroupMessageSyncEvent
 import net.mamoe.mirai.event.events.GroupTempMessageEvent
 import net.mamoe.mirai.event.events.MessageEvent
 import net.mamoe.mirai.event.events.StrangerRelationChangeEvent
@@ -533,7 +535,8 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
                 if (throwable is IllegalStateException &&
                     throwable.toString().contains(Regex("UNKNOWN_MESSAGE_EVENT_TYPE"))
                 ) {
-                    Log.w(tag, "Unknown message type while listening ${bot.id}")
+                    val type = throwable.toString().substringAfter(':').trim()
+                    Log.w(tag, "Unknown message type while listening ${bot.id}: $type")
                     return@CoroutineExceptionHandler
                 }
                 Log.e(tag, "Error while subscribing message of ${bot.id}", throwable)
@@ -542,10 +545,10 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
 
                 val contact = ArukuContact(
                     when (event) {
-                        is GroupMessageEvent -> ArukuContactType.GROUP
-                        is FriendMessageEvent -> ArukuContactType.FRIEND
+                        is GroupMessageEvent, is GroupMessageSyncEvent -> ArukuContactType.GROUP
+                        is FriendMessageEvent, is FriendMessageSyncEvent -> ArukuContactType.FRIEND
                         is GroupTempMessageEvent -> ArukuContactType.TEMP
-                        else -> error("UNKNOWN_MESSAGE_EVENT_TYPE")
+                        else -> error("UNKNOWN_MESSAGE_EVENT_TYPE: $event")
                     }, subject.id
                 )
 
