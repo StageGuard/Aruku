@@ -2,7 +2,6 @@ package me.stageguard.aruku.domain.data.message
 
 import kotlinx.parcelize.Parcelize
 import kotlinx.serialization.Serializable
-import org.jetbrains.annotations.Range
 
 @Parcelize
 @Serializable
@@ -73,7 +72,7 @@ data class VipFace(
 @Parcelize
 @Serializable
 data class Dice(
-    val value: @Range(from = 1, to = 6) Int,
+    val value: Int,
 ) : MessageElement {
     override fun contentToString(): String {
         return "[骰子]"
