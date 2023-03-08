@@ -95,7 +95,9 @@ class CombinedMessagePagingSource(
                     }
 
                     val entities = roamingRecords.map { it.toEntity() }
-                    coroutineScope { messageDao.insert(*entities.toTypedArray()) }
+                    coroutineScope {
+                        database.suspendIO { messageDao.upsert(*entities.toTypedArray()) }
+                    }
 
                     return LoadResult.Page(
                         entities,
@@ -142,7 +144,9 @@ class CombinedMessagePagingSource(
                     }
 
                     val entities = roamingRecords.map { it.toEntity() }
-                    coroutineScope { messageDao.insert(*entities.toTypedArray()) }
+                    coroutineScope {
+                        database.suspendIO { messageDao.upsert(*entities.toTypedArray()) }
+                    }
 
                     return LoadResult.Page(
                         entities,
