@@ -40,7 +40,7 @@ class ChatViewModel(
     )
 
     val messages: Flow<PagingData<ChatElement>> =
-        repository.getMessageRecords(bot, chatNav.contact.subject, chatNav.contact.type)
+        repository.getMessageRecords(bot, chatNav.contact, viewModelScope.coroutineContext)
             .map { data ->
                 data.map { record ->
                     val memberInfo = if (record.contact.type == ArukuContactType.GROUP) {

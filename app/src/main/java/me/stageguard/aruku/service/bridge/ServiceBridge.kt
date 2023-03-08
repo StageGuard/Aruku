@@ -21,6 +21,8 @@ interface ServiceBridge {
     fun removeBotListObserver(identity: String)
     fun setAccountStateBridge(@ParamIn bridge: AccountStateBridge)
 
+    fun openRoamingQuery(account: Long, @ParamIn contact: ArukuContact): RoamingQueryBridge?
+
     fun getAccountOnlineState(account: Long): Boolean
     fun queryAccountInfo(account: Long): AccountInfo?
     fun queryAccountProfile(account: Long): AccountProfile?

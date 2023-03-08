@@ -16,7 +16,11 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.cancellable
 import kotlinx.coroutines.flow.consumeAsFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.take
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -37,6 +41,7 @@ import me.stageguard.aruku.service.ArukuLoginSolver.Solution
 import me.stageguard.aruku.service.bridge.AccountStateBridge
 import me.stageguard.aruku.service.bridge.AccountStateBridge.OfflineCause
 import me.stageguard.aruku.service.bridge.BotObserverBridge
+import me.stageguard.aruku.service.bridge.RoamingQueryBridge
 import me.stageguard.aruku.service.bridge.ServiceBridge
 import me.stageguard.aruku.service.bridge.ServiceBridge_Stub
 import me.stageguard.aruku.service.parcel.AccountInfo
@@ -45,6 +50,7 @@ import me.stageguard.aruku.service.parcel.AccountProfile
 import me.stageguard.aruku.service.parcel.ArukuAudio
 import me.stageguard.aruku.service.parcel.ArukuContact
 import me.stageguard.aruku.service.parcel.ArukuContactType
+import me.stageguard.aruku.service.parcel.ArukuRoamingMessage
 import me.stageguard.aruku.service.parcel.GroupMemberInfo
 import me.stageguard.aruku.service.parcel.toGroupMemberInfo
 import me.stageguard.aruku.ui.activity.MainActivity
@@ -77,6 +83,7 @@ import net.mamoe.mirai.message.data.Audio
 import net.mamoe.mirai.message.data.MessageChain
 import net.mamoe.mirai.message.data.OnlineAudio
 import net.mamoe.mirai.message.data.source
+import net.mamoe.mirai.message.data.sourceOrNull
 import net.mamoe.mirai.network.LoginFailedException
 import net.mamoe.mirai.utils.BotConfiguration.HeartbeatStrategy
 import net.mamoe.mirai.utils.BotConfiguration.MiraiProtocol
@@ -177,6 +184,10 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
                 }
                 state = stateCacheQueue.poll()
             }
+        }
+
+        override fun openRoamingQuery(account: Long, contact: ArukuContact): RoamingQueryBridge? {
+            return createRoamingQuerySession(account, contact)
         }
 
         override fun getAccountOnlineState(account: Long): Boolean {
@@ -482,7 +493,7 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
     }
 
     // should use bot coroutine scope
-    private fun initializeBot(bot: Bot, scopedEventChannel: EventChannel<BotEvent>) {
+    private fun initializeBot(bot: Bot, scopedChannel: EventChannel<BotEvent>) {
         // ensure that process contacts after syncing complete
         val syncContactLock = Mutex(true)
         // cache contacts and profile
@@ -533,66 +544,65 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
             }
         }
         // subscribe message events
-        scopedEventChannel
-            .subscribe<MessageEvent>(coroutineContext = CoroutineExceptionHandler { _, throwable ->
-                val tag = tag("Message")
-                if (throwable is IllegalStateException &&
-                    throwable.toString().contains(Regex("UNKNOWN_MESSAGE_EVENT_TYPE"))
-                ) {
-                    val type = throwable.toString().substringAfter(':').trim()
-                    Log.w(tag, "Unknown message type while listening ${bot.id}: $type")
-                    return@CoroutineExceptionHandler
-                }
-                Log.e(tag, "Error while subscribing message of ${bot.id}", throwable)
-            }) { event ->
-                if (!bot.isActive) return@subscribe ListeningStatus.STOPPED
+        scopedChannel.subscribe<MessageEvent>(coroutineContext = CoroutineExceptionHandler { _, t ->
+            val tag = tag("Message")
+            if (t is IllegalStateException &&
+                t.toString().contains(Regex("UNKNOWN_MESSAGE_EVENT_TYPE"))
+            ) {
+                val type = t.toString().substringAfter(':').trim()
+                Log.w(tag, "Unknown message type while listening ${bot.id}: $type")
+                return@CoroutineExceptionHandler
+            }
+            Log.e(tag, "Error while subscribing message of ${bot.id}", t)
+        }) { event ->
+            if (!bot.isActive) return@subscribe ListeningStatus.STOPPED
 
-                val contact = ArukuContact(
-                    when (event) {
-                        is GroupMessageEvent, is GroupMessageSyncEvent -> ArukuContactType.GROUP
-                        is FriendMessageEvent, is FriendMessageSyncEvent -> ArukuContactType.FRIEND
-                        is GroupTempMessageEvent -> ArukuContactType.TEMP
-                        else -> error("UNKNOWN_MESSAGE_EVENT_TYPE: $event")
-                    }, subject.id
-                )
+            val contact = ArukuContact(
+                when (event) {
+                    is GroupMessageEvent, is GroupMessageSyncEvent -> ArukuContactType.GROUP
+                    is FriendMessageEvent, is FriendMessageSyncEvent -> ArukuContactType.FRIEND
+                    is GroupTempMessageEvent -> ArukuContactType.TEMP
+                    else -> error("UNKNOWN_MESSAGE_EVENT_TYPE: $event")
+                }, subject.id
+            )
 
-                // process in service coroutine scope to ensure that
-                // message must be processed if bot is closed in the middle of processing.
-                this@ArukuMiraiService.launch {
-                    val messageElements = event.message.toMessageElements(this@subscribe)
-                    processMessageChain(bot, contact, event.message)
-                    database.suspendIO {
-                        // insert message event to records
-                        messageRecords().upsert(
-                            MessageRecordEntity(
-                                account = bot.id,
-                                contact = contact,
-                                sender = event.sender.id,
-                                senderName = event.sender.nameCardOrNick,
-                                messageId = event.message.source.calculateMessageId(),
-                                message = messageElements,
-                                time = event.time
-                            )
+            // process in service coroutine scope to ensure that
+            // message must be processed if bot is closed in the middle of processing.
+            this@ArukuMiraiService.launch {
+                val messageElements = event.message.toMessageElements(subject)
+                processMessageChain(bot, contact, event.message)
+                database.suspendIO {
+                    // insert message event to records
+                    messageRecords().upsert(
+                        MessageRecordEntity(
+                            account = bot.id,
+                            contact = contact,
+                            sender = event.sender.id,
+                            senderName = event.sender.nameCardOrNick,
+                            messageId = event.message.source.calculateMessageId(),
+                            message = messageElements,
+                            time = event.time
                         )
-                        // update message preview
-                        messagePreview().upsertP(
-                            MessagePreviewEntity(
-                                event.bot.id,
-                                contact,
-                                event.time.toLong(),
-                                event.sender.nameCardOrNick + ": " + event.message.contentToString(),
-                                1,
-                                event.message.source.calculateMessageId()
-                            )
+                    )
+                    // update message preview
+                    messagePreview().upsertP(
+                        MessagePreviewEntity(
+                            event.bot.id,
+                            contact,
+                            event.time.toLong(),
+                            event.sender.nameCardOrNick + ": " + event.message.contentToString(),
+                            1,
+                            event.message.source.calculateMessageId()
                         )
-                    }
+                    )
                 }
-
-                return@subscribe ListeningStatus.LISTENING
             }
 
+            return@subscribe ListeningStatus.LISTENING
+        }
+
         // subscribe contact changes
-        scopedEventChannel.subscribe<BotEvent> { event ->
+        scopedChannel.subscribe<BotEvent> { event ->
             if (!bot.isActive) return@subscribe ListeningStatus.STOPPED
             if (
                 event !is FriendAddEvent &&
@@ -606,8 +616,10 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
             val tag = this@ArukuMiraiService.tag("Contact")
             when (event) {
                 is FriendAddEvent, is StrangerRelationChangeEvent.Friended -> {
-                    val friend =
-                        if (event is FriendAddEvent) event.friend else (event as StrangerRelationChangeEvent.Friended).friend
+                    val friend = if (event is FriendAddEvent) event.friend
+                    else {
+                        (event as StrangerRelationChangeEvent.Friended).friend
+                    }
 
                     database.suspendIO { friends().upsert(friend.toFriendEntity()) }
                     Log.i(tag, "friend added via event, friend=${friend}.")
@@ -684,6 +696,105 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
                     (it as OnlineAudio).urlForDownload
                 )
             }
+        }
+    }
+
+    private fun createRoamingQuerySession(
+        account: Long,
+        contact: ArukuContact
+    ): RoamingQueryBridge? {
+        val tag = tag("RoamingQuery")
+        if (contact.type != ArukuContactType.GROUP) {
+            Log.w(tag, "roaming query only support group now.")
+            return null
+        }
+        val bot = bots[account] ?: kotlin.run {
+            Log.w(tag, "cannot find bot $account.")
+            return null
+        }
+        val group = bot.getGroup(contact.subject) ?: kotlin.run {
+            Log.w(tag, "group ${contact.subject} of bot $account is not found. ")
+            return null
+        }
+
+        val job = botJobs[account] ?: kotlin.run {
+            Log.w(tag, "cannot find bot job $account.")
+            return null
+        }
+        if (!job.isActive) {
+            Log.w(tag, "bot job $account is completed or cancelled.")
+            return null
+        }
+
+        return object : RoamingQueryBridge {
+            private val roamingSession by lazy { group.roamingMessages }
+
+            override fun getMessagesBefore(
+                seq: Int,
+                count: Int,
+                includeSeq: Boolean
+            ): List<ArukuRoamingMessage>? {
+                return runBlocking(job) {
+                    val seqRange = if (includeSeq) {
+                        (seq - count + 1)..seq
+                    } else {
+                        (seq - count) until seq
+                    }
+                    runCatching {
+                        roamingSession
+                            .getAllMessages { r ->
+                                r.ids.all { id -> id in seqRange }
+                            }
+                            .cancellable()
+                            .map { chain ->
+                                ArukuRoamingMessage(
+                                    contact = contact,
+                                    from = chain.source.fromId,
+                                    messageId = chain.source.calculateMessageId(),
+                                    seq = chain.source.ids.first(),
+                                    time = chain.source.time,
+                                    message = chain.toMessageElements(group)
+                                )
+                            }.toList()
+                    }.onFailure {
+                        Log.w(
+                            service.tag(),
+                            "cannot query roaming message of $group, seq=$seq, count=$count",
+                            it
+                        )
+                    }.getOrNull()
+                }
+            }
+
+            override fun getLastMessageSeq(): Int? {
+                Log.i("RoamingBridge", "start get last msg seq")
+                return runBlocking(job) {
+                    Log.i("RoamingBridge", "enter runBlocking")
+                    runCatching {
+                        Log.i("RoamingBridge", "enter runCatching")
+                        val msg = roamingSession
+                            .getMessagesBefore()
+                            .asFlow()
+                            .cancellable()
+                            .take(1)
+                            .toList()
+                        Log.i("RoamingBridge", "fetched list")
+
+                        msg.firstOrNull()
+                            ?.sourceOrNull
+                            ?.ids
+                            ?.firstOrNull()
+
+                    }.onFailure {
+                        Log.w(
+                            service.tag(),
+                            "cannot query last seq of $group",
+                            it
+                        )
+                    }.getOrNull()
+                }
+            }
+
         }
     }
 

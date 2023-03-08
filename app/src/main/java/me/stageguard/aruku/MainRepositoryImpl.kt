@@ -4,13 +4,11 @@ import android.util.Log
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.withContext
 import me.stageguard.aruku.database.ArukuDatabase
 import me.stageguard.aruku.database.LoadState
 import me.stageguard.aruku.database.account.AccountEntity
@@ -18,10 +16,12 @@ import me.stageguard.aruku.database.contact.FriendEntity
 import me.stageguard.aruku.database.contact.GroupEntity
 import me.stageguard.aruku.database.message.MessagePreviewEntity
 import me.stageguard.aruku.database.message.MessageRecordEntity
+import me.stageguard.aruku.domain.CombinedMessagePagingSource
 import me.stageguard.aruku.domain.MainRepository
 import me.stageguard.aruku.service.ServiceConnector
 import me.stageguard.aruku.service.bridge.AccountStateBridge
 import me.stageguard.aruku.service.bridge.BotObserverBridge
+import me.stageguard.aruku.service.bridge.RoamingQueryBridge
 import me.stageguard.aruku.service.bridge.ServiceBridge
 import me.stageguard.aruku.service.parcel.AccountInfo
 import me.stageguard.aruku.service.parcel.AccountLoginData
@@ -32,6 +32,7 @@ import me.stageguard.aruku.service.parcel.GroupMemberInfo
 import me.stageguard.aruku.util.tag
 import java.lang.ref.WeakReference
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.coroutines.CoroutineContext
 
 class MainRepositoryImpl(
     private val connectorRef: WeakReference<ServiceConnector>,
@@ -91,6 +92,11 @@ class MainRepositoryImpl(
         binder?.setAccountStateBridge(bridge)
     }
 
+    override fun openRoamingQuery(account: Long, contact: ArukuContact): RoamingQueryBridge? {
+        assertServiceConnected()
+        return binder?.openRoamingQuery(account, contact)
+    }
+
     override fun getAccountOnlineState(account: Long): Boolean? {
         assertServiceConnected()
         return binder?.getAccountOnlineState(account)
@@ -102,7 +108,7 @@ class MainRepositoryImpl(
         if (result != null) {
             return result
         }
-        return withContext(Dispatchers.IO) {
+        return database.suspendIO {
             database.accounts()[account].firstOrNull()?.run {
                 AccountInfo(accountNo, nickname, avatarUrl)
             }
@@ -125,7 +131,7 @@ class MainRepositoryImpl(
         if (cache != null) return cache
 
         var result = binder?.getAvatarUrl(account, contact)
-        if (result == null) result = withContext(Dispatchers.IO) {
+        if (result == null) result = database.suspendIO {
             when (contact.type) {
                 ArukuContactType.FRIEND ->
                     database.friends().getFriend(account, contact.subject).firstOrNull()?.avatarUrl
@@ -145,7 +151,7 @@ class MainRepositoryImpl(
         if (cache != null) return cache
 
         var result = binder?.getNickname(account, contact)
-        if (result == null) result = withContext(Dispatchers.IO) {
+        if (result == null) result = database.suspendIO {
             when (contact.type) {
                 ArukuContactType.FRIEND ->
                     database.friends().getFriend(account, contact.subject).firstOrNull()?.name
@@ -179,14 +185,18 @@ class MainRepositoryImpl(
     }
 
     override suspend fun getAccount(account: Long): AccountEntity? {
-        val result = database.accounts()[account]
-        return if (result.isEmpty()) null else (result.singleOrNull() ?: result.first().also {
-            Log.w(tag(), "get account $account has multiple results, peaking first.")
-        })
+        return database.suspendIO {
+            val result = database.accounts()[account]
+            if (result.isEmpty()) null else (result.singleOrNull() ?: result.first().also {
+                Log.w(tag(), "get account $account has multiple results, peaking first.")
+            })
+        }
     }
 
     override suspend fun setAccountOfflineManually(account: Long) {
-        database.accounts().setManuallyOffline(account, true)
+        return database.suspendIO {
+            database.accounts().setManuallyOffline(account, true)
+        }
     }
 
     override fun getMessagePreview(account: Long): Flow<LoadState<List<MessagePreviewEntity>>> {
@@ -230,12 +240,14 @@ class MainRepositoryImpl(
 
     override fun getMessageRecords(
         account: Long,
-        subject: Long,
-        type: ArukuContactType
+        contact: ArukuContact,
+        context: CoroutineContext,
     ): Flow<PagingData<MessageRecordEntity>> {
-        return Pager(PagingConfig(pageSize = 12, enablePlaceholders = false)) {
-            database.messageRecords().getMessagesPaging(account, subject, type)
-        }.flow
+        return Pager(
+            config = PagingConfig(pageSize = 10, enablePlaceholders = false),
+            initialKey = 0,
+            pagingSourceFactory = { CombinedMessagePagingSource(account, contact, context) }
+        ).flow
     }
 
     override fun clearUnreadCount(account: Long, contact: ArukuContact) {

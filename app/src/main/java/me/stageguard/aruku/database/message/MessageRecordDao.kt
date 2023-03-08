@@ -47,8 +47,8 @@ abstract class MessageRecordDao : BaseDao<MessageRecordEntity> {
         account: Long,
         subject: Long,
         type: ArukuContactType,
-        limit: Int = 20,
-        before: Int
+        before: Int,
+        limit: Int = 20
     ): Flow<List<MessageRecordEntity>>
 
     @Query("select * from message_record where account_id=:account and type=:type and subject=:subject and time<:before order by time desc limit :limit")

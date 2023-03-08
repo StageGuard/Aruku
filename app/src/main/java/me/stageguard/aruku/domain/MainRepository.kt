@@ -10,12 +10,14 @@ import me.stageguard.aruku.database.message.MessagePreviewEntity
 import me.stageguard.aruku.database.message.MessageRecordEntity
 import me.stageguard.aruku.service.bridge.AccountStateBridge
 import me.stageguard.aruku.service.bridge.BotObserverBridge
+import me.stageguard.aruku.service.bridge.RoamingQueryBridge
 import me.stageguard.aruku.service.parcel.AccountInfo
 import me.stageguard.aruku.service.parcel.AccountLoginData
 import me.stageguard.aruku.service.parcel.AccountProfile
 import me.stageguard.aruku.service.parcel.ArukuContact
-import me.stageguard.aruku.service.parcel.ArukuContactType
 import me.stageguard.aruku.service.parcel.GroupMemberInfo
+import kotlin.coroutines.CoroutineContext
+import kotlin.coroutines.EmptyCoroutineContext
 
 interface MainRepository {
     // binder
@@ -29,6 +31,7 @@ interface MainRepository {
     fun addBotListObserver(identity: String, observer: BotObserverBridge)
     fun removeBotListObserver(identity: String)
     fun setAccountStateBridge(bridge: AccountStateBridge)
+    fun openRoamingQuery(account: Long, contact: ArukuContact): RoamingQueryBridge?
     fun getAccountOnlineState(account: Long): Boolean?
     suspend fun queryAccountInfo(account: Long): AccountInfo?
     fun queryAccountProfile(account: Long): AccountProfile?
@@ -44,8 +47,8 @@ interface MainRepository {
     fun getFriends(account: Long): Flow<LoadState<List<FriendEntity>>>
     fun getMessageRecords(
         account: Long,
-        subject: Long,
-        type: ArukuContactType
+        contact: ArukuContact,
+        context: CoroutineContext = EmptyCoroutineContext
     ): Flow<PagingData<MessageRecordEntity>>
 
     // other data sources

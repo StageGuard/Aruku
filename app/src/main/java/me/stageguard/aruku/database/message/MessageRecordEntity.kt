@@ -1,14 +1,17 @@
 package me.stageguard.aruku.database.message
 
+import android.os.Parcelable
 import androidx.room.ColumnInfo
 import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import kotlinx.parcelize.Parcelize
 import kotlinx.serialization.Serializable
 import me.stageguard.aruku.domain.data.message.MessageElement
 import me.stageguard.aruku.service.parcel.ArukuContact
 
+@Parcelize
 @Serializable
 @Entity(
     tableName = "message_record",
@@ -30,4 +33,4 @@ data class MessageRecordEntity(
     @PrimaryKey @ColumnInfo(name = "message_id") val messageId: Int,
     @ColumnInfo(name = "time") val time: Int,
     @ColumnInfo(name = "message") val message: List<MessageElement>,
-)
+) : Parcelable
