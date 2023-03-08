@@ -734,6 +734,10 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
                 count: Int,
                 includeSeq: Boolean
             ): List<ArukuRoamingMessage>? {
+                Log.d(
+                    tag,
+                    "fetching roaming messages, account=$account, group=$group, seq=$seq, count=$count"
+                )
                 return runBlocking(job) {
                     runCatching {
                         roamingSession

@@ -1,5 +1,6 @@
 package me.stageguard.aruku.domain
 
+import android.util.Log
 import androidx.paging.PagingSource
 import androidx.paging.PagingState
 import kotlinx.coroutines.CoroutineScope
@@ -84,17 +85,21 @@ class CombinedMessagePagingSource(
                 return firstLoadOffline()
             } else { // load from roaming query session
                 val roamingRecords = roamingQuerySession
-                    .getMessagesBefore(lastSeq!!, loadSize, includeSeq = true) ?: listOf()
+                    .getMessagesBefore(lastSeq!!, loadSize, includeSeq = true)
+                    ?.sortedByDescending { it.seq } ?: listOf()
 
                 if (roamingRecords.isEmpty()) {
                     return firstLoadOffline()
                 } else {
                     roamingRecords.last().apply {
-                        lastSeq = seq
+                        lastSeq = seq - 1
                         lastTime = time
                     }
 
-                    val entities = roamingRecords.map { it.toEntity() }
+                    val entities = roamingRecords.mapIndexed { i, it ->
+                        Log.d("MessageRecord", "idx=$i, seq=${it.seq}, messageId=${it.messageId}")
+                        it.toEntity()
+                    }
                     coroutineScope {
                         database.suspendIO { messageDao.upsert(*entities.toTypedArray()) }
                     }
@@ -130,7 +135,8 @@ class CombinedMessagePagingSource(
                 return loadBeforeOffline(lastTime!!)
             } else { // load from roaming query session
                 val roamingRecords = roamingQuerySession
-                    .getMessagesBefore(lastSeq!!, loadSize, includeSeq = false) ?: listOf()
+                    .getMessagesBefore(lastSeq!!, loadSize, includeSeq = false)
+                    ?.sortedByDescending { it.seq } ?: listOf()
 
                 if (roamingRecords.isEmpty()) {
                     if (lastTime == null) return LoadResult.Error(
@@ -139,7 +145,7 @@ class CombinedMessagePagingSource(
                     return loadBeforeOffline(lastTime!!)
                 } else {
                     roamingRecords.last().apply {
-                        lastSeq = seq
+                        lastSeq = seq - 1
                         lastTime = time
                     }
 

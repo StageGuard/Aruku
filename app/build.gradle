@@ -105,10 +105,11 @@ dependencies {
     api files("libs/mirai-core-api-android-2.15.0.jar")
     implementation files("libs/mirai-core-utils-android-2.15.0.jar")
     def ktorVersion = "2.2.1"
-    implementation "io.ktor:ktor-client-core:$ktorVersion"
-    implementation "io.ktor:ktor-server-core:$ktorVersion"
-    implementation "io.ktor:ktor-client-okhttp:$ktorVersion"
-    implementation "io.ktor:ktor-server-netty:$ktorVersion"
+    runtimeOnly "io.ktor:ktor-client-core:$ktorVersion"
+    runtimeOnly "io.ktor:ktor-server-core:$ktorVersion"
+    runtimeOnly "io.ktor:ktor-client-okhttp:$ktorVersion"
+    runtimeOnly "io.ktor:ktor-server-netty:$ktorVersion"
+    runtimeOnly "com.ionspin.kotlin:bignum:0.3.8"
 
     implementation 'org.bouncycastle:bcpkix-jdk15on:1.70'
     implementation 'org.bouncycastle:bcprov-jdk15on:1.70'
