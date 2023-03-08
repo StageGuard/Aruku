@@ -17,6 +17,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.cancellable
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.consumeAsFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.take
@@ -744,7 +745,6 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
                             .getMessagesBefore(seq)
                             .asFlow()
                             .cancellable()
-                            .take(count)
                             .map { chain ->
                                 ArukuRoamingMessage(
                                     contact = contact,
@@ -754,7 +754,13 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
                                     time = chain.source.time,
                                     message = chain.toMessageElements(group)
                                 )
-                            }.toList()
+                            }
+                            .catch {
+                                Log.w(tag, "cannot process current: $it")
+                                emit(ArukuRoamingMessage.INVALID)
+                            }
+                            .take(count)
+                            .toList()
                     }.onFailure {
                         Log.w(
                             service.tag(),

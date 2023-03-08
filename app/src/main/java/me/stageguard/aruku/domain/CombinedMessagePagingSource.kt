@@ -1,6 +1,5 @@
 package me.stageguard.aruku.domain
 
-import android.util.Log
 import androidx.paging.PagingSource
 import androidx.paging.PagingState
 import kotlinx.coroutines.CoroutineScope
@@ -52,78 +51,104 @@ class CombinedMessagePagingSource(
 
     override val coroutineContext = context + SupervisorJob()
 
+    @Suppress("FoldInitializerAndIfToElvis")
     override suspend fun load(params: LoadParams<Int>): LoadResult<Int, MessageRecordEntity> {
         val messageId = params.key
         val loadSize = params.loadSize
 
         // service is unavailable, process as database local paging source
         if (roamingQuerySession == null) return dbPagingSource.load(params)
-
-        // roaming query session equals null means we can only load data from database
-        if (lastSeq == null) lastSeq = roamingQuerySession.getLastMessageSeq()
-
+        // avoid prepend
         if (messageId == null) return LoadResult.Page(listOf(), null, null)
+        // get last message sequence
+        if (lastSeq == null) lastSeq = roamingQuerySession.getLastMessageSeq()
 
         // first load, lastTime = null
         if (messageId == 0) {
-            suspend fun firstLoadOffline(): LoadResult<Int, MessageRecordEntity> {
+            suspend fun firstLoadOffline(
+                checkAllLoaded: Boolean = false
+            ): LoadResult<Int, MessageRecordEntity> {
                 val dbRecords = messageDao
                     .getLastNMessages(account, contact.subject, contact.type, loadSize)
                     .apply()
 
                 lastTime = dbRecords.lastOrNull()?.time
 
-                return LoadResult.Page(
-                    dbRecords,
-                    null,
-                    if (dbRecords.size < loadSize) null else dbRecords.lastOrNull()?.messageId
-                )
+                var nextKey = dbRecords.lastOrNull()?.messageId
+                if (checkAllLoaded && dbRecords.size < loadSize) nextKey = null
+
+                return LoadResult.Page(dbRecords, null, nextKey)
             }
 
-            // no last seq, load from database
+            // lastSeq is null, load from database
             if (lastSeq == null) {
                 return firstLoadOffline()
-            } else { // load from roaming query session
+            } else {
                 val roamingRecords = roamingQuerySession
                     .getMessagesBefore(lastSeq!!, loadSize, includeSeq = true)
-                    ?.sortedByDescending { it.seq } ?: listOf()
+                    ?.sortedByDescending { it.seq }
 
+                // first load from roaming query session fails, load offline
+                if (roamingRecords == null) return firstLoadOffline()
+
+                // first load but get nothing from roaming query session,
+                // we assume that nothing will return from roaming query session
+                // begin to check if database cache are all loaded.
+                // but also we will try to load from roaming query session again
+                // until all database cache are loaded.
                 if (roamingRecords.isEmpty()) {
-                    return firstLoadOffline()
+                    if (lastSeq == null) return LoadResult.Error(
+                        IllegalStateException("first load, roaming records is empty but lastSeq is null.")
+                    )
+                    lastSeq = lastSeq!! - loadSize
+                    return firstLoadOffline(checkAllLoaded = true)
                 } else {
-                    roamingRecords.last().apply {
+                    val filtered = roamingRecords.filter { it.messageId != 0 }
+
+                    // first load successful from roaming query session,
+                    // but all messages are invalid
+                    // skip these sequence of messages and load offline
+                    if (filtered.isEmpty()) {
+                        if (lastTime == null) return LoadResult.Error(
+                            IllegalStateException("first load, roaming records is not empty and filtered is empty but lastTime is null.")
+                        )
+                        lastSeq = lastSeq!! - roamingRecords.size
+                        return firstLoadOffline()
+                    }
+
+                    // first load successful from roaming query session
+                    filtered.last().apply {
                         lastSeq = seq - 1
+                        // update lastTime in case to load offline as expected
+                        // if continue load from roaming query session fails
                         lastTime = time
                     }
 
-                    val entities = roamingRecords.mapIndexed { i, it ->
-                        Log.d("MessageRecord", "idx=$i, seq=${it.seq}, messageId=${it.messageId}")
-                        it.toEntity()
-                    }
+                    val entities = filtered.map { it.toEntity() }
                     coroutineScope {
                         database.suspendIO { messageDao.upsert(*entities.toTypedArray()) }
                     }
 
                     return LoadResult.Page(
-                        entities,
-                        null,
-                        if (entities.size < loadSize) null else entities.last().messageId
+                        entities, null, entities.last().messageId
                     )
                 }
             }
         } else { // continue to load
-            suspend fun loadBeforeOffline(time: Int): LoadResult<Int, MessageRecordEntity> {
+            suspend fun loadBeforeOffline(
+                time: Int,
+                checkAllLoaded: Boolean = false
+            ): LoadResult<Int, MessageRecordEntity> {
                 val dbRecords = messageDao
                     .getLastNMessagesBefore(account, contact.subject, contact.type, time, loadSize)
                     .apply()
 
                 lastTime = dbRecords.lastOrNull()?.time
 
-                return LoadResult.Page(
-                    dbRecords,
-                    null,
-                    if (dbRecords.size < loadSize) null else dbRecords.lastOrNull()?.messageId
-                )
+                var nextKey = dbRecords.lastOrNull()?.messageId
+                if (checkAllLoaded && dbRecords.size < loadSize) nextKey = null
+
+                return LoadResult.Page(dbRecords, null, nextKey)
             }
 
             // lastSeq is null, load offline
@@ -133,32 +158,58 @@ class CombinedMessagePagingSource(
                 )
 
                 return loadBeforeOffline(lastTime!!)
-            } else { // load from roaming query session
+            } else {
                 val roamingRecords = roamingQuerySession
                     .getMessagesBefore(lastSeq!!, loadSize, includeSeq = false)
-                    ?.sortedByDescending { it.seq } ?: listOf()
+                    ?.sortedByDescending { it.seq }
 
+                // continue load from roaming query session fails,
+                // skip these seq to avoid multiple load same messages and load offline
+                if (roamingRecords == null) {
+                    if (lastTime == null) return LoadResult.Error(
+                        IllegalStateException("continue load, roaming records is null but lastTime is null.")
+                    )
+                    // continue load ensures the seq is not null
+                    lastSeq = lastSeq!! - loadSize
+                    return loadBeforeOffline(lastTime!!)
+                }
+
+                // continue load but get nothing from roaming query session
+                // we assume that all roaming messages are loaded,
+                // begin to check if database cache are all loaded.
                 if (roamingRecords.isEmpty()) {
                     if (lastTime == null) return LoadResult.Error(
-                        IllegalStateException("load key is not 0, roaming records is empty but lastTime is null.")
+                        IllegalStateException("continue load, roaming records is empty but lastTime is null.")
                     )
-                    return loadBeforeOffline(lastTime!!)
+                    return loadBeforeOffline(lastTime!!, checkAllLoaded = true)
                 } else {
-                    roamingRecords.last().apply {
+                    val filtered = roamingRecords.filter { it.messageId != 0 }
+
+                    // continue load successful from roaming query session,
+                    // but all messages are invalid
+                    // skip these seq and load offline
+                    if (filtered.isEmpty()) {
+                        if (lastTime == null) return LoadResult.Error(
+                            IllegalStateException("continue load, roaming records is not empty and filtered is empty but lastTime is null.")
+                        )
+                        lastSeq = lastSeq!! - roamingRecords.size
+                        return loadBeforeOffline(lastTime!!)
+                    }
+
+                    // continue load successful from roaming query session
+                    filtered.last().apply {
                         lastSeq = seq - 1
+                        // update lastTime in case to load offline as expected
+                        // if continue load from roaming query session fails
                         lastTime = time
                     }
 
-                    val entities = roamingRecords.map { it.toEntity() }
+                    val entities = filtered.map { it.toEntity() }
                     coroutineScope {
                         database.suspendIO { messageDao.upsert(*entities.toTypedArray()) }
                     }
 
-                    return LoadResult.Page(
-                        entities,
-                        null,
-                        if (entities.size < loadSize) null else entities.last().messageId
-                    )
+                    return LoadResult.Page(entities, null, entities.last().messageId)
                 }
             }
         }
