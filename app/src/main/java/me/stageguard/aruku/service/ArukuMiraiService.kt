@@ -735,17 +735,12 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
                 includeSeq: Boolean
             ): List<ArukuRoamingMessage>? {
                 return runBlocking(job) {
-                    val seqRange = if (includeSeq) {
-                        (seq - count + 1)..seq
-                    } else {
-                        (seq - count) until seq
-                    }
                     runCatching {
                         roamingSession
-                            .getAllMessages { r ->
-                                r.ids.all { id -> id in seqRange }
-                            }
+                            .getMessagesBefore(seq)
+                            .asFlow()
                             .cancellable()
+                            .take(count)
                             .map { chain ->
                                 ArukuRoamingMessage(
                                     contact = contact,

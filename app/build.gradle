@@ -96,11 +96,19 @@ dependencies {
 
     // mirai
     // version 2.13.0-dev-657b414c just supports mocking framework
-    runtimeOnly("net.mamoe:mirai-core-android:$mirai_version") {
-        exclude module: 'atomicfu', group: 'org.jetbrains.kotlinx'
-    }
-    api "net.mamoe:mirai-core-api-android:$mirai_version"
-    implementation "net.mamoe:mirai-core-utils-android:$mirai_version"
+    // runtimeOnly("net.mamoe:mirai-core-android:$mirai_version") {
+    //     exclude module: 'atomicfu', group: 'org.jetbrains.kotlinx'
+    // }
+    // api "net.mamoe:mirai-core-api-android:$mirai_version"
+    // implementation "net.mamoe:mirai-core-utils-android:$mirai_version"
+    runtimeOnly files("libs/mirai-core-android-2.15.0.jar")
+    api files("libs/mirai-core-api-android-2.15.0.jar")
+    implementation files("libs/mirai-core-utils-android-2.15.0.jar")
+    def ktorVersion = "2.2.1"
+    implementation "io.ktor:ktor-client-core:$ktorVersion"
+    implementation "io.ktor:ktor-server-core:$ktorVersion"
+    implementation "io.ktor:ktor-client-okhttp:$ktorVersion"
+    implementation "io.ktor:ktor-server-netty:$ktorVersion"
 
     implementation 'org.bouncycastle:bcpkix-jdk15on:1.70'
     implementation 'org.bouncycastle:bcprov-jdk15on:1.70'
