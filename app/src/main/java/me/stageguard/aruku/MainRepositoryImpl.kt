@@ -244,7 +244,12 @@ class MainRepositoryImpl(
         context: CoroutineContext,
     ): Flow<PagingData<MessageRecordEntity>> {
         return Pager(
-            config = PagingConfig(pageSize = 10, enablePlaceholders = false),
+            config = PagingConfig(
+                pageSize = 20,
+                prefetchDistance = 40,
+                initialLoadSize = 40,
+                enablePlaceholders = false
+            ),
             initialKey = 0,
             pagingSourceFactory = { CombinedMessagePagingSource(account, contact, context) }
         ).flow

@@ -5,6 +5,7 @@ import androidx.paging.PagingSource
 import androidx.paging.PagingState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancelAndJoin
@@ -16,6 +17,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.withContext
 import me.stageguard.aruku.database.ArukuDatabase
 import me.stageguard.aruku.database.message.MessageRecordDao
 import me.stageguard.aruku.database.message.MessageRecordEntity
@@ -28,6 +30,8 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.EmptyCoroutineContext
+import kotlin.coroutines.resume
+import kotlin.coroutines.suspendCoroutine
 
 /**
  * combined message paging source
@@ -89,7 +93,7 @@ class CombinedMessagePagingSource(
         val halfSize = params.loadSize / 2
         Log.d(
             tag(),
-            "call load. params=${params.toString().substringAfterLast('.')}, key=${params.key}"
+            "call load. params=${params.toString().substringAfterLast('$')}, key=${params.key}"
         )
 
         when (params) {
@@ -106,7 +110,7 @@ class CombinedMessagePagingSource(
                         )
                         subscriptionLoopJob.start()
 
-                        lastSubscribedTime = SUBSCRIPTION_LOCK_ACQUARING
+                        lastSubscribedTime = SUBSCRIPTION_LOCK_ACQUIRING
                         lastAppendKey = historyResult.nextKey
 
                         LoadResult.Page(
@@ -130,12 +134,12 @@ class CombinedMessagePagingSource(
 
             is LoadParams.Prepend -> {
                 val key = params.key
-                if (key == SUBSCRIPTION_LOCK_ACQUARING) subscriptionCacheAccessLock.lock()
+                if (key == SUBSCRIPTION_LOCK_ACQUIRING) subscriptionCacheAccessLock.lock()
 
                 var poll: MessageRecordEntity? = subscriptionMessageCache.poll()
                     ?: return LoadResult.Page(
                         data = listOf(),
-                        prevKey = SUBSCRIPTION_LOCK_ACQUARING,
+                        prevKey = SUBSCRIPTION_LOCK_ACQUIRING,
                         nextKey = lastAppendKey,
                         itemsBefore = 0,
                         itemsAfter = subscribedMessageCount + historyMessageCount
@@ -153,7 +157,7 @@ class CombinedMessagePagingSource(
 
                 return LoadResult.Page(
                     data = cached,
-                    prevKey = SUBSCRIPTION_LOCK_ACQUARING,
+                    prevKey = SUBSCRIPTION_LOCK_ACQUIRING,
                     nextKey = lastAppendKey,
                     itemsBefore = 0,
                     itemsAfter = subscribedMessageCount + historyMessageCount
@@ -194,7 +198,7 @@ class CombinedMessagePagingSource(
     override fun getRefreshKey(state: PagingState<Int, MessageRecordEntity>): Int = 0
 
     companion object {
-        const val SUBSCRIPTION_LOCK_ACQUARING = -1
+        const val SUBSCRIPTION_LOCK_ACQUIRING = -1
     }
 }
 
@@ -235,7 +239,11 @@ class HistoryMessagePagingSource(
 
     @Suppress("FoldInitializerAndIfToElvis")
     override suspend fun load(params: LoadParams<Int>): LoadResult<Int, MessageRecordEntity> {
-        Log.d(tag(), "call load, params=$params, key=${params.key}")
+        Log.d(
+            tag(),
+            "call load. params=${params.toString().substringAfterLast('$')}, key=${params.key}"
+        )
+
         val messageId = params.key
         val loadSize = params.loadSize
 
@@ -244,16 +252,26 @@ class HistoryMessagePagingSource(
         // avoid prepend
         if (messageId == null) return LoadResult.Page(listOf(), null, null)
         // get last message sequence
-        if (lastSeq == null) lastSeq = roamingQuerySession.getLastMessageSeq()
+        if (lastSeq == null) lastSeq = withContext(Dispatchers.IO) {
+            suspendCoroutine { continuation ->
+                continuation.resume(roamingQuerySession.getLastMessageSeq())
+            }
+        }
 
         // first load, lastTime = null
         if (messageId == 0) {
             suspend fun firstLoadOffline(
                 checkAllLoaded: Boolean = false
             ): LoadResult<Int, MessageRecordEntity> {
-                val dbRecords = messageDao
-                    .getLastNMessages(account, contact.subject, contact.type, loadSize)
-                    .apply()
+                val dbRecords = withContext(Dispatchers.IO) {
+                    suspendCoroutine { continuation ->
+                        continuation.resume(
+                            messageDao
+                                .getLastNMessages(account, contact.subject, contact.type, loadSize)
+                                .apply()
+                        )
+                    }.first()
+                }
 
                 lastTime = dbRecords.lastOrNull()?.time
 
@@ -267,9 +285,13 @@ class HistoryMessagePagingSource(
             if (lastSeq == null) {
                 return firstLoadOffline()
             } else {
-                val roamingRecords = roamingQuerySession
-                    .getMessagesBefore(lastSeq!!, loadSize, includeSeq = true)
-                    ?.sortedByDescending { it.seq }
+                val roamingRecords = withContext(Dispatchers.IO) {
+                    suspendCoroutine { continuation ->
+                        continuation.resume(roamingQuerySession
+                            .getMessagesBefore(lastSeq!!, loadSize, includeSeq = true)
+                            ?.sortedByDescending { it.seq })
+                    }
+                }
 
                 // first load from roaming query session fails, load offline
                 if (roamingRecords == null) return firstLoadOffline()
@@ -322,9 +344,20 @@ class HistoryMessagePagingSource(
                 time: Int,
                 checkAllLoaded: Boolean = false
             ): LoadResult<Int, MessageRecordEntity> {
-                val dbRecords = messageDao
-                    .getLastNMessagesBefore(account, contact.subject, contact.type, time, loadSize)
-                    .apply()
+                val dbRecords = withContext(Dispatchers.IO) {
+                    suspendCoroutine { continuation ->
+                        continuation.resume(
+                            messageDao.getLastNMessagesBefore(
+                                account,
+                                contact.subject,
+                                contact.type,
+                                time,
+                                loadSize
+                            )
+                                .apply()
+                        )
+                    }.first()
+                }
 
                 lastTime = dbRecords.lastOrNull()?.time
 
@@ -342,9 +375,13 @@ class HistoryMessagePagingSource(
 
                 return loadBeforeOffline(lastTime!!)
             } else {
-                val roamingRecords = roamingQuerySession
-                    .getMessagesBefore(lastSeq!!, loadSize, includeSeq = false)
-                    ?.sortedByDescending { it.seq }
+                val roamingRecords = withContext(Dispatchers.IO) {
+                    suspendCoroutine { continuation ->
+                        continuation.resume(roamingQuerySession
+                            .getMessagesBefore(lastSeq!!, loadSize, includeSeq = false)
+                            ?.sortedByDescending { it.seq })
+                    }
+                }
 
                 // continue load from roaming query session fails,
                 // skip these seq to avoid multiple load same messages and load offline
@@ -398,11 +435,11 @@ class HistoryMessagePagingSource(
         }
     }
 
-    private suspend fun <T> Flow<List<T>>.apply(
+    private fun <T> Flow<List<T>>.apply(
         block: Sequence<T>.(Sequence<T>) -> Sequence<T> = { this }
-    ) = map { r -> r.asSequence().run { block(this, this) }.toList() }.first()
+    ) = map { r -> r.asSequence().run { block(this, this) }.toList() }
 
-    private suspend fun ArukuRoamingMessage.toEntity(): MessageRecordEntity {
+    private fun ArukuRoamingMessage.toEntity(): MessageRecordEntity {
         return MessageRecordEntity(
             account = account,
             contact = contact,

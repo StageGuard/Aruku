@@ -4,6 +4,7 @@ import androidx.annotation.DrawableRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.paging.PagingData
+import androidx.paging.cachedIn
 import androidx.paging.map
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
@@ -40,7 +41,7 @@ class ChatViewModel(
     )
 
     val messages: Flow<PagingData<ChatElement>> =
-        repository.getMessageRecords(bot, chatNav.contact, viewModelScope.coroutineContext)
+        repository.getMessageRecords(bot, chatNav.contact, Dispatchers.IO)
             .map { data ->
                 data.map { record ->
                     val memberInfo = if (record.contact.type == ArukuContactType.GROUP) {
@@ -101,7 +102,7 @@ class ChatViewModel(
                         visibleMessages = visibleMessages
                     ) as ChatElement
                 }
-            }
+            }.cachedIn(viewModelScope)
 
     private val _chatAudios: MutableMap<String, Flow<ChatAudioStatus>> = mutableMapOf()
     val chatAudios: Map<String, Flow<ChatAudioStatus>> = _chatAudios
