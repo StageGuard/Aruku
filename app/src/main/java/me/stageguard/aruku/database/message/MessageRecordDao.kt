@@ -24,6 +24,14 @@ abstract class MessageRecordDao : BaseDao<MessageRecordEntity> {
         type: ArukuContactType
     ): PagingSource<Int, MessageRecordEntity>
 
+    @Query("select * from message_record where account_id=:account and type=:type and subject=:subject and time>:after order by time asc")
+    abstract fun getMessagesAfterPagingAsc(
+        account: Long,
+        subject: Long,
+        type: ArukuContactType,
+        after: Int
+    ): Flow<List<MessageRecordEntity>>
+
     // query last n messages
     @Query("select * from message_record where account_id=:account and type=:type and subject=:subject order by time desc limit :limit")
     abstract fun getLastNMessages(

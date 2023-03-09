@@ -772,18 +772,14 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
             }
 
             override fun getLastMessageSeq(): Int? {
-                Log.i("RoamingBridge", "start get last msg seq")
                 return runBlocking(job) {
-                    Log.i("RoamingBridge", "enter runBlocking")
                     runCatching {
-                        Log.i("RoamingBridge", "enter runCatching")
                         val msg = roamingSession
                             .getMessagesBefore()
                             .asFlow()
                             .cancellable()
                             .take(1)
                             .toList()
-                        Log.i("RoamingBridge", "fetched list")
 
                         msg.firstOrNull()
                             ?.sourceOrNull
