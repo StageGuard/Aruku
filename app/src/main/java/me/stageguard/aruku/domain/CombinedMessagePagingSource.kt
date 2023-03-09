@@ -407,7 +407,7 @@ class HistoryMessagePagingSource(
             account = account,
             contact = contact,
             sender = from,
-            senderName = repo.getNickname(account, contact) ?: "",
+            senderName = repo.getGroupMemberInfo(account, contact.subject, from)?.senderName ?: "",
             messageId = messageId,
             message = message,
             time = time
