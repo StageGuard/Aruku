@@ -16,7 +16,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import me.stageguard.aruku.database.ArukuDatabase
 import me.stageguard.aruku.database.message.MessageRecordDao
 import me.stageguard.aruku.database.message.MessageRecordEntity
@@ -44,26 +43,24 @@ class CombinedMessagePagingSource(
 
     override val coroutineContext: CoroutineContext = context
 
+    private lateinit var subscriptionSource: Flow<List<MessageRecordEntity>>
     private val historySource: HistoryMessagePagingSource by lazy {
         HistoryMessagePagingSource(account, contact, coroutineContext)
     }
-    private lateinit var subscriptionSource: Flow<List<MessageRecordEntity>>
-
-    private val keyMutex = Mutex()
-    private var lastSubscribedTime: Int? = null
 
     // append key is message id
     private var lastAppendKey: Int? = null
+    private var lastSubscribedTime: Int? = null
 
     private var subscribedMessageCount = 0
     private var historyMessageCount = 0
 
     private val subscriptionMessageCache = ConcurrentLinkedQueue<MessageRecordEntity>()
+    private val subscriptionSourceRenewLock = Mutex(true)
     private val subscriptionCacheAccessLock = Mutex(false)
 
     private val subscriptionLoopJob: Job = launch(start = CoroutineStart.LAZY) {
         var subscriptionJob: Job
-        val subscriptionSourceRenewLock = Mutex(true)
 
         while (isActive) {
             subscriptionJob = launch {
@@ -71,10 +68,9 @@ class CombinedMessagePagingSource(
                     if (records.isEmpty()) return@collect
 
                     records.forEach(subscriptionMessageCache::offer)
-                    keyMutex.withLock { lastSubscribedTime = records.last().time }
+                    lastSubscribedTime = records.last().time
 
-                    subscriptionCacheAccessLock.unlock()
-                    subscriptionSourceRenewLock.unlock()
+                    subscriptionCacheAccessLock.apply { if (isLocked) unlock() }
                 }
             }
 
@@ -110,10 +106,9 @@ class CombinedMessagePagingSource(
                         )
                         subscriptionLoopJob.start()
 
-                        keyMutex.withLock {
-                            lastSubscribedTime = SUBSCRIPTION_LOCK_ACQUARING
-                            lastAppendKey = historyResult.nextKey
-                        }
+                        lastSubscribedTime = SUBSCRIPTION_LOCK_ACQUARING
+                        lastAppendKey = historyResult.nextKey
+
                         LoadResult.Page(
                             data = historyResult.data,
                             prevKey = lastSubscribedTime,
@@ -152,6 +147,8 @@ class CombinedMessagePagingSource(
                     poll = subscriptionMessageCache.poll()
                 }
 
+                subscriptionSourceRenewLock.apply { if (isLocked) unlock() }
+
                 subscribedMessageCount += cached.size
 
                 return LoadResult.Page(
@@ -170,7 +167,7 @@ class CombinedMessagePagingSource(
                     is LoadResult.Page -> {
                         historyMessageCount += historyResult.data.size
 
-                        keyMutex.withLock { lastAppendKey = historyResult.nextKey }
+                        lastAppendKey = historyResult.nextKey
 
                         LoadResult.Page(
                             data = historyResult.data,
