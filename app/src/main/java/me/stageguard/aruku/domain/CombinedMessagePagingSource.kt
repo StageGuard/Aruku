@@ -5,7 +5,6 @@ import androidx.paging.PagingSource
 import androidx.paging.PagingState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancelAndJoin
@@ -17,11 +16,11 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.withContext
 import me.stageguard.aruku.database.ArukuDatabase
 import me.stageguard.aruku.database.message.MessageRecordDao
 import me.stageguard.aruku.database.message.MessageRecordEntity
 import me.stageguard.aruku.service.bridge.RoamingQueryBridge
+import me.stageguard.aruku.service.bridge.suspendIO
 import me.stageguard.aruku.service.parcel.ArukuContact
 import me.stageguard.aruku.service.parcel.ArukuRoamingMessage
 import me.stageguard.aruku.util.tag
@@ -30,8 +29,6 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.EmptyCoroutineContext
-import kotlin.coroutines.resume
-import kotlin.coroutines.suspendCoroutine
 
 /**
  * combined message paging source
@@ -198,7 +195,7 @@ class CombinedMessagePagingSource(
     override fun getRefreshKey(state: PagingState<Int, MessageRecordEntity>): Int = 0
 
     companion object {
-        const val SUBSCRIPTION_LOCK_ACQUIRING = -1
+        private const val SUBSCRIPTION_LOCK_ACQUIRING = -1
     }
 }
 
@@ -252,26 +249,18 @@ class HistoryMessagePagingSource(
         // avoid prepend
         if (messageId == null) return LoadResult.Page(listOf(), null, null)
         // get last message sequence
-        if (lastSeq == null) lastSeq = withContext(Dispatchers.IO) {
-            suspendCoroutine { continuation ->
-                continuation.resume(roamingQuerySession.getLastMessageSeq())
-            }
-        }
+        if (lastSeq == null) lastSeq = roamingQuerySession.suspendIO { getLastMessageSeq() }
 
         // first load, lastTime = null
         if (messageId == 0) {
             suspend fun firstLoadOffline(
                 checkAllLoaded: Boolean = false
             ): LoadResult<Int, MessageRecordEntity> {
-                val dbRecords = withContext(Dispatchers.IO) {
-                    suspendCoroutine { continuation ->
-                        continuation.resume(
-                            messageDao
-                                .getLastNMessages(account, contact.subject, contact.type, loadSize)
-                                .apply()
-                        )
-                    }.first()
-                }
+                val dbRecords = database.suspendIO {
+                    messageDao
+                        .getLastNMessages(account, contact.subject, contact.type, loadSize)
+                        .apply()
+                }.first()
 
                 lastTime = dbRecords.lastOrNull()?.time
 
@@ -285,12 +274,9 @@ class HistoryMessagePagingSource(
             if (lastSeq == null) {
                 return firstLoadOffline()
             } else {
-                val roamingRecords = withContext(Dispatchers.IO) {
-                    suspendCoroutine { continuation ->
-                        continuation.resume(roamingQuerySession
-                            .getMessagesBefore(lastSeq!!, loadSize, includeSeq = true)
-                            ?.sortedByDescending { it.seq })
-                    }
+                val roamingRecords = roamingQuerySession.suspendIO {
+                    getMessagesBefore(lastSeq!!, loadSize, includeSeq = true)
+                        ?.sortedByDescending { it.seq }
                 }
 
                 // first load from roaming query session fails, load offline
@@ -344,20 +330,15 @@ class HistoryMessagePagingSource(
                 time: Int,
                 checkAllLoaded: Boolean = false
             ): LoadResult<Int, MessageRecordEntity> {
-                val dbRecords = withContext(Dispatchers.IO) {
-                    suspendCoroutine { continuation ->
-                        continuation.resume(
-                            messageDao.getLastNMessagesBefore(
-                                account,
-                                contact.subject,
-                                contact.type,
-                                time,
-                                loadSize
-                            )
-                                .apply()
-                        )
-                    }.first()
-                }
+                val dbRecords = database.suspendIO {
+                    messageDao.getLastNMessagesBefore(
+                        account,
+                        contact.subject,
+                        contact.type,
+                        time,
+                        loadSize
+                    ).apply()
+                }.first()
 
                 lastTime = dbRecords.lastOrNull()?.time
 
@@ -375,12 +356,9 @@ class HistoryMessagePagingSource(
 
                 return loadBeforeOffline(lastTime!!)
             } else {
-                val roamingRecords = withContext(Dispatchers.IO) {
-                    suspendCoroutine { continuation ->
-                        continuation.resume(roamingQuerySession
-                            .getMessagesBefore(lastSeq!!, loadSize, includeSeq = false)
-                            ?.sortedByDescending { it.seq })
-                    }
+                val roamingRecords = roamingQuerySession.suspendIO {
+                    getMessagesBefore(lastSeq!!, loadSize, includeSeq = false)
+                        ?.sortedByDescending { it.seq }
                 }
 
                 // continue load from roaming query session fails,
