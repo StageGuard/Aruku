@@ -42,6 +42,7 @@ import net.mamoe.mirai.contact.Group
 import net.mamoe.mirai.contact.getMember
 import net.mamoe.mirai.contact.nameCardOrNick
 import net.mamoe.mirai.event.EventChannel
+import net.mamoe.mirai.event.Listener
 import net.mamoe.mirai.event.ListeningStatus
 import net.mamoe.mirai.event.events.*
 import net.mamoe.mirai.message.data.*
@@ -379,6 +380,9 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
             database.suspendIO { accounts().setManuallyOffline(account, false) }
         }
 
+        var onlineEventSubscriber: Listener<BotOnlineEvent>? = null
+        var offlineEventSubscriber: Listener<BotOfflineEvent>? = null
+
         botJobs[account] = launch(context = CoroutineExceptionHandler { context, th ->
             if (th is LoginFailedException) {
                 logger.e("login $account failed.", th)
@@ -390,6 +394,8 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
             if (th is IllegalStateException && th.toString().contains(matcher)) {
                 logger.w("bot isn't recoverable, renewing bot and logging.")
                 context[Job]?.cancel()
+                onlineEventSubscriber?.cancel()
+                offlineEventSubscriber?.cancel()
                 renewBotAndLogin(account)
                 return@CoroutineExceptionHandler
             }
@@ -400,13 +406,13 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
         } + SupervisorJob()) {
             val scopedEventChannel = bot.eventChannel.parentScope(this)
 
-            scopedEventChannel.subscribe<BotOnlineEvent> { event ->
+            onlineEventSubscriber = scopedEventChannel.subscribe<BotOnlineEvent> { event ->
                 logger.i("bot ${event.bot.id} login success.")
-                stateChannel.send(AccountState.Online(account))
+                stateChannel.send(AccountState.Online(event.bot.id))
                 if (event.bot.isActive) ListeningStatus.LISTENING else ListeningStatus.STOPPED
             }
 
-            scopedEventChannel.subscribe<BotOfflineEvent> { event ->
+            offlineEventSubscriber = scopedEventChannel.subscribe<BotOfflineEvent> { event ->
                 val message: String
                 var stopSubscription = false
 
