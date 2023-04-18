@@ -1,10 +1,6 @@
 package me.stageguard.aruku.service.bridge
 
-import me.stageguard.aruku.service.parcel.AccountInfo
-import me.stageguard.aruku.service.parcel.AccountLoginData
-import me.stageguard.aruku.service.parcel.AccountProfile
-import me.stageguard.aruku.service.parcel.ArukuContact
-import me.stageguard.aruku.service.parcel.GroupMemberInfo
+import me.stageguard.aruku.service.parcel.*
 import remoter.annotations.ParamIn
 import remoter.annotations.Remoter
 
@@ -17,9 +13,13 @@ interface ServiceBridge {
     fun loginAll()
     fun login(accountNo: Long): Boolean
     fun logout(accountNo: Long): Boolean
-    fun addBotListObserver(identity: String, @ParamIn observer: BotObserverBridge)
-    fun removeBotListObserver(identity: String)
-    fun setAccountStateBridge(@ParamIn bridge: AccountStateBridge)
+    fun attachBotStateObserver(identity: String, @ParamIn observer: BotStateObserver)
+    fun detachBotStateObserver()
+
+    fun getLastBotState(): Map<Long, AccountState>
+
+    fun attachLoginSolver(@ParamIn solver: LoginSolverBridge)
+    fun detachLoginSolver()
 
     fun openRoamingQuery(account: Long, @ParamIn contact: ArukuContact): RoamingQueryBridge?
 

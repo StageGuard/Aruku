@@ -7,18 +7,22 @@ import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.withTimeout
-import me.stageguard.aruku.service.ArukuMiraiService.AccountState
-import me.stageguard.aruku.service.ArukuMiraiService.AccountState.CaptchaType
+import me.stageguard.aruku.service.parcel.AccountState
+import me.stageguard.aruku.service.parcel.AccountState.CaptchaType
+import me.stageguard.aruku.service.parcel.AccountState.QRCodeState
+import me.stageguard.aruku.util.createAndroidLogger
 import net.mamoe.mirai.Bot
+import net.mamoe.mirai.auth.QRCodeLoginListener
 import net.mamoe.mirai.utils.DeviceVerificationRequests
 import net.mamoe.mirai.utils.DeviceVerificationResult
 import net.mamoe.mirai.utils.LoginSolver
 
 class ArukuLoginSolver(
     private val stateProducer: SendChannel<AccountState>,
-    private val solutionConsumer: ReceiveChannel<Solution>
+    private val solutionConsumer: ReceiveChannel<Solution>,
+    private val solutionTimeout: Long = 60 * 1000L,
 ) : LoginSolver() {
-    private val solutionTimeout = 30000L
+    private val logger = createAndroidLogger("ArukuLoginSolver")
 
     private suspend inline fun <reified T : Solution> receiveSolution(account: Long): T {
         return solutionConsumer.receiveAsFlow()
@@ -64,6 +68,32 @@ class ArukuLoginSolver(
             stateProducer.send(createState(bot.id, CaptchaType.USF, fallback.url.toByteArray()))
             withTimeout(30000) { receiveSolution<Solution.USFResult>(bot.id) }
             fallback.solved()
+        }
+    }
+
+    override fun createQRCodeLoginListener(bot: Bot) = object : QRCodeLoginListener {
+        private var data: ByteArray? = null
+        override fun onFetchQRCode(bot: Bot, data: ByteArray) {
+            this.data = data
+            if (!stateProducer.trySend(AccountState.QRCode(bot.id, data, QRCodeState.DEFAULT)).isSuccess) {
+                logger.w("fail to send fetch qrcode state.")
+            }
+        }
+
+        override fun onStateChanged(bot: Bot, state: QRCodeLoginListener.State) {
+            if (data == null) logger.w("qrcode data is null while sending qrcode query state.")
+            if (!stateProducer.trySend(AccountState.QRCode(bot.id, this.data!!, state.map())).isSuccess) {
+                logger.w("fail to send query qrcode state.")
+            }
+        }
+
+        private fun QRCodeLoginListener.State.map() = when (this) {
+            QRCodeLoginListener.State.WAITING_FOR_SCAN -> QRCodeState.WAITING_FOR_SCAN
+            QRCodeLoginListener.State.WAITING_FOR_CONFIRM -> QRCodeState.WAITING_FOR_CONFIRM
+            QRCodeLoginListener.State.CANCELLED -> QRCodeState.CANCELLED
+            QRCodeLoginListener.State.TIMEOUT -> QRCodeState.TIMEOUT
+            QRCodeLoginListener.State.CONFIRMED -> QRCodeState.CONFIRMED
+            QRCodeLoginListener.State.DEFAULT -> QRCodeState.DEFAULT
         }
     }
 

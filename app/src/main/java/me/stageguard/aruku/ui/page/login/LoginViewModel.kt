@@ -2,7 +2,6 @@ package me.stageguard.aruku.ui.page.login
 
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.graphics.ImageBitmap
 import androidx.lifecycle.ViewModel
 import me.stageguard.aruku.domain.MainRepository
 import me.stageguard.aruku.service.parcel.AccountLoginData
@@ -38,7 +37,7 @@ sealed interface LoginState {
 }
 
 sealed class CaptchaType(val bot: Long) {
-    class Picture(bot: Long, val imageBitmap: ImageBitmap) : CaptchaType(bot)
+    class Picture(bot: Long, val image: ByteArray) : CaptchaType(bot)
     class Slider(bot: Long, val url: String) : CaptchaType(bot)
     class UnsafeDevice(bot: Long, val url: String) : CaptchaType(bot)
     class SMSRequest(bot: Long, val phone: String?) : CaptchaType(bot)

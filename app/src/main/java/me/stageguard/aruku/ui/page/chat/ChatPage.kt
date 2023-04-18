@@ -1,12 +1,14 @@
 package me.stageguard.aruku.ui.page.chat
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
 import me.stageguard.aruku.ui.LocalBot
 import me.stageguard.aruku.ui.common.ArrowBack
@@ -29,8 +31,24 @@ fun ChatPage(contact: ChatPageNav) {
     val listState = rememberLazyListState()
 
     val messages = viewModel.messages.collectAsLazyPagingItems()
-    val chatAudios = viewModel.chatAudios
 
+
+    ChatView(
+        subjectName,
+        subjectAvatar,
+        messages,
+        listState
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ChatView(
+    subjectName: String,
+    subjectAvatar: String?,
+    messages: LazyPagingItems<ChatElement>,
+    listState: LazyListState,
+) {
     Scaffold(
         modifier = Modifier
             .statusBarsPadding()
@@ -57,10 +75,7 @@ fun ChatPage(contact: ChatPageNav) {
         ChatListView(
             chatList = messages,
             lazyListState = listState,
-            chatAudio = chatAudios,
             paddingValues = paddingValues,
         )
     }
-
 }
-

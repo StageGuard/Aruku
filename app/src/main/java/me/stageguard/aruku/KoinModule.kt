@@ -75,5 +75,5 @@ val applicationModule = module {
     viewModel { HomeViewModel(get()) }
     viewModel { MessageViewModel(get()) }
     viewModel { params -> ContactViewModel(get(), params.get()) }
-    viewModel { params -> ChatViewModel(get(), params.get(), get(), params.get()) }
+    viewModel { params -> ChatViewModel(get(), params.get(), get()) }
 }

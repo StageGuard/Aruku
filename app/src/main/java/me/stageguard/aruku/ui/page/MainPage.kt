@@ -1,12 +1,16 @@
 package me.stageguard.aruku.ui.page
 
 import androidx.compose.animation.ExperimentalAnimationApi
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalLifecycleOwner
-import androidx.lifecycle.LiveData
 import androidx.navigation.navArgument
 import com.google.accompanist.navigation.animation.AnimatedNavHost
 import com.google.accompanist.navigation.animation.rememberAnimatedNavController
+import kotlinx.coroutines.flow.Flow
+import me.stageguard.aruku.service.parcel.AccountState
 import me.stageguard.aruku.ui.LocalAccountsState
 import me.stageguard.aruku.ui.LocalBot
 import me.stageguard.aruku.ui.LocalNavController
@@ -32,10 +36,10 @@ const val NAV_CHAT = "chat"
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun MainPage(
-    liveBots: LiveData<List<Long>>
+    serviceAccountStateFlow: Flow<Map<Long, AccountState>>
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
-    val viewModel: MainViewModel = koinViewModel { parametersOf(liveBots, lifecycleOwner) }
+    val viewModel: MainViewModel = koinViewModel { parametersOf(serviceAccountStateFlow, lifecycleOwner) }
 
     val activeBot by viewModel.activeAccountPref.observeAsState()
     val state by viewModel.accountsState.collectAsState(mapOf())
@@ -76,7 +80,7 @@ fun MainPage(
         }
 
         when (val loginState = state[activeBot]) {
-            is AccountState.Login -> if (loginState.state is LoginState.CaptchaRequired) {
+            is UIAccountState.Login -> if (loginState.state is LoginState.CaptchaRequired) {
                 CaptchaRequired(
                     state = loginState.state,
                     onRetryCaptcha = { accountNo -> viewModel.submitCaptcha(accountNo, null) },

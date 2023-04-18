@@ -13,18 +13,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.receiveAsFlow
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.*
 import me.stageguard.aruku.R
 import me.stageguard.aruku.domain.MainRepository
 import me.stageguard.aruku.ui.LocalNavController
-import me.stageguard.aruku.ui.page.AccountState
 import me.stageguard.aruku.ui.page.NAV_CHAT
+import me.stageguard.aruku.ui.page.UIAccountState
 import me.stageguard.aruku.ui.page.home.contact.HomeContactPage
 import me.stageguard.aruku.ui.page.home.message.HomeMessagePage
 import me.stageguard.aruku.ui.page.home.profile.HomeProfilePage
@@ -35,7 +29,7 @@ class HomeViewModel(
     val currentNavSelection = mutableStateOf(homeNaves[HomeNavSelection.MESSAGE]!!)
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    private val accountObserver = Channel<Map<Long, AccountState>>()
+    private val accountObserver = Channel<Map<Long, UIAccountState>>()
     private val accountListUpdateFlow = MutableStateFlow(0L)
     val accounts: StateFlow<List<BasicAccountInfo>> = accountObserver
         .receiveAsFlow()
@@ -45,7 +39,7 @@ class HomeViewModel(
                 .map { BasicAccountInfo(it.accountNo, it.nickname, it.avatarUrl) }
         }.stateIn(viewModelScope, SharingStarted.Lazily, listOf())
 
-    suspend fun updateAccounts(v: Map<Long, AccountState>) {
+    suspend fun updateAccounts(v: Map<Long, UIAccountState>) {
         accountObserver.send(v)
     }
 }

@@ -9,39 +9,58 @@ import android.util.Log
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
-import me.stageguard.aruku.service.bridge.BotObserverBridge
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.channels.onFailure
+import kotlinx.coroutines.channels.trySendBlocking
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.channelFlow
+import me.stageguard.aruku.service.bridge.BotStateObserver
 import me.stageguard.aruku.service.bridge.ServiceBridge
 import me.stageguard.aruku.service.bridge.ServiceBridge_Proxy
+import me.stageguard.aruku.service.parcel.AccountState
+import me.stageguard.aruku.service.parcel.AccountState.OfflineCause
+import me.stageguard.aruku.util.createAndroidLogger
 import me.stageguard.aruku.util.tag
-import remoter.annotations.ParamOut
+import kotlin.collections.set
 
 class ServiceConnector(
     private val context: Context
 ) : ServiceConnection, LifecycleEventObserver {
+    private val logger = createAndroidLogger("ServiceConnector")
+
     private var _delegate: ServiceBridge? = null
     val connected: MutableLiveData<Boolean> = MutableLiveData(false)
 
-    private val _botsLiveData: MutableLiveData<List<Long>> = MutableLiveData()
+    val accountState: Flow<Map<Long, AccountState>>
+        get() = channelFlow {
+            @Suppress("LocalVariableName") val _delegate0 = _delegate ?: run {
+                logger.w("Failed to build account state flow because service bridge is null.")
+                return@channelFlow
+            }
+            val states: MutableMap<Long, AccountState> = mutableMapOf()
 
-    val bots: LiveData<List<Long>> = _botsLiveData
+            // send initial state
+            send(_delegate0.getLastBotState())
+            // observe state changes
+            _delegate0.attachBotStateObserver("", BotStateObserver { state ->
+                if (state is AccountState.Offline && state.cause == OfflineCause.REMOVE_BOT) {
+                    states.remove(state.account)
+                    return@BotStateObserver
+                }
+                states[state.account] = state
+
+                trySendBlocking(states).onFailure { logger.w("Failed to send account states.", it) }
+            })
+
+            awaitClose { _delegate0.detachBotStateObserver() }
+        }
     val binder get() = _delegate
 
     override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
         Log.d(tag(), "service is connected: $name")
         if (service != null) {
-            val proxy = ServiceBridge_Proxy(service)
-            proxy.addBotListObserver(
-                this@ServiceConnector.toString(),
-                object : BotObserverBridge {
-                    override fun onChange(@ParamOut bots: List<Long>) {
-                        _botsLiveData.postValue(bots)
-                    }
-                }
-            )
-            _botsLiveData.value = proxy.getBots()
-            _delegate = proxy
+            _delegate = ServiceBridge_Proxy(service)
         } else {
             Log.w(tag(), "service binder is null while aruku service is connected.")
         }
@@ -50,7 +69,6 @@ class ServiceConnector(
 
     override fun onServiceDisconnected(name: ComponentName?) {
         Log.d(tag(), "service is disconnected: $name")
-        _delegate?.removeBotListObserver(this@ServiceConnector.toString())
         _delegate = null
         connected.value = false
     }

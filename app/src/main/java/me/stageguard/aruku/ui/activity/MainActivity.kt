@@ -65,7 +65,7 @@ class MainActivity : ComponentActivity() {
                         LocalSystemUiController provides systemUiController
                     ) {
                         if (serviceConnected.value) {
-                            MainPage(serviceConnector.bots)
+                            MainPage(serviceConnector.accountState)
                         } else {
                             ServiceConnectingPage(serviceConnector.weakReference())
                         }

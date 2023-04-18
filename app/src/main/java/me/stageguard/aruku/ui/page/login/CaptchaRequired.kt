@@ -1,5 +1,6 @@
 package me.stageguard.aruku.ui.page.login
 
+import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -12,7 +13,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.tooling.preview.Preview
@@ -66,7 +67,9 @@ fun CaptchaRequired(
                 when (captchaType) {
                     is CaptchaType.Picture -> {
                         Image(
-                            bitmap = captchaType.imageBitmap,
+                            bitmap = BitmapFactory
+                                .decodeByteArray(captchaType.image, 0, captchaType.image.size)
+                                .asImageBitmap(),
                             contentDescription = "Picture captcha",
                             modifier = Modifier
                                 .padding(horizontal = 5.dp)
@@ -161,7 +164,7 @@ fun CaptchaRequiredPicture() {
         CaptchaRequired(
             LoginState.CaptchaRequired(
                 123,
-                CaptchaType.Picture(123, ImageBitmap(200, 100))
+                CaptchaType.Picture(123, byteArrayOf())
             ), { }, { _, _ -> }, { }
         )
     }

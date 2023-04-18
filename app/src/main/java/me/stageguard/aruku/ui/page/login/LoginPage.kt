@@ -28,13 +28,16 @@ import me.stageguard.aruku.R
 import me.stageguard.aruku.service.parcel.AccountLoginData
 import me.stageguard.aruku.ui.LocalAccountsState
 import me.stageguard.aruku.ui.common.SingleItemLazyColumn
-import me.stageguard.aruku.ui.page.AccountState
 import me.stageguard.aruku.ui.page.MainViewModel
+import me.stageguard.aruku.ui.page.UIAccountState
 import me.stageguard.aruku.ui.theme.ArukuTheme
+import me.stageguard.aruku.util.createAndroidLogger
 import me.stageguard.aruku.util.stringResC
 import net.mamoe.mirai.utils.BotConfiguration
 import net.mamoe.mirai.utils.secondsToMillis
 import org.koin.androidx.compose.koinViewModel
+
+private val logger = createAndroidLogger("LoginPage")
 
 @Composable
 fun LoginPage(
@@ -45,15 +48,18 @@ fun LoginPage(
 
     val accountsState = LocalAccountsState.current
     var loginAccount: Long? by remember { mutableStateOf(null) }
-    val accountState = remember(accountsState, loginAccount) { accountsState[loginAccount] }
+    val accountState by remember {
+        derivedStateOf { accountsState[loginAccount] }
+    }
 
     var lastLoginState: LoginState by remember { mutableStateOf(LoginState.Default) }
 
     val currentOnLoginSuccess by rememberUpdatedState(onLoginSuccess)
     LaunchedEffect(accountState) {
+        logger.i("account state: $accountState")
         when (accountState) {
-            is AccountState.Login -> lastLoginState = accountState.state
-            is AccountState.Online -> currentOnLoginSuccess(viewModel.accountInfo.value.accountNo)
+            is UIAccountState.Login -> lastLoginState = (accountState as UIAccountState.Login).state
+            is UIAccountState.Online -> currentOnLoginSuccess(viewModel.accountInfo.value.accountNo)
             else -> {}
         }
     }
@@ -65,9 +71,18 @@ fun LoginPage(
             mainSharedViewModel.doLogin(it, viewModel.accountInfo.value)
             loginAccount = it
         },
-        onLoginFailedClick = { mainSharedViewModel.removeAccount(it) },
-        onRetryCaptchaClick = { mainSharedViewModel.retryCaptcha(it) },
-        onSubmitCaptchaClick = { acc, result -> mainSharedViewModel.submitCaptcha(acc, result) }
+        onLoginFailedClick = {
+            lastLoginState = LoginState.Default
+            mainSharedViewModel.removeAccount(it)
+        },
+        onRetryCaptchaClick = {
+            lastLoginState = LoginState.Default
+            mainSharedViewModel.retryCaptcha(it)
+        },
+        onSubmitCaptchaClick = { acc, result ->
+            lastLoginState = LoginState.Default
+            mainSharedViewModel.submitCaptcha(acc, result)
+        }
     )
 }
 

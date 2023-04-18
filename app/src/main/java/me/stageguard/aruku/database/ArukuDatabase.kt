@@ -1,11 +1,8 @@
 package me.stageguard.aruku.database
 
-import androidx.room.AutoMigration
 import androidx.room.Database
-import androidx.room.DeleteColumn
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
-import androidx.room.migration.AutoMigrationSpec
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import me.stageguard.aruku.database.account.AccountDao
@@ -29,14 +26,8 @@ import kotlin.coroutines.suspendCoroutine
         GroupEntity::class,
         FriendEntity::class
     ],
-    version = 6,
-    autoMigrations = [
-        AutoMigration(from = 1, to = 2),
-        AutoMigration(from = 2, to = 3),
-        AutoMigration(from = 3, to = 4, spec = MigrationV3toV4::class),
-        AutoMigration(from = 4, to = 5),
-        AutoMigration(from = 5, to = 6, spec = MigrationV5toV6::class),
-    ],
+    version = 1,
+    autoMigrations = [],
     exportSchema = true
 )
 @TypeConverters(DBTypeConverters::class)
@@ -62,14 +53,3 @@ abstract class ArukuDatabase : RoomDatabase() {
     }
 
 }
-
-@DeleteColumn.Entries(
-    DeleteColumn(tableName = "message_preview", columnName = "_prim_key")
-)
-private class MigrationV3toV4 : AutoMigrationSpec
-
-@DeleteColumn.Entries(
-    DeleteColumn(tableName = "friend", columnName = "_prim_key"),
-    DeleteColumn(tableName = "group", columnName = "_prim_key")
-)
-private class MigrationV5toV6 : AutoMigrationSpec

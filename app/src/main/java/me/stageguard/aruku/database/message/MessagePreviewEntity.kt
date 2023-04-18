@@ -10,7 +10,7 @@ import me.stageguard.aruku.service.parcel.ArukuContact
 @Serializable
 @Entity(
     tableName = "message_preview",
-    indices = [Index(value = ["account_id", "subject", "type"], unique = true)],
+    indices = [Index(value = ["account_id", "subject", "type"])],
     primaryKeys = ["account_id", "subject", "type"]
 )
 data class MessagePreviewEntity(

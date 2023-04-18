@@ -4,11 +4,7 @@ import android.util.Log
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.emitAll
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.*
 import me.stageguard.aruku.database.ArukuDatabase
 import me.stageguard.aruku.database.LoadState
 import me.stageguard.aruku.database.account.AccountEntity
@@ -19,16 +15,10 @@ import me.stageguard.aruku.database.message.MessageRecordEntity
 import me.stageguard.aruku.domain.CombinedMessagePagingSource
 import me.stageguard.aruku.domain.MainRepository
 import me.stageguard.aruku.service.ServiceConnector
-import me.stageguard.aruku.service.bridge.AccountStateBridge
-import me.stageguard.aruku.service.bridge.BotObserverBridge
+import me.stageguard.aruku.service.bridge.LoginSolverBridge
 import me.stageguard.aruku.service.bridge.RoamingQueryBridge
 import me.stageguard.aruku.service.bridge.ServiceBridge
-import me.stageguard.aruku.service.parcel.AccountInfo
-import me.stageguard.aruku.service.parcel.AccountLoginData
-import me.stageguard.aruku.service.parcel.AccountProfile
-import me.stageguard.aruku.service.parcel.ArukuContact
-import me.stageguard.aruku.service.parcel.ArukuContactType
-import me.stageguard.aruku.service.parcel.GroupMemberInfo
+import me.stageguard.aruku.service.parcel.*
 import me.stageguard.aruku.util.tag
 import java.lang.ref.WeakReference
 import java.util.concurrent.ConcurrentHashMap
@@ -77,19 +67,9 @@ class MainRepositoryImpl(
         return binder?.logout(accountNo) ?: false
     }
 
-    override fun addBotListObserver(identity: String, observer: BotObserverBridge) {
+    override fun attachLoginSolver(solver: LoginSolverBridge) {
         assertServiceConnected()
-        binder?.addBotListObserver(identity, observer)
-    }
-
-    override fun removeBotListObserver(identity: String) {
-        assertServiceConnected()
-        binder?.removeBotListObserver(identity)
-    }
-
-    override fun setAccountStateBridge(bridge: AccountStateBridge) {
-        assertServiceConnected()
-        binder?.setAccountStateBridge(bridge)
+        binder?.attachLoginSolver(solver)
     }
 
     override fun openRoamingQuery(account: Long, contact: ArukuContact): RoamingQueryBridge? {

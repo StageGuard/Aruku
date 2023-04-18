@@ -6,13 +6,10 @@ import androidx.lifecycle.viewModelScope
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import androidx.paging.map
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
-import me.stageguard.aruku.cache.AudioCache
 import me.stageguard.aruku.domain.MainRepository
 import me.stageguard.aruku.domain.data.message.*
 import me.stageguard.aruku.service.parcel.ArukuContactType
-import me.stageguard.aruku.service.parcel.toArukuAudio
 import me.stageguard.aruku.ui.page.ChatPageNav
 import me.stageguard.aruku.util.toFormattedTime
 import net.mamoe.mirai.utils.toUHexString
@@ -20,36 +17,26 @@ import net.mamoe.mirai.utils.toUHexString
 class ChatViewModel(
     private val repository: MainRepository,
     private val bot: Long,
-    private val audioCache: AudioCache,
     private val chatNav: ChatPageNav,
 ) : ViewModel() {
+    private val contact = chatNav.contact
+
     val subjectName = flow {
-        val name = repository.getNickname(bot, chatNav.contact)
+        val name = repository.getNickname(bot, contact)
         if (name != null) emit(name)
-    }.stateIn(
-        viewModelScope,
-        SharingStarted.Lazily,
-        chatNav.contact.subject.toString()
-    )
+    }.stateIn(viewModelScope, SharingStarted.Lazily, contact.subject.toString())
+
     val subjectAvatar = flow<String?> {
-        val url = repository.getAvatarUrl(bot, chatNav.contact)
+        val url = repository.getAvatarUrl(bot, contact)
         if (url != null) emit(url)
-    }.stateIn(
-        viewModelScope,
-        SharingStarted.Lazily,
-        null
-    )
+    }.stateIn(viewModelScope, SharingStarted.Lazily, null)
 
     val messages: Flow<PagingData<ChatElement>> =
-        repository.getMessageRecords(bot, chatNav.contact, Dispatchers.IO)
+        repository.getMessageRecords(bot, contact)
             .map { data ->
                 data.map { record ->
                     val memberInfo = if (record.contact.type == ArukuContactType.GROUP) {
-                        repository.getGroupMemberInfo(
-                            bot,
-                            record.contact.subject,
-                            record.sender
-                        )
+                        repository.getGroupMemberInfo(bot, record.contact.subject, record.sender)
                     } else null
 
                     val visibleMessages = buildList(record.message.size) {
@@ -58,30 +45,13 @@ class ChatViewModel(
                                 is PlainText -> add(VisibleChatMessage.PlainText(it.text))
                                 is Image -> add(VisibleChatMessage.Image(it.url))
                                 is FlashImage -> add(VisibleChatMessage.Image(it.url))
-                                is At -> add(
-                                    VisibleChatMessage.At(it.target, it.display)
-                                )
-
+                                is At -> add(VisibleChatMessage.At(it.target, it.display))
                                 is AtAll -> add(VisibleChatMessage.AtAll)
                                 is Face -> add(VisibleChatMessage.Face(it.id))
                                 is Audio -> {
-                                    val cache =
-                                        audioCache.resolveAsFlow(it.toArukuAudio()).map { result ->
-                                            when (result) {
-                                                is AudioCache.ResolveResult.NotFound -> ChatAudioStatus.NotFound
-                                                is AudioCache.ResolveResult.Ready -> ChatAudioStatus.Ready
-                                                is AudioCache.ResolveResult.Preparing -> ChatAudioStatus.Preparing(
-                                                    result.progress
-                                                )
-                                            }
-                                        }.flowOn(Dispatchers.IO)
-
                                     val identity = it.fileMd5.toUHexString()
-                                    _chatAudios[identity] = cache
-
                                     add(VisibleChatMessage.Audio(identity, it.fileName))
                                 }
-
                                 is File -> add(VisibleChatMessage.File(it.name, it.size))
                                 is Forward -> add(VisibleChatMessage.PlainText(it.contentToString()))
                                 else -> add(VisibleChatMessage.Unsupported(it.contentToString()))
@@ -103,9 +73,6 @@ class ChatViewModel(
                     ) as ChatElement
                 }
             }.cachedIn(viewModelScope)
-
-    private val _chatAudios: MutableMap<String, Flow<ChatAudioStatus>> = mutableMapOf()
-    val chatAudios: Map<String, Flow<ChatAudioStatus>> = _chatAudios
 }
 
 sealed interface VisibleChatMessage {

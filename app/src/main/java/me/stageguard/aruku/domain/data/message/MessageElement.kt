@@ -123,3 +123,7 @@ suspend fun MessageChain.toMessageElements(contact: Contact? = null): List<Messa
             }
         }
     }
+
+@Suppress("NOTHING_TO_INLINE")
+inline fun Collection<MessageElement>.contentToString() =
+    joinToString("") { it.contentToString() }

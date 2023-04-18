@@ -1,38 +1,13 @@
 package me.stageguard.aruku.ui.page.home
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.*
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.expandHorizontally
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Badge
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.surfaceColorAtElevation
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -52,7 +27,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import me.stageguard.aruku.R
 import me.stageguard.aruku.ui.common.ExpandedAnimatedVisibility
-import me.stageguard.aruku.ui.page.AccountState
+import me.stageguard.aruku.ui.page.UIAccountState
 import me.stageguard.aruku.ui.theme.ArukuTheme
 import me.stageguard.aruku.ui.theme.ColorAccountOffline
 import me.stageguard.aruku.ui.theme.ColorAccountOnline
@@ -62,7 +37,7 @@ import me.stageguard.aruku.util.stringResC
 @Composable
 fun AccountDialog(
     activeAccount: BasicAccountInfo?,
-    accountState: AccountState? = AccountState.Default,
+    accountState: UIAccountState? = UIAccountState.Default,
     accounts: List<BasicAccountInfo> = listOf(),
     onSwitchAccount: (Long) -> Unit,
     onLogin: (Long) -> Unit,
@@ -155,11 +130,11 @@ fun AccountDialog(
                         modifier = Modifier
                             .padding(horizontal = 12.dp)
                             .size(12.dp),
-                        containerColor = if (accountState is AccountState.Online)
+                        containerColor = if (accountState is UIAccountState.Online)
                             ColorAccountOnline else ColorAccountOffline,
                     )
                     Text(
-                        text = (if (accountState is AccountState.Online)
+                        text = (if (accountState is UIAccountState.Online)
                             R.string.home_account_dialog_online else
                             R.string.home_account_dialog_offline).stringResC,
                         style = MaterialTheme.typography.bodySmall.copy(
@@ -175,7 +150,7 @@ fun AccountDialog(
                     ) {
                         OutlinedButton(
                             onClick = {
-                                if (accountState is AccountState.Online) onLogout(activeAccount!!.id)
+                                if (accountState is UIAccountState.Online) onLogout(activeAccount!!.id)
                                 else onLogin(activeAccount!!.id)
                             },
                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
@@ -183,7 +158,7 @@ fun AccountDialog(
 
                         ) {
                             Text(
-                                text = (if (accountState is AccountState.Online) R.string.home_account_dialog_logout
+                                text = (if (accountState is UIAccountState.Online) R.string.home_account_dialog_logout
                                 else R.string.home_account_dialog_login).stringResC,
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     fontWeight = FontWeight.Bold

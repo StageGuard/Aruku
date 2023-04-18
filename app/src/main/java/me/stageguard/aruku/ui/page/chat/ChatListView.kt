@@ -3,20 +3,7 @@ package me.stageguard.aruku.ui.page.chat
 import android.content.Context
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.defaultMinSize
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.paddingFrom
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -29,7 +16,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -47,7 +34,6 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.google.accompanist.flowlayout.FlowRow
 import com.google.accompanist.flowlayout.MainAxisAlignment
-import kotlinx.coroutines.flow.Flow
 import me.stageguard.aruku.ui.LocalBot
 import me.stageguard.aruku.ui.theme.ArukuTheme
 
@@ -55,7 +41,6 @@ import me.stageguard.aruku.ui.theme.ArukuTheme
 fun ChatListView(
     chatList: LazyPagingItems<ChatElement>,
     lazyListState: LazyListState,
-    chatAudio: Map<String, Flow<ChatAudioStatus>>,
     paddingValues: PaddingValues,
     modifier: Modifier = Modifier,
 ) {
@@ -77,14 +62,14 @@ fun ChatListView(
             reverseLayout = true,
             modifier = Modifier.fillMaxSize()
         ) {
-            itemsIndexed(chatList, { index, element -> element.uniqueKey }) { index, element ->
+            itemsIndexed(chatList, { _, element -> element.uniqueKey }) { index, element ->
                 when (element) {
                     is ChatElement.Message -> {
                         val nextSentByCurrent =
                             if (index + 1 >= chatList.itemCount) false else chatList[index + 1].run {
                                 this is ChatElement.Message && this.senderId == element.senderId
                             }
-                        Mesasge(
+                        Message(
                             context = context,
                             messageId = element.messageId,
                             senderId = element.senderId,
@@ -94,7 +79,6 @@ fun ChatListView(
                             showSender = !nextSentByCurrent,
                             time = element.time,
                             messages = element.visibleMessages,
-                            chatAudio = chatAudio,
                             modifier = Modifier.padding(
                                 horizontal = 10.dp,
                                 vertical = if (nextSentByCurrent) 2.dp else 5.dp
@@ -118,7 +102,7 @@ fun ChatListView(
 }
 
 @Composable
-private fun Mesasge(
+private fun Message(
     context: Context,
     messageId: Int,
     senderId: Long,
@@ -128,76 +112,9 @@ private fun Mesasge(
     showSender: Boolean,
     time: String,
     messages: List<VisibleChatMessage>,
-    chatAudio: Map<String, Flow<ChatAudioStatus>>,
     modifier: Modifier = Modifier,
     onClickAvatar: (Long) -> Unit,
 ) {
-    @Composable
-    fun RowScope.Avatar(modifier: Modifier = Modifier) {
-        if (!sentByBot) {
-            val layoutModifier = Modifier
-                .padding(end = 10.dp)
-                .size(42.dp)
-                .align(Alignment.Top)
-            if (showSender) {
-                AsyncImage(
-                    model = ImageRequest.Builder(context).data(senderAvatarData).crossfade(true)
-                        .build(),
-                    contentDescription = "avatar of $senderId",
-                    modifier = layoutModifier
-                        .clickable { onClickAvatar(senderId) }
-                        .border(1.5.dp, MaterialTheme.colorScheme.primary, CircleShape)
-                        .border(3.dp, MaterialTheme.colorScheme.surface, CircleShape)
-                        .clip(CircleShape)
-                        .then(modifier),
-                    contentScale = ContentScale.Crop,
-                )
-            } else {
-                Spacer(modifier = layoutModifier.then(modifier))
-            }
-        }
-    }
-
-    @Composable
-    fun RowScope.MessageContent(modifier: Modifier = Modifier) {
-        Column(modifier = modifier) {
-            if (!sentByBot && showSender) {
-                Text(
-                    text = senderName,
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontWeight = FontWeight.SemiBold
-                    ),
-                    modifier = Modifier
-                        .align(Alignment.Start)
-                        .paddingFrom(LastBaseline, after = 8.dp)
-                        .padding(top = 3.dp, bottom = 3.dp)
-                )
-            }
-            Surface(
-                color = if (sentByBot) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
-                shape = RoundedCornerShape(
-                    if (sentByBot) 20.dp else 4.dp,
-                    if (sentByBot) 4.dp else 20.dp,
-                    20.dp,
-                    20.dp
-                )
-
-            ) {
-                RichMessage(
-                    list = messages,
-                    time = time,
-                    context = context,
-                    sentByBot = sentByBot,
-                    chatAudio = chatAudio,
-                    modifier = Modifier
-                        .wrapContentSize()
-                        .defaultMinSize(40.dp)
-                ) {
-
-                }
-            }
-        }
-    }
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
@@ -205,13 +122,75 @@ private fun Mesasge(
                 .align(if (!sentByBot) Alignment.Start else Alignment.End)
                 .then(modifier)
         ) {
-            if (!sentByBot) Avatar(modifier = Modifier.align(Alignment.Top))
-            MessageContent(
+            if (!sentByBot) { // avatar
+                val avatarModifier = Modifier
+                    .padding(end = 10.dp)
+                    .size(42.dp)
+                    .align(Alignment.Top)
+                if (showSender) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(context).data(senderAvatarData).crossfade(true)
+                            .build(),
+                        contentDescription = "avatar of $senderId",
+                        modifier = avatarModifier
+                            .clickable { onClickAvatar(senderId) }
+                            .border(1.5.dp, MaterialTheme.colorScheme.primary, CircleShape)
+                            .border(3.dp, MaterialTheme.colorScheme.surface, CircleShape)
+                            .clip(CircleShape)
+                            .then(Modifier.align(Alignment.Top)),
+                        contentScale = ContentScale.Crop,
+                    )
+                } else {
+                    Spacer(modifier = Modifier.align(Alignment.Top))
+                }
+            }
+
+            // message content
+            Column(
                 modifier = Modifier
                     .padding(start = if (sentByBot) 52.dp else 0.dp)
                     .padding(end = if (sentByBot) 0.dp else 20.dp)
                     .wrapContentSize()
-            )
+            ) {
+                if (!sentByBot && showSender) {
+                    Text(
+                        text = senderName,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontWeight = FontWeight.SemiBold
+                        ),
+                        modifier = Modifier
+                            .align(Alignment.Start)
+                            .paddingFrom(LastBaseline, after = 8.dp)
+                            .padding(top = 3.dp, bottom = 3.dp)
+                    )
+                }
+                Surface(
+                    color = if (sentByBot) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.surfaceVariant
+                    },
+                    shape = RoundedCornerShape(
+                        if (sentByBot) 20.dp else 4.dp,
+                        if (sentByBot) 4.dp else 20.dp,
+                        20.dp,
+                        20.dp
+                    )
+
+                ) {
+                    RichMessage(
+                        list = messages,
+                        time = time,
+                        context = context,
+                        sentByBot = sentByBot,
+                        modifier = Modifier
+                            .wrapContentSize()
+                            .defaultMinSize(40.dp)
+                    ) {
+
+                    }
+                }
+            }
         }
     }
 }
@@ -222,7 +201,6 @@ private fun RichMessage(
     time: String,
     context: Context,
     sentByBot: Boolean,
-    chatAudio: Map<String, Flow<ChatAudioStatus>>,
     modifier: Modifier = Modifier,
     onClickAnnotated: (VisibleChatMessage) -> Unit,
 ) {
@@ -257,7 +235,7 @@ private fun RichMessage(
 
     if (list.size == 1 && list.singleOrNull().run {
             this is VisibleChatMessage.Image || this is VisibleChatMessage.FlashImage
-        }) {
+    }) { // only a image
         Box(
             modifier = modifier.then(Modifier.padding(2.dp))
         ) {
@@ -283,7 +261,11 @@ private fun RichMessage(
     } else {
         Column {
             FlowRow(
-                mainAxisAlignment = if (list.size == 1) MainAxisAlignment.Center else MainAxisAlignment.Start,
+                mainAxisAlignment = if (list.size == 1) {
+                    MainAxisAlignment.Center
+                } else {
+                    MainAxisAlignment.Start
+                },
                 modifier = modifier.then(
                     Modifier
                         .padding(2.dp)
@@ -300,9 +282,7 @@ private fun RichMessage(
                         is VisibleChatMessage.Face -> Face(msg, context)
                         is VisibleChatMessage.FlashImage -> FlashImage(msg, context) { }
                         is VisibleChatMessage.Audio -> {
-                            val cacheStatus =
-                                chatAudio[msg.identity]?.collectAsState(ChatAudioStatus.Unknown)
-                            Audio(msg, cacheStatus) { }
+                            Audio(msg, mutableStateOf(ChatAudioStatus.Unknown)) { }
                         }
 
                         is VisibleChatMessage.File -> File(msg) { }

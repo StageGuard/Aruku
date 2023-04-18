@@ -8,14 +8,9 @@ import me.stageguard.aruku.database.contact.FriendEntity
 import me.stageguard.aruku.database.contact.GroupEntity
 import me.stageguard.aruku.database.message.MessagePreviewEntity
 import me.stageguard.aruku.database.message.MessageRecordEntity
-import me.stageguard.aruku.service.bridge.AccountStateBridge
-import me.stageguard.aruku.service.bridge.BotObserverBridge
+import me.stageguard.aruku.service.bridge.LoginSolverBridge
 import me.stageguard.aruku.service.bridge.RoamingQueryBridge
-import me.stageguard.aruku.service.parcel.AccountInfo
-import me.stageguard.aruku.service.parcel.AccountLoginData
-import me.stageguard.aruku.service.parcel.AccountProfile
-import me.stageguard.aruku.service.parcel.ArukuContact
-import me.stageguard.aruku.service.parcel.GroupMemberInfo
+import me.stageguard.aruku.service.parcel.*
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.EmptyCoroutineContext
 
@@ -28,9 +23,7 @@ interface MainRepository {
     fun loginAll()
     fun login(accountNo: Long): Boolean
     fun logout(accountNo: Long): Boolean
-    fun addBotListObserver(identity: String, observer: BotObserverBridge)
-    fun removeBotListObserver(identity: String)
-    fun setAccountStateBridge(bridge: AccountStateBridge)
+    fun attachLoginSolver(solver: LoginSolverBridge)
     fun openRoamingQuery(account: Long, contact: ArukuContact): RoamingQueryBridge?
     fun getAccountOnlineState(account: Long): Boolean?
     suspend fun queryAccountInfo(account: Long): AccountInfo?
