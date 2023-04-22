@@ -1,69 +1,108 @@
 package me.stageguard.aruku.cache
 
-import androidx.lifecycle.MutableLiveData
+import android.os.Parcelable
+import kotlinx.atomicfu.AtomicRef
+import kotlinx.atomicfu.atomic
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.ReceiveChannel
+import kotlinx.coroutines.flow.cancellable
+import kotlinx.coroutines.flow.consumeAsFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
+import kotlinx.parcelize.Parcelize
 import me.stageguard.aruku.domain.RetrofitDownloadService
-import me.stageguard.aruku.service.parcel.ArukuAudio
-import net.mamoe.mirai.utils.ConcurrentHashMap
-import net.mamoe.mirai.utils.toUHexString
+import me.stageguard.aruku.service.parcel.AudioStatusListener
 import java.io.File
+import java.util.concurrent.ConcurrentHashMap
+import kotlin.coroutines.CoroutineContext
 
 class AudioCache(
+    context: CoroutineContext,
     private val cacheFolder: File,
     private val downloadService: RetrofitDownloadService
-) {
-    private val downloadJobs = ConcurrentHashMap<ArukuAudio, DownloadJob>()
+) : CoroutineScope {
+    private val downloadJobs = ConcurrentHashMap<String, DownloadJob>() // audio md5
+    private val stateListeners = ConcurrentHashMap<String, AudioStatusListener>() // audio md5
+    private val listenerJobs = HashMap<String, Job>()
 
-    fun resolve(audio: ArukuAudio): ResolveResult {
-        val cacheFile = resolveCacheFile(audio)
+    override val coroutineContext: CoroutineContext = context + SupervisorJob()
 
-        if (!cacheFile.exists() || !cacheFile.isFile) {
-            return ResolveResult.NotFound(cacheFile)
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun attachListener(fileMd5: String, listener: AudioStatusListener) {
+        stateListeners[fileMd5] = listener
+
+        val job = launch(start = CoroutineStart.LAZY) {
+            while (isActive) { // cancel listener job when listener is detached.
+                val currDownloadJob = suspendCancellableCoroutine {
+                    var downloadJob: DownloadJob? = null
+                    while (downloadJob == null) { downloadJob = downloadJobs[fileMd5] }
+                    it.resume(downloadJob, null)
+                }
+                val currListener = stateListeners[fileMd5]
+
+                if (currListener != null) {
+                    withContext(Dispatchers.Main) { currListener.onState(currDownloadJob.state.value) }
+                    currDownloadJob.stateChannel.consumeAsFlow().cancellable().collect {
+                        withContext(Dispatchers.Main) { currListener.onState(it) }
+                    }
+                }
+
+            }
         }
 
-        val job = downloadJobs[audio]
-        return if (job != null) {
-            job.liveData.value ?: ResolveResult.Preparing(cacheFile, job.progress)
-        } else {
-            ResolveResult.Ready(cacheFile)
-        }
+        listenerJobs.putIfAbsent(fileMd5, job)
+        job.start()
     }
 
-    fun resolveAsFlow(audio: ArukuAudio) = flow {
-        val cacheFile = resolveCacheFile(audio)
-
-        if (!cacheFile.exists() || !cacheFile.isFile) {
-            emit(ResolveResult.NotFound(cacheFile))
+    fun detachListener(fileMd5: String) {
+        val job = listenerJobs[fileMd5]
+        if (job != null) {
+            job.cancel(CancellationException("audio listener is removed"))
+            listenerJobs.remove(fileMd5, job)
         }
-
-        var job = downloadJobs[audio]
-        while (job != null && job.job.isActive) {
-            emit(job.liveData.value ?: ResolveResult.Preparing(cacheFile, job.progress))
-            job = downloadJobs[audio]
-        }
+        stateListeners.remove(fileMd5)
     }
 
-    fun appendDownloadJob(scope: CoroutineScope, audio: ArukuAudio, url: String) {
-        val event = MutableLiveData<ResolveResult>()
-        val job = scope.launch(Dispatchers.IO, start = CoroutineStart.LAZY) {
-            val selfJob = downloadJobs[audio]
+    fun appendDownloadJob(fileMd5: String, url: String) {
+        val cacheFile = resolveCacheFile(fileMd5)
 
-            val resp = downloadService.download(url)
-            val body = resp.body() ?: return@launch
+        val existing = downloadJobs[fileMd5]
+        if (existing != null) {
+            existing.job.cancel(CancellationException("cancelled manually"))
+            downloadJobs.remove(fileMd5, existing)
+            cacheFile.delete()
+        }
 
-            val cacheFile = resolveCacheFile(audio)
+        val channel = Channel<State>()
+        val atomState = atomic<State>(State.NotFound)
+
+        suspend fun set(resolve: State) {
+            channel.send(resolve)
+            atomState.value = resolve
+        }
+
+        val job = launch(Dispatchers.IO, start = CoroutineStart.LAZY) {
             if (!cacheFile.exists()) {
                 cacheFile.parentFile?.mkdirs()
                 cacheFile.createNewFile()
-                selfJob?.progress = 0.0
-                event.postValue(ResolveResult.Preparing(cacheFile, 0.0))
+                set(State.Preparing(0.0))
             }
+
+            val resp = downloadService.download(url)
+            val body = resp.body() ?: kotlin.run {
+                set(State.Error("body is null"))
+                return@launch
+            }
+
             body.byteStream().use { byteStream ->
                 cacheFile.outputStream().use { outputStream ->
                     val totalBytes = body.contentLength()
@@ -76,42 +115,45 @@ class AudioCache(
                         bytes = byteStream.read(buffer)
 
                         val progress = progressBytes / totalBytes.toDouble()
-                        selfJob?.progress = progress
-                        event.postValue(ResolveResult.Preparing(cacheFile, progress))
+                        set(State.Preparing(progress))
                     }
                 }
             }
-            selfJob?.progress = 1.0
-            event.postValue(ResolveResult.Ready(cacheFile))
+            set(State.Ready)
         }
 
-        val existing = downloadJobs[audio]
-        if (existing != null) {
-            existing.job.cancel("cancelled manually", null)
-            existing.liveData.postValue(ResolveResult.NotFound(resolveCacheFile(audio)))
-        }
-
-        downloadJobs[audio] = DownloadJob(job, 0.0, event)
+        downloadJobs[fileMd5] = DownloadJob(job, atomState, channel)
         job.invokeOnCompletion {
-            if (it != null) resolveCacheFile(audio).delete()
-            downloadJobs.remove(audio)
+            if (it != null) {
+                resolveCacheFile(fileMd5).delete()
+                val errorState = State.Error(it.message)
+                channel.trySend(errorState)
+                atomState.value = errorState
+            }
+            channel.close()
+            downloadJobs.remove(fileMd5)
         }
         job.start()
     }
 
-    private fun resolveCacheFile(audio: ArukuAudio): File =
-        cacheFolder.resolve("${audio.filename}_${audio.fileMd5.toUHexString()}.${audio.extension}")
+    private fun resolveCacheFile(fileMd5: String): File =
+        cacheFolder.resolve(fileMd5)
 
 
-    sealed class ResolveResult(val file: File) {
-        class Ready(file: File) : ResolveResult(file)
-        class Preparing(file: File, val progress: Double) : ResolveResult(file)
-        class NotFound(file: File) : ResolveResult(file)
+    sealed interface State {
+        @Parcelize
+        object Ready : State, Parcelable
+        @Parcelize
+        class Preparing(val progress: Double) : State, Parcelable
+        @Parcelize
+        object NotFound : State, Parcelable
+        @Parcelize
+        class Error(val msg: String? = null) : State, Parcelable
     }
 
-    inner class DownloadJob(
+    private class DownloadJob(
         val job: Job,
-        var progress: Double,
-        val liveData: MutableLiveData<ResolveResult>
+        val state: AtomicRef<State>,
+        val stateChannel: ReceiveChannel<State>
     )
 }

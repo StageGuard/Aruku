@@ -1,10 +1,13 @@
 package me.stageguard.aruku
 
-import android.util.Log
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
 import me.stageguard.aruku.database.ArukuDatabase
 import me.stageguard.aruku.database.LoadState
 import me.stageguard.aruku.database.account.AccountEntity
@@ -18,8 +21,14 @@ import me.stageguard.aruku.service.ServiceConnector
 import me.stageguard.aruku.service.bridge.LoginSolverBridge
 import me.stageguard.aruku.service.bridge.RoamingQueryBridge
 import me.stageguard.aruku.service.bridge.ServiceBridge
-import me.stageguard.aruku.service.parcel.*
-import me.stageguard.aruku.util.tag
+import me.stageguard.aruku.service.parcel.AccountInfo
+import me.stageguard.aruku.service.parcel.AccountLoginData
+import me.stageguard.aruku.service.parcel.AccountProfile
+import me.stageguard.aruku.service.parcel.ArukuContact
+import me.stageguard.aruku.service.parcel.ArukuContactType
+import me.stageguard.aruku.service.parcel.AudioStatusListener
+import me.stageguard.aruku.service.parcel.GroupMemberInfo
+import me.stageguard.aruku.util.createAndroidLogger
 import java.lang.ref.WeakReference
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.CoroutineContext
@@ -30,6 +39,7 @@ class MainRepositoryImpl(
     private val avatarCache: ConcurrentHashMap<Long, String>,
     private val nicknameCache: ConcurrentHashMap<Long, String>
 ) : MainRepository {
+    private val logger = createAndroidLogger("MainRepositoryImpl")
     private val binder: ServiceBridge? get() = connectorRef.get()?.binder
 
     override fun addBot(info: AccountLoginData, alsoLogin: Boolean): Boolean {
@@ -101,7 +111,7 @@ class MainRepositoryImpl(
         return try {
             binder?.queryAccountProfile(account)
         } catch (ex: Exception) {
-            Log.w(tag(), "cannot get account profile of $account: $ex", ex)
+            logger.w("cannot get account profile of $account: $ex", ex)
             null
         }
     }
@@ -155,20 +165,26 @@ class MainRepositoryImpl(
         return try {
             binder?.getGroupMemberInfo(account, groupId, memberId)
         } catch (ex: Exception) {
-            Log.w(
-                tag(),
-                "cannot get member id on group $groupId, member $memberId of bot $account: $ex",
-                ex
-            )
+            logger.w("cannot get member id on group $groupId, member $memberId of bot $account", ex)
             null
         }
+    }
+
+    override fun attachAudioStatusListener(audioFileMd5: String, listener: AudioStatusListener) {
+        assertServiceConnected()
+        binder?.attachAudioStatusListener(audioFileMd5, listener)
+    }
+
+    override fun detachAudioStatusListener(audioFileMd5: String) {
+        assertServiceConnected()
+        binder?.detachAudioStatusListener(audioFileMd5)
     }
 
     override suspend fun getAccount(account: Long): AccountEntity? {
         return database.suspendIO {
             val result = database.accounts()[account]
             if (result.isEmpty()) null else (result.singleOrNull() ?: result.first().also {
-                Log.w(tag(), "get account $account has multiple results, peaking first.")
+                logger.w("get account $account has multiple results, peaking first.")
             })
         }
     }
@@ -247,11 +263,11 @@ class MainRepositoryImpl(
     private fun assertServiceConnected() {
         val connector = connectorRef.get()
         if (connector == null) {
-            Log.w(tag(), "ServiceConnector has been collected by gc.")
+            logger.w("ServiceConnector has been collected by gc.")
             return
         }
         if (connector.connected.value != true) {
-            Log.w(tag(), "ServiceConnector is not connected to service.")
+            logger.w("ServiceConnector is not connected to service.")
         }
     }
 }

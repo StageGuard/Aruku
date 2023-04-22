@@ -42,7 +42,7 @@ class CombinedMessagePagingSource(
     private val database: ArukuDatabase by inject()
     private val messageDao = database.messageRecords()
 
-    override val coroutineContext: CoroutineContext = context
+    override val coroutineContext: CoroutineContext = context + Job()
 
     private lateinit var subscriptionSource: Flow<List<MessageRecordEntity>>
     private val historySource: HistoryMessagePagingSource by lazy {

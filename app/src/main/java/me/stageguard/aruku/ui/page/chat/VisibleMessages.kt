@@ -8,11 +8,12 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.State
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import me.stageguard.aruku.R
@@ -30,7 +31,8 @@ fun PlainText(
         modifier = modifier,
         style = MaterialTheme.typography.bodyLarge.copy(
             color = LocalContentColor.current
-        )
+        ),
+        lineHeight = 22.sp
     )
 }
 
@@ -47,7 +49,8 @@ fun Image(
             .crossfade(true)
             .build(),
         "chat image ${element.url}",
-        modifier = modifier.then(Modifier.clickable { element.url?.let { onClick(it) } })
+        modifier = modifier.then(Modifier.clickable { element.url?.let { onClick(it) } }),
+        contentScale = ContentScale.FillBounds
     )
 }
 
@@ -149,17 +152,17 @@ fun FlashImage(
 @Composable
 fun Audio(
     element: VisibleChatMessage.Audio,
-    status: State<ChatAudioStatus>?,
+    status: ChatAudioStatus?,
     modifier: Modifier = Modifier,
-    onClick: (url: String) -> Unit,
+    onClick: (identity: String) -> Unit,
 ) { // TODO: audio visible element, currently plain text
     PlainText(
         VisibleChatMessage.PlainText(buildString {
             append("[Audio]")
             append("[")
-            if (status == null) append("NotPrepared") else when (val v = status.value) {
-                is ChatAudioStatus.Unknown -> append("NotPrepared")
-                is ChatAudioStatus.Preparing -> append("Preparing:").append(v.progress)
+            if (status == null) append("NotPrepared") else when (status) {
+                is ChatAudioStatus.Error -> append("Error: ${status.msg}")
+                is ChatAudioStatus.Preparing -> append("Preparing: ").append(status.progress)
                 is ChatAudioStatus.NotFound -> append("NotFound")
                 is ChatAudioStatus.Ready -> append("Ready")
             }

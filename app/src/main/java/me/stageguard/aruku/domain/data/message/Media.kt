@@ -9,7 +9,7 @@ data class Audio(
     val url: String,
     val length: Long,
     val fileName: String,
-    val fileMd5: ByteArray,
+    val fileMd5: String,
     val fileSize: Long,
     val extension: String,
 ) : MessageElement {
@@ -26,7 +26,7 @@ data class Audio(
         if (url != other.url) return false
         if (length != other.length) return false
         if (fileName != other.fileName) return false
-        if (!fileMd5.contentEquals(other.fileMd5)) return false
+        if (fileMd5 != other.fileMd5) return false
         if (fileSize != other.fileSize) return false
         if (extension != other.extension) return false
 
@@ -37,7 +37,7 @@ data class Audio(
         var result = url.hashCode()
         result = 31 * result + length.hashCode()
         result = 31 * result + fileName.hashCode()
-        result = 31 * result + fileMd5.contentHashCode()
+        result = 31 * result + fileMd5.hashCode()
         result = 31 * result + fileSize.hashCode()
         result = 31 * result + extension.hashCode()
         return result

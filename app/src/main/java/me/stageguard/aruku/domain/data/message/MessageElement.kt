@@ -12,6 +12,7 @@ import net.mamoe.mirai.message.data.MessageChain
 import net.mamoe.mirai.message.data.MessageSource
 import net.mamoe.mirai.message.data.OnlineAudio
 import net.mamoe.mirai.utils.MiraiExperimentalApi
+import net.mamoe.mirai.utils.toUHexString
 
 sealed interface MessageElement : Parcelable {
     fun contentToString(): String
@@ -45,7 +46,7 @@ suspend fun MessageChain.toMessageElements(contact: Contact? = null): List<Messa
                             m.urlForDownload,
                             m.length,
                             m.filename,
-                            m.fileMd5,
+                            m.fileMd5.toUHexString(""),
                             m.fileSize,
                             m.codec.formatName
                         )

@@ -3,10 +3,22 @@ package me.stageguard.aruku.ui.page.chat
 import android.content.Context
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.paddingFrom
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Divider
@@ -14,9 +26,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -25,7 +35,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.LastBaseline
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.paging.compose.LazyPagingItems
@@ -35,14 +44,16 @@ import coil.request.ImageRequest
 import com.google.accompanist.flowlayout.FlowRow
 import com.google.accompanist.flowlayout.MainAxisAlignment
 import me.stageguard.aruku.ui.LocalBot
-import me.stageguard.aruku.ui.theme.ArukuTheme
 
 @Composable
 fun ChatListView(
     chatList: LazyPagingItems<ChatElement>,
+    audioStatus: Map<String, ChatAudioStatus>,
     lazyListState: LazyListState,
     paddingValues: PaddingValues,
     modifier: Modifier = Modifier,
+    onRegisterAudioStatusListener: (fileMd5: String) -> Unit,
+    onUnRegisterAudioStatusListener: (fileMd5: String) -> Unit,
 ) {
     val bot = LocalBot.current
     val context = LocalContext.current
@@ -69,6 +80,14 @@ fun ChatListView(
                             if (index + 1 >= chatList.itemCount) false else chatList[index + 1].run {
                                 this is ChatElement.Message && this.senderId == element.senderId
                             }
+
+                        // observe audio status in composable
+                        val audio = element.visibleMessages.filterIsInstance<VisibleChatMessage.Audio>().firstOrNull()
+                        audio?.disposableObserver(
+                            onRegister = onRegisterAudioStatusListener,
+                            onUnregister = onUnRegisterAudioStatusListener
+                        )
+
                         Message(
                             context = context,
                             messageId = element.messageId,
@@ -79,11 +98,13 @@ fun ChatListView(
                             showSender = !nextSentByCurrent,
                             time = element.time,
                             messages = element.visibleMessages,
+                            audioStatus = audio?.run { audioStatus[identity] },
                             modifier = Modifier.padding(
                                 horizontal = 10.dp,
                                 vertical = if (nextSentByCurrent) 2.dp else 5.dp
-                            )
-                        ) { }
+                            ),
+                            onClickAvatar = { }
+                        )
                     }
 
                     is ChatElement.DateDivider -> {
@@ -112,6 +133,7 @@ private fun Message(
     showSender: Boolean,
     time: String,
     messages: List<VisibleChatMessage>,
+    audioStatus: ChatAudioStatus?,
     modifier: Modifier = Modifier,
     onClickAvatar: (Long) -> Unit,
 ) {
@@ -148,8 +170,10 @@ private fun Message(
             // message content
             Column(
                 modifier = Modifier
-                    .padding(start = if (sentByBot) 52.dp else 0.dp)
-                    .padding(end = if (sentByBot) 0.dp else 20.dp)
+                    .padding(
+                        start = if (!sentByBot && !showSender) 52.dp else (if (sentByBot) 26.dp else 0.dp),
+                        end = if (sentByBot) 0.dp else 26.dp
+                    )
                     .wrapContentSize()
             ) {
                 if (!sentByBot && showSender) {
@@ -180,6 +204,7 @@ private fun Message(
                 ) {
                     RichMessage(
                         list = messages,
+                        audioStatus = audioStatus,
                         time = time,
                         context = context,
                         sentByBot = sentByBot,
@@ -198,6 +223,7 @@ private fun Message(
 @Composable
 private fun RichMessage(
     list: List<VisibleChatMessage>,
+    audioStatus: ChatAudioStatus?,
     time: String,
     context: Context,
     sentByBot: Boolean,
@@ -223,25 +249,30 @@ private fun RichMessage(
     }
 
     val contentPadding = run {
-        val single = list.singleOrNull() ?: return@run 10.dp
+        val single = list.singleOrNull() ?: return@run 8.dp
         if (
             single is VisibleChatMessage.Image ||
             single is VisibleChatMessage.FlashImage ||
             single is VisibleChatMessage.Audio ||
             single is VisibleChatMessage.File ||
             single is VisibleChatMessage.Forward
-        ) return@run 0.dp else return@run 10.dp
+        ) return@run 0.dp else return@run 8.dp
     }
 
     if (list.size == 1 && list.singleOrNull().run {
             this is VisibleChatMessage.Image || this is VisibleChatMessage.FlashImage
-    }) { // only a image
+        }) { // only a image
         Box(
             modifier = modifier.then(Modifier.padding(2.dp))
         ) {
             when (val image = list.single()) {
                 is VisibleChatMessage.Image -> {
-                    Image(element = image, context = context, onClick = {})
+                    Image(
+                        element = image,
+                        context = context,
+                        modifier = Modifier.defaultMinSize(minHeight = 54.dp),
+                        onClick = {}
+                    )
                 }
 
                 is VisibleChatMessage.FlashImage -> {
@@ -282,7 +313,7 @@ private fun RichMessage(
                         is VisibleChatMessage.Face -> Face(msg, context)
                         is VisibleChatMessage.FlashImage -> FlashImage(msg, context) { }
                         is VisibleChatMessage.Audio -> {
-                            Audio(msg, mutableStateOf(ChatAudioStatus.Unknown)) { }
+                            Audio(msg, audioStatus) { }
                         }
 
                         is VisibleChatMessage.File -> File(msg) { }
@@ -358,6 +389,7 @@ private fun DateDivider(dayString: String, modifier: Modifier = Modifier) {
     }
 }
 
+/*
 @Preview
 @Composable
 fun ChatListPreview() {
@@ -365,77 +397,12 @@ fun ChatListPreview() {
         CompositionLocalProvider(LocalBot provides 202746796L) {
             val listState = rememberLazyListState()
             val randSrcId = { IntRange(0, 100000).random() }
-            val list = listOf(
-                ChatElement.DateDivider("Jan 4, 2023"),
-                ChatElement.Notification("XXX toggled mute all", listOf()),
-                ChatElement.Message(
-                    senderId = 1355416608L,
-                    senderName = "StageGuard",
-                    senderAvatarUrl = "https://stageguard.top/img/avatar.png",
-                    time = "11:45:14",
-                    messageId = randSrcId(),
-                    visibleMessages = listOf(
-                        VisibleChatMessage.PlainText("1")
-                    ),
-                ),
-                ChatElement.Message(
-                    senderId = 1355416608L,
-                    senderName = "StageGuard",
-                    senderAvatarUrl = "https://stageguard.top/img/avatar.png",
-                    time = "11:45:14",
-                    messageId = randSrcId(),
-                    visibleMessages = listOf(
-                        VisibleChatMessage.PlainText("compose chat list view preview")
-                    ),
-                ),
-                ChatElement.Message(
-                    senderId = 1355416608L,
-                    senderName = "StageGuard",
-                    senderAvatarUrl = "https://stageguard.top/img/avatar.png",
-                    time = "11:45:14",
-                    messageId = randSrcId(),
-                    visibleMessages = listOf(
-                        VisibleChatMessage.PlainText(buildString { repeat(20) { append("long message! ") } })
-                    ),
-                ),
-                ChatElement.Message(
-                    senderId = 3129693328L,
-                    senderName = "WhichWho",
-                    senderAvatarUrl = "https://q1.qlogo.cn/g?b=qq&nk=3129693328&s=0&timestamp=1673582758562",
-                    time = "11:45:14",
-                    messageId = randSrcId(),
-                    visibleMessages = listOf(
-                        VisibleChatMessage.Face(1),
-                        VisibleChatMessage.Face(10),
-                        VisibleChatMessage.PlainText("<- this is face.")
-                    ),
-                ),
-                ChatElement.Message(
-                    senderId = 202746796L,
-                    senderName = "SIGTERM",
-                    senderAvatarUrl = "",
-                    time = "11:45:14",
-                    messageId = randSrcId(),
-                    visibleMessages = listOf(
-                        VisibleChatMessage.Image("https://gchat.qpic.cn/gchatpic_new/2591482572/2079312506-2210827314-3599E59C0E36C66A966F4DD2E28C4341/0?term=255&is_origin=0")
-                    ),
-                ),
-                ChatElement.Message(
-                    senderId = 202746796L,
-                    senderName = "SIGTERM",
-                    senderAvatarUrl = "",
-                    time = "11:45:14",
-                    messageId = randSrcId(),
-                    visibleMessages = listOf(
-                        VisibleChatMessage.At(3129693328L, "WhichWho"),
-                        VisibleChatMessage.PlainText(" this is my error log"),
-                        VisibleChatMessage.Image("https://mirai.mamoe.net/assets/uploads/files/1672243675745-ece9effe-c9eb-4bcb-aba1-529e6f0c5f49-image.png")
 
-                    ),
-                ),
+            ChatListView(
+                flow { emit(PagingData.from(list.asReversed())) }.collectAsLazyPagingItems(),
+                listState,
+                PaddingValues()
             )
-
-            //ChatListView(, listState, mapOf(), PaddingValues())
         }
     }
-}
+}*/

@@ -10,7 +10,12 @@ import me.stageguard.aruku.database.message.MessagePreviewEntity
 import me.stageguard.aruku.database.message.MessageRecordEntity
 import me.stageguard.aruku.service.bridge.LoginSolverBridge
 import me.stageguard.aruku.service.bridge.RoamingQueryBridge
-import me.stageguard.aruku.service.parcel.*
+import me.stageguard.aruku.service.parcel.AccountInfo
+import me.stageguard.aruku.service.parcel.AccountLoginData
+import me.stageguard.aruku.service.parcel.AccountProfile
+import me.stageguard.aruku.service.parcel.ArukuContact
+import me.stageguard.aruku.service.parcel.AudioStatusListener
+import me.stageguard.aruku.service.parcel.GroupMemberInfo
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.EmptyCoroutineContext
 
@@ -31,6 +36,8 @@ interface MainRepository {
     suspend fun getAvatarUrl(account: Long, contact: ArukuContact): String?
     suspend fun getNickname(account: Long, contact: ArukuContact): String?
     fun getGroupMemberInfo(account: Long, groupId: Long, memberId: Long): GroupMemberInfo?
+    fun attachAudioStatusListener(audioFileMd5: String, listener: AudioStatusListener)
+    fun detachAudioStatusListener(audioFileMd5: String)
 
     // database
     suspend fun getAccount(account: Long): AccountEntity?

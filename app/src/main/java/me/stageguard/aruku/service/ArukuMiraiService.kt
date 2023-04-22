@@ -211,6 +211,17 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
                 sex = profile.sex.ordinal
             )
         }
+
+        override fun attachAudioStatusListener(
+            audioFileMd5: String,
+            listener: AudioStatusListener
+        ) {
+            audioCache.attachListener(audioFileMd5, listener)
+        }
+
+        override fun detachAudioStatusListener(audioFileMd5: String) {
+            audioCache.detachListener(audioFileMd5)
+        }
     }
 
     override fun onBind(intent: Intent): IBinder {
@@ -333,7 +344,14 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
             removeBot(account.accountNo)
         }
         bots[account.accountNo] = createBot(account, true)
-        if (!stateChannel.trySend(AccountState.Offline(account.accountNo, OfflineCause.INIT, null)).isSuccess) {
+        if (!stateChannel.trySend(
+                AccountState.Offline(
+                    account.accountNo,
+                    OfflineCause.INIT,
+                    null
+                )
+            ).isSuccess
+        ) {
             logger.w("Failed to send add bot state.")
         }
         return true
@@ -386,7 +404,13 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
         botJobs[account] = launch(context = CoroutineExceptionHandler { context, th ->
             if (th is LoginFailedException) {
                 logger.e("login $account failed.", th)
-                stateChannel.trySend(AccountState.Offline(account, OfflineCause.LOGIN_FAILED, th.message))
+                stateChannel.trySend(
+                    AccountState.Offline(
+                        account,
+                        OfflineCause.LOGIN_FAILED,
+                        th.message
+                    )
+                )
                 return@CoroutineExceptionHandler
             }
 
@@ -401,7 +425,13 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
             }
 
             logger.e("uncaught exception while logging $account.", th)
-            stateChannel.trySend(AccountState.Offline(account, OfflineCause.LOGIN_FAILED, th.message))
+            stateChannel.trySend(
+                AccountState.Offline(
+                    account,
+                    OfflineCause.LOGIN_FAILED,
+                    th.message
+                )
+            )
             removeBot(account)
         } + SupervisorJob()) {
             val scopedEventChannel = bot.eventChannel.parentScope(this)
@@ -669,8 +699,7 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
         message.forEach {
             if (it is Audio) {
                 audioCache.appendDownloadJob(
-                    lifecycleScope,
-                    ArukuAudio(it.filename, it.fileMd5, it.fileSize, it.codec.formatName),
+                    it.fileMd5.decodeToString(),
                     (it as OnlineAudio).urlForDownload
                 )
             }
@@ -736,7 +765,10 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
                             .take(count)
                             .toList()
                     }.onFailure {
-                        logger.w("cannot query roaming message of $group, seq=$seq, count=$count", it)
+                        logger.w(
+                            "cannot query roaming message of $group, seq=$seq, count=$count",
+                            it
+                        )
                     }.getOrNull()
                 }
             }
@@ -837,15 +869,14 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
             }
 
             val solution = when (state.type) {
-                CaptchaType.PIC -> loginSolver0.onSolvePicCaptcha(
-                    state.account,
-                    state.data
-                ).run { Solution.PicCaptcha(state.account, this) }
+                CaptchaType.PIC -> loginSolver0.onSolvePicCaptcha(state.account, state.data)
+                    .run { Solution.PicCaptcha(state.account, this) }
 
                 CaptchaType.SLIDER -> loginSolver0.onSolveSliderCaptcha(
                     state.account,
                     state.data.decodeToString()
-                ).run { Solution.SliderCaptcha(state.account, this) }
+                )
+                    .run { Solution.SliderCaptcha(state.account, this) }
 
                 CaptchaType.USF -> loginSolver0.onSolveUnsafeDeviceLoginVerify(
                     state.account,
@@ -855,7 +886,8 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
                 CaptchaType.SMS -> loginSolver0.onSolveSMSRequest(
                     state.account,
                     state.data.decodeToString()
-                ).run { Solution.SMSResult(state.account, this) }
+                )
+                    .run { Solution.SMSResult(state.account, this) }
             }
 
             stateChannel.send(AccountState.Logging(state.account))

@@ -1,18 +1,23 @@
 package me.stageguard.aruku.ui.page.chat
 
 import androidx.annotation.DrawableRes
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import androidx.paging.map
 import kotlinx.coroutines.flow.*
+import me.stageguard.aruku.cache.AudioCache
 import me.stageguard.aruku.domain.MainRepository
 import me.stageguard.aruku.domain.data.message.*
 import me.stageguard.aruku.service.parcel.ArukuContactType
+import me.stageguard.aruku.service.parcel.AudioStatusListener
 import me.stageguard.aruku.ui.page.ChatPageNav
 import me.stageguard.aruku.util.toFormattedTime
-import net.mamoe.mirai.utils.toUHexString
 
 class ChatViewModel(
     private val repository: MainRepository,
@@ -31,48 +36,76 @@ class ChatViewModel(
         if (url != null) emit(url)
     }.stateIn(viewModelScope, SharingStarted.Lazily, null)
 
-    val messages: Flow<PagingData<ChatElement>> =
-        repository.getMessageRecords(bot, contact)
-            .map { data ->
-                data.map { record ->
-                    val memberInfo = if (record.contact.type == ArukuContactType.GROUP) {
-                        repository.getGroupMemberInfo(bot, record.contact.subject, record.sender)
-                    } else null
+    private val _audioList = mutableStateMapOf<String, ChatAudioStatus>()
+    val audio = snapshotFlow { _audioList.toMap() }
 
-                    val visibleMessages = buildList(record.message.size) {
-                        record.message.forEach {
-                            when (it) {
-                                is PlainText -> add(VisibleChatMessage.PlainText(it.text))
-                                is Image -> add(VisibleChatMessage.Image(it.url))
-                                is FlashImage -> add(VisibleChatMessage.Image(it.url))
-                                is At -> add(VisibleChatMessage.At(it.target, it.display))
-                                is AtAll -> add(VisibleChatMessage.AtAll)
-                                is Face -> add(VisibleChatMessage.Face(it.id))
-                                is Audio -> {
-                                    val identity = it.fileMd5.toUHexString()
-                                    add(VisibleChatMessage.Audio(identity, it.fileName))
-                                }
-                                is File -> add(VisibleChatMessage.File(it.name, it.size))
-                                is Forward -> add(VisibleChatMessage.PlainText(it.contentToString()))
-                                else -> add(VisibleChatMessage.Unsupported(it.contentToString()))
-                            }
+    val messages: Flow<PagingData<ChatElement>> =
+        repository.getMessageRecords(bot, contact).map { data ->
+            data.map { record ->
+                val memberInfo = if (record.contact.type == ArukuContactType.GROUP) {
+                    repository.getGroupMemberInfo(bot, record.contact.subject, record.sender)
+                } else null
+
+                val visibleMessages = buildList(record.message.size) {
+                    record.message.forEach {
+                        when (it) {
+                            is PlainText -> add(VisibleChatMessage.PlainText(it.text))
+                            is Image -> add(VisibleChatMessage.Image(it.url))
+                            is FlashImage -> add(VisibleChatMessage.Image(it.url))
+                            is At -> add(VisibleChatMessage.At(it.target, it.display))
+                            is AtAll -> add(VisibleChatMessage.AtAll)
+                            is Face -> add(VisibleChatMessage.Face(it.id))
+                            is Audio -> add(VisibleChatMessage.Audio(it.fileMd5, it.fileName))
+                            is File -> add(VisibleChatMessage.File(it.name, it.size))
+                            is Forward -> add(VisibleChatMessage.PlainText(it.contentToString()))
+                            else -> add(VisibleChatMessage.Unsupported(it.contentToString()))
                         }
                     }
-
-                    ChatElement.Message(
-                        senderId = record.sender,
-                        senderName = record.senderName,
-                        senderAvatarUrl = when (record.contact.type) {
-                            ArukuContactType.GROUP -> memberInfo?.senderAvatarUrl
-                            ArukuContactType.FRIEND -> repository.getAvatarUrl(bot, record.contact)
-                            ArukuContactType.TEMP -> error("temp message is currently unsupported")
-                        },
-                        time = record.time.toLong().toFormattedTime(),
-                        messageId = record.messageId,
-                        visibleMessages = visibleMessages
-                    ) as ChatElement
                 }
-            }.cachedIn(viewModelScope)
+
+                ChatElement.Message(
+                    senderId = record.sender,
+                    senderName = record.senderName,
+                    senderAvatarUrl = when (record.contact.type) {
+                        ArukuContactType.GROUP -> memberInfo?.senderAvatarUrl
+                        ArukuContactType.FRIEND -> repository.getAvatarUrl(bot, record.contact)
+                        ArukuContactType.TEMP -> error("temp message is currently unsupported")
+                    },
+                    time = record.time.toLong().toFormattedTime(),
+                    messageId = record.messageId,
+                    visibleMessages = visibleMessages
+                ) as ChatElement
+            }
+        }.cachedIn(viewModelScope)
+
+    fun attachAudioStatusListener(audioFileMd5: String) {
+        repository.attachAudioStatusListener(audioFileMd5, AudioStatusListener {
+            val fileMd5 = audioFileMd5
+            val status = when(it) {
+                is AudioCache.State.Error -> ChatAudioStatus.Error(it.msg ?: "unknown error")
+                is AudioCache.State.NotFound -> ChatAudioStatus.NotFound
+                is AudioCache.State.Ready -> ChatAudioStatus.Ready
+                is AudioCache.State.Preparing -> ChatAudioStatus.Preparing(it.progress)
+            }
+            _audioList[fileMd5] = status
+        })
+    }
+
+    fun detachAudioStatusListener(audioFileMd5: String) {
+        repository.detachAudioStatusListener(audioFileMd5)
+    }
+
+}
+
+@Composable
+fun VisibleChatMessage.Audio.disposableObserver(
+    onRegister: (identity: String) -> Unit,
+    onUnregister: (identity: String) -> Unit
+) {
+    DisposableEffect(key1 = this) {
+        onRegister(identity)
+        onDispose { onUnregister(identity) }
+    }
 }
 
 sealed interface VisibleChatMessage {
@@ -132,5 +165,5 @@ sealed interface ChatAudioStatus {
     object Ready : ChatAudioStatus
     class Preparing(val progress: Double) : ChatAudioStatus
     object NotFound : ChatAudioStatus
-    object Unknown : ChatAudioStatus
+    class Error(val msg: String?) : ChatAudioStatus
 }
