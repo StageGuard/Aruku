@@ -48,17 +48,15 @@ fun LoginPage(
 
     val accountsState = LocalAccountsState.current
     var loginAccount: Long? by remember { mutableStateOf(null) }
-    val accountState by remember {
-        derivedStateOf { accountsState[loginAccount] }
-    }
 
     var lastLoginState: LoginState by remember { mutableStateOf(LoginState.Default) }
 
     val currentOnLoginSuccess by rememberUpdatedState(onLoginSuccess)
-    LaunchedEffect(accountState) {
-        logger.i("account state: $accountState")
-        when (accountState) {
-            is UIAccountState.Login -> lastLoginState = (accountState as UIAccountState.Login).state
+    LaunchedEffect(accountsState) {
+        val loginAccountState = accountsState[loginAccount]
+        logger.i("account state: $loginAccountState")
+        when (loginAccountState) {
+            is UIAccountState.Login -> lastLoginState = loginAccountState.state
             is UIAccountState.Online -> currentOnLoginSuccess(viewModel.accountInfo.value.accountNo)
             else -> {}
         }
