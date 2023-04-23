@@ -6,8 +6,11 @@
         <domain includeSubdomains="true">gchat.qpic.cn</domain>
         <domain includeSubdomains="true">grouptalk.c2c.qq.com</domain>
         <domain includeSubdomains="true">223.109.208.65</domain>
+        <domain includeSubdomains="true">223.109.208.123</domain>
         <domain includeSubdomains="true">36.155.236.86</domain>
         <domain includeSubdomains="true">36.155.207.152</domain>
+        <domain includeSubdomains="true">223.109.208.103</domain>
+        <domain includeSubdomains="true">36.155.236.32</domain>
 
     </domain-config>
 </network-security-config>
