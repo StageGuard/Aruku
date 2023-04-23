@@ -44,9 +44,11 @@ val applicationModule = module {
 
     // cache
     single { Retrofit.Builder().baseUrl("http://localhost/").build() }
-    single {
+    single(createdAtStart = false) { params ->
         AudioCache(
+            params.get(),
             get<Context>().externalCacheDir!!.resolve("audio_cache"),
+            get<ArukuDatabase>(),
             get<Retrofit>().create(RetrofitDownloadService::class.java)
         )
     }

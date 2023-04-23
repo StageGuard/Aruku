@@ -20,6 +20,7 @@ import me.stageguard.aruku.cache.AudioCache
 import me.stageguard.aruku.database.ArukuDatabase
 import me.stageguard.aruku.database.contact.toFriendEntity
 import me.stageguard.aruku.database.contact.toGroupEntity
+import me.stageguard.aruku.database.message.AudioUrlEntity
 import me.stageguard.aruku.database.message.MessagePreviewEntity
 import me.stageguard.aruku.database.message.MessageRecordEntity
 import me.stageguard.aruku.domain.data.message.calculateMessageId
@@ -50,7 +51,9 @@ import net.mamoe.mirai.network.LoginFailedException
 import net.mamoe.mirai.utils.BotConfiguration.HeartbeatStrategy
 import net.mamoe.mirai.utils.BotConfiguration.MiraiProtocol
 import net.mamoe.mirai.utils.MiraiExperimentalApi
+import net.mamoe.mirai.utils.toUHexString
 import org.koin.android.ext.android.inject
+import org.koin.core.parameter.parametersOf
 import xyz.cssxsh.mirai.device.MiraiDeviceGenerator
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
@@ -66,7 +69,7 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
 
     private val botFactory: BotFactory by inject()
     private val database: ArukuDatabase by inject()
-    private val audioCache: AudioCache by inject()
+    private val audioCache: AudioCache by inject { parametersOf(coroutineContext) }
 
     private val initializeLock = Mutex(true)
     private val bots: ConcurrentHashMap<Long, Bot> = ConcurrentHashMap()
@@ -231,9 +234,13 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
 
     override fun onCreate() {
         super.onCreate()
+        val stateChannelConsumeLock = Mutex(true)
 
         launch {
-            stateChannel.consumeAsFlow().collect { state ->
+            val channelFlow = stateChannel.consumeAsFlow()
+            stateChannelConsumeLock.unlock()
+
+            channelFlow.collect { state ->
                 if (stateObserver == null) {
                     // cache state
                     // this often happens that login process has already produced states
@@ -248,6 +255,8 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
         }
 
         launch {
+            stateChannelConsumeLock.lock()
+
             val all = database.suspendIO { accounts().getAll() }
             all.forEach { account ->
                 logger.i("reading account data ${account.accountNo}.")
@@ -572,6 +581,7 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
             this@ArukuMiraiService.launch {
                 val messageElements = event.message.toMessageElements(subject)
                 processMessageChain(event.bot, contact, event.message)
+
                 database.suspendIO {
                     // insert message event to records
                     messageRecords().upsert(
@@ -695,13 +705,13 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
         return r
     }
 
-    private fun processMessageChain(bot: Bot, subject: ArukuContact, message: MessageChain) {
+    private suspend fun processMessageChain(bot: Bot, subject: ArukuContact, message: MessageChain) {
         message.forEach {
             if (it is Audio) {
-                audioCache.appendDownloadJob(
-                    it.fileMd5.decodeToString(),
-                    (it as OnlineAudio).urlForDownload
-                )
+                val fileMd5 = it.fileMd5.toUHexString("")
+                val url = (it as OnlineAudio).urlForDownload
+                database.suspendIO { audioUrls().upsert(AudioUrlEntity(fileMd5, url)) }
+                audioCache.appendDownloadJob(fileMd5, url)
             }
         }
     }

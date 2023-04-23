@@ -11,6 +11,8 @@ import me.stageguard.aruku.database.contact.FriendDao
 import me.stageguard.aruku.database.contact.FriendEntity
 import me.stageguard.aruku.database.contact.GroupDao
 import me.stageguard.aruku.database.contact.GroupEntity
+import me.stageguard.aruku.database.message.AudioUrlDao
+import me.stageguard.aruku.database.message.AudioUrlEntity
 import me.stageguard.aruku.database.message.MessagePreviewDao
 import me.stageguard.aruku.database.message.MessagePreviewEntity
 import me.stageguard.aruku.database.message.MessageRecordDao
@@ -24,7 +26,8 @@ import kotlin.coroutines.suspendCoroutine
         MessageRecordEntity::class,
         MessagePreviewEntity::class,
         GroupEntity::class,
-        FriendEntity::class
+        FriendEntity::class,
+        AudioUrlEntity::class
     ],
     version = 1,
     autoMigrations = [],
@@ -41,6 +44,8 @@ abstract class ArukuDatabase : RoomDatabase() {
     abstract fun friends(): FriendDao
 
     abstract fun messagePreview(): MessagePreviewDao
+
+    abstract fun audioUrls(): AudioUrlDao
 
     operator fun <T> invoke(block: ArukuDatabase.() -> T): T {
         return block(this@ArukuDatabase)
