@@ -270,6 +270,7 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
+        return START_STICKY
 
         if (ArukuApplication.initialized.get()) {
             launch {
@@ -445,13 +446,13 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
         } + SupervisorJob()) {
             val scopedEventChannel = bot.eventChannel.parentScope(this)
 
-            onlineEventSubscriber = scopedEventChannel.subscribe<BotOnlineEvent> { event ->
+            onlineEventSubscriber = scopedEventChannel.subscribe { event ->
                 logger.i("bot ${event.bot.id} login success.")
                 stateChannel.send(AccountState.Online(event.bot.id))
                 if (event.bot.isActive) ListeningStatus.LISTENING else ListeningStatus.STOPPED
             }
 
-            offlineEventSubscriber = scopedEventChannel.subscribe<BotOfflineEvent> { event ->
+            offlineEventSubscriber = scopedEventChannel.subscribe { event ->
                 val message: String
                 var stopSubscription = false
 
@@ -592,7 +593,7 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
                             senderName = event.sender.nameCardOrNick,
                             messageId = event.message.source.calculateMessageId(),
                             message = messageElements,
-                            time = event.time
+                            time = event.time.toLong() * 1000 + (System.currentTimeMillis() % 1000)
                         )
                     )
                     // update message preview
@@ -675,6 +676,7 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
         }
         launch {
             closeBotAndJoin(account)
+            stateChannel.send(AccountState.Offline(account, OfflineCause.SUBJECTIVE, null))
 
             database.suspendIO { accounts().setManuallyOffline(account, true) }
 
@@ -764,7 +766,7 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
                                     from = chain.source.fromId,
                                     messageId = chain.source.calculateMessageId(),
                                     seq = chain.source.ids.first(),
-                                    time = chain.source.time,
+                                    time = chain.source.time.toLong() * 1000,
                                     message = chain.toMessageElements(group)
                                 )
                             }

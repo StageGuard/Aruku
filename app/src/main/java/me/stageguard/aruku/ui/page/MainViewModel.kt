@@ -8,7 +8,11 @@ import androidx.lifecycle.viewModelScope
 import com.heyanle.okkv2.core.Okkv
 import com.heyanle.okkv2.core.okkv
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import me.stageguard.aruku.ArukuApplication
@@ -17,6 +21,7 @@ import me.stageguard.aruku.domain.MainRepository
 import me.stageguard.aruku.service.bridge.LoginSolverBridge
 import me.stageguard.aruku.service.parcel.AccountLoginData
 import me.stageguard.aruku.service.parcel.AccountState
+import me.stageguard.aruku.ui.UiState
 import me.stageguard.aruku.ui.page.login.CaptchaType
 import me.stageguard.aruku.ui.page.login.LoginState
 import me.stageguard.aruku.util.createAndroidLogger
@@ -30,6 +35,7 @@ class MainViewModel(
 ) : ViewModel() {
     private val logger = createAndroidLogger("MainViewModel")
 
+    @UiState
     val activeAccountPref = okkv.okkv<Long>("pref_active_bot")
 
     private val additionalStateProducer = Channel<Pair<Long, UIAccountState>>()
@@ -57,6 +63,7 @@ class MainViewModel(
     // TODO: maybe we should change _accountList to List<AccountState>
     // so we can control all account state in service,
     // and just receive at here
+    @UiState
     val accountsState: Flow<Map<Long, UIAccountState>> =
         serviceAccountStateFlow
             .flowWithLifecycle(composableLifecycleOwner.lifecycle)

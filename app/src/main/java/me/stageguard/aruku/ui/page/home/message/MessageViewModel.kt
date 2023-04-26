@@ -8,17 +8,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.cancellable
-import kotlinx.coroutines.flow.channelFlow
-import kotlinx.coroutines.flow.consumeAsFlow
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import me.stageguard.aruku.database.LoadState
 import me.stageguard.aruku.database.mapOk
 import me.stageguard.aruku.domain.MainRepository
 import me.stageguard.aruku.service.parcel.ArukuContact
+import me.stageguard.aruku.ui.UiState
 import me.stageguard.aruku.util.tag
 import net.mamoe.mirai.utils.Either
 
@@ -31,6 +27,7 @@ class MessageViewModel(
 ) : ViewModel() {
     private val currentBotChannel = Channel<Long?>()
 
+    @UiState
     val messages: StateFlow<LoadState<List<SimpleMessagePreview>>> =
         channelFlow {
             val currentBotFlow = currentBotChannel.consumeAsFlow()

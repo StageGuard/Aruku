@@ -3,10 +3,11 @@ package me.stageguard.aruku.ui.page.chat
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.rememberNavController
@@ -65,153 +66,222 @@ fun ChatView(
 ) {
     val systemUiController = LocalSystemUiController.current
 
-    val backgroundColor = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp)
-    val navigationContainerColor =
-        MaterialTheme.colorScheme.surfaceColorAtElevation(4.dp).copy(alpha = 0.95f)
-    val topAppBarColors = TopAppBarDefaults.topAppBarColors(
-        containerColor = backgroundColor,
-        scrolledContainerColor = navigationContainerColor
-    )
+    val backgroundColor = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp).copy(alpha = 0.95f)
+    val navigationContainerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(4.dp).copy(alpha = 0.95f)
+    val topAppBarColors = TopAppBarDefaults.topAppBarColors(containerColor = backgroundColor)
+
+    val scrollState = TopAppBarDefaults.pinnedScrollBehavior()
 
     SideEffect {
-        systemUiController.setNavigationBarColor(navigationContainerColor.copy(0.13f))
-        systemUiController.setStatusBarColor(backgroundColor.copy(0.13f))
+        systemUiController.setNavigationBarColor(navigationContainerColor.copy(alpha = 0.13f))
+        systemUiController.setStatusBarColor(backgroundColor.copy(alpha = 0.13f))
     }
 
-    Scaffold(
-        modifier = Modifier
-            .statusBarsPadding()
-            .navigationBarsPadding()
-            .imePadding(),
-        topBar = {
-            TopAppBar(
-                navigationIcon = { ArrowBack() },
-                title = {
-                    ChatTitleBar(
-                        name = subjectName,
-                        avatarData = subjectAvatar,
+    Box(modifier = Modifier.fillMaxSize()) {
+        Surface(
+            color = MaterialTheme.colorScheme.surface,
+            modifier = Modifier.fillMaxSize()
+        ) {
+            Scaffold(
+                modifier = Modifier
+                    .imePadding()
+                    .nestedScroll(scrollState.nestedScrollConnection),
+                containerColor = Color.Transparent,
+                contentWindowInsets = WindowInsets.systemBars.add(WindowInsets.navigationBars),
+                topBar = {
+                    TopAppBar(
+                        navigationIcon = { ArrowBack() },
+                        title = {
+                            ChatTitleBar(
+                                name = subjectName,
+                                avatarData = subjectAvatar,
+                            )
+                        },
+                        actions = { ChatTopActions() },
+                        colors = topAppBarColors,
+                        scrollBehavior = scrollState
                     )
                 },
-                actions = { ChatTopActions() },
-                colors = topAppBarColors
-            )
-        },
-        bottomBar = {
-            BottomAppBar(Modifier.height(60.dp)) {
-                ChatBar()
+                bottomBar = {
+                    val systemNavPadding = WindowInsets.navigationBars.asPaddingValues()
+                    BottomAppBar(
+                        windowInsets = WindowInsets.navigationBars,
+                        containerColor = navigationContainerColor,
+                        modifier = Modifier.height(systemNavPadding.calculateBottomPadding() + 60.dp)
+                    ) {
+                        ChatBar()
+                    }
+                }
+            ) { paddingValues ->
+                ChatListView(
+                    chatList = messages,
+                    audioStatus = audioStatus,
+                    lazyListState = listState,
+                    paddingValues = paddingValues,
+                    onRegisterAudioStatusListener = onRegisterAudioStatusListener,
+                    onUnRegisterAudioStatusListener = onUnRegisterAudioStatusListener
+                )
             }
         }
-    ) { paddingValues ->
-        ChatListView(
-            chatList = messages,
-            audioStatus = audioStatus,
-            lazyListState = listState,
-            paddingValues = paddingValues,
-            onRegisterAudioStatusListener = onRegisterAudioStatusListener,
-            onUnRegisterAudioStatusListener = onUnRegisterAudioStatusListener
-        )
     }
 }
 
 @Composable
 @Preview
 fun ChatViewPreview() {
-    ArukuTheme {
-        CompositionLocalProvider(
-            LocalBot provides 202746796,
-            LocalNavController provides rememberNavController(),
-            LocalSystemUiController provides rememberSystemUiController()
-        ) {
-            val state = rememberLazyListState()
-            val randSrcId = { IntRange(0, 100000).random() }
+    CompositionLocalProvider(
+        LocalSystemUiController provides rememberSystemUiController()
+    ) {
+        ArukuTheme {
+            CompositionLocalProvider(
+                LocalBot provides 202746796,
+                LocalNavController provides rememberNavController(),
+            ) {
+                val state = rememberLazyListState()
+                val randSrcId = { IntRange(0, 100000).random() }
 
-            val list = listOf(
-                ChatElement.DateDivider("Jan 4, 2023"),
-                ChatElement.Notification("XXX toggled mute all", listOf()),
-                ChatElement.Message(
-                    senderId = 1355416608L,
-                    senderName = "StageGuard",
-                    senderAvatarUrl = "https://stageguard.top/img/avatar.png",
-                    time = "11:45:14",
-                    messageId = randSrcId(),
-                    visibleMessages = listOf(
-                        VisibleChatMessage.PlainText("1")
+                val list = listOf(
+                    ChatElement.DateDivider("Jan 4, 2023"),
+                    ChatElement.Notification("XXX toggled mute all", listOf()),
+                    ChatElement.Message(
+                        senderId = 1355416608L,
+                        senderName = "StageGuard",
+                        senderAvatarUrl = "https://stageguard.top/img/avatar.png",
+                        time = "11:45",
+                        messageId = randSrcId(),
+                        visibleMessages = listOf(
+                            VisibleChatMessage.PlainText("1")
+                        ),
                     ),
-                ),
-                ChatElement.Message(
-                    senderId = 1355416608L,
-                    senderName = "StageGuard",
-                    senderAvatarUrl = "https://stageguard.top/img/avatar.png",
-                    time = "11:45:14",
-                    messageId = randSrcId(),
-                    visibleMessages = listOf(
-                        VisibleChatMessage.PlainText("compose chat list view preview")
+                    ChatElement.Message(
+                        senderId = 1355416608L,
+                        senderName = "StageGuard",
+                        senderAvatarUrl = "https://stageguard.top/img/avatar.png",
+                        time = "11:45",
+                        messageId = randSrcId(),
+                        visibleMessages = listOf(
+                            VisibleChatMessage.PlainText("compose chat list view preview")
+                        ),
                     ),
-                ),
-                ChatElement.Message(
-                    senderId = 1355416608L,
-                    senderName = "StageGuard",
-                    senderAvatarUrl = "https://stageguard.top/img/avatar.png",
-                    time = "11:45:14",
-                    messageId = randSrcId(),
-                    visibleMessages = listOf(
-                        VisibleChatMessage.PlainText(buildString { repeat(20) { append("long message! ") } })
+                    ChatElement.Message(
+                        senderId = 1355416608L,
+                        senderName = "StageGuard",
+                        senderAvatarUrl = "https://stageguard.top/img/avatar.png",
+                        time = "11:45",
+                        messageId = randSrcId(),
+                        visibleMessages = listOf(
+                            VisibleChatMessage.PlainText(buildString { repeat(20) { append("long message! ") } })
+                        ),
                     ),
-                ),
-                ChatElement.Message(
-                    senderId = 3129693328L,
-                    senderName = "WhichWho",
-                    senderAvatarUrl = "https://q1.qlogo.cn/g?b=qq&nk=3129693328&s=0&timestamp=1673582758562",
-                    time = "11:45:14",
-                    messageId = randSrcId(),
-                    visibleMessages = listOf(
-                        VisibleChatMessage.Face(1),
-                        VisibleChatMessage.Face(10),
-                        VisibleChatMessage.PlainText("<- this is face.")
+                    ChatElement.Message(
+                        senderId = 3129693328L,
+                        senderName = "WhichWho",
+                        senderAvatarUrl = "https://q1.qlogo.cn/g?b=qq&nk=3129693328&s=0&timestamp=1673582758562",
+                        time = "11:45",
+                        messageId = randSrcId(),
+                        visibleMessages = listOf(
+                            VisibleChatMessage.Face(1),
+                            VisibleChatMessage.Face(10),
+                            VisibleChatMessage.PlainText("<- this is face.")
+                        ),
                     ),
-                ),
-                ChatElement.Message(
-                    senderId = 202746796L,
-                    senderName = "SIGTERM",
-                    senderAvatarUrl = "",
-                    time = "11:45:14",
-                    messageId = randSrcId(),
-                    visibleMessages = listOf(
-                        VisibleChatMessage.Image("https://gchat.qpic.cn/gchatpic_new/2591482572/2079312506-2210827314-3599E59C0E36C66A966F4DD2E28C4341/0?term=255&is_origin=0")
+                    ChatElement.Message(
+                        senderId = 202746796L,
+                        senderName = "SIGTERM",
+                        senderAvatarUrl = "https://q1.qlogo.cn/g?b=qq&nk=202746796&s=0&timestamp=1682467820331",
+                        time = "11:45",
+                        messageId = randSrcId(),
+                        visibleMessages = listOf(
+                            VisibleChatMessage.Image("https://gchat.qpic.cn/gchatpic_new/2591482572/2079312506-2210827314-3599E59C0E36C66A966F4DD2E28C4341/0?term=255&is_origin=0")
+                        ),
                     ),
-                ),
-                ChatElement.Message(
-                    senderId = 202746796L,
-                    senderName = "SIGTERM",
-                    senderAvatarUrl = "",
-                    time = "11:45:14",
-                    messageId = randSrcId(),
-                    visibleMessages = listOf(
-                        VisibleChatMessage.At(3129693328L, "WhichWho"),
-                        VisibleChatMessage.PlainText(" this is my error log"),
-                        VisibleChatMessage.Image("https://mirai.mamoe.net/assets/uploads/files/1672243675745-ece9effe-c9eb-4bcb-aba1-529e6f0c5f49-image.png")
+                    ChatElement.Message(
+                        senderId = 202746796L,
+                        senderName = "SIGTERM",
+                        senderAvatarUrl = "https://q1.qlogo.cn/g?b=qq&nk=202746796&s=0&timestamp=1682467820331",
+                        time = "11:45",
+                        messageId = randSrcId(),
+                        visibleMessages = listOf(
+                            VisibleChatMessage.At(3129693328L, "WhichWho"),
+                            VisibleChatMessage.PlainText(" this is my error log"),
+                            VisibleChatMessage.Image("https://mirai.mamoe.net/assets/uploads/files/1672243675745-ece9effe-c9eb-4bcb-aba1-529e6f0c5f49-image.png")
 
+                        ),
                     ),
-                ),
-                ChatElement.Message(
-                    senderId = 1425419431,
-                    senderName = "ojhdt",
-                    senderAvatarUrl = "https://q1.qlogo.cn/g?b=qq&nk=1425419431&s=0&timestamp=1681953695785",
-                    time = "12:11",
-                    messageId = randSrcId(),
-                    visibleMessages = listOf(
-                        VisibleChatMessage.Image("https://mirai.mamoe.net/assets/uploads/files/1681003756440-4cebadd6-5a24-40f3-af47-f8a010738af1-r-8-z13_q_p-7yz-on-ah.jpg")
+                    ChatElement.Message(
+                        senderId = 1425419431,
+                        senderName = "ojhdt",
+                        senderAvatarUrl = "https://q1.qlogo.cn/g?b=qq&nk=1425419431&s=0&timestamp=1681953695785",
+                        time = "12:11",
+                        messageId = randSrcId(),
+                        visibleMessages = listOf(
+                            VisibleChatMessage.Image("https://mirai.mamoe.net/assets/uploads/files/1681003756440-4cebadd6-5a24-40f3-af47-f8a010738af1-r-8-z13_q_p-7yz-on-ah.jpg")
+                        ),
                     ),
-                ),
-            )
+                    ChatElement.Message(
+                        senderId = 1425419431,
+                        senderName = "ojhdt",
+                        senderAvatarUrl = "https://q1.qlogo.cn/g?b=qq&nk=1425419431&s=0&timestamp=1681953695785",
+                        time = "12:12",
+                        messageId = randSrcId(),
+                        visibleMessages = listOf(
+                            VisibleChatMessage.PlainText("testestestestestestestestestestestestestestestestestestestestestestestestestest")
+                        ),
+                    ),
+                    ChatElement.Message(
+                        senderId = 1425419431,
+                        senderName = "ojhdt",
+                        senderAvatarUrl = "https://q1.qlogo.cn/g?b=qq&nk=1425419431&s=0&timestamp=1681953695785",
+                        time = "12:12",
+                        messageId = randSrcId(),
+                        visibleMessages = listOf(
+                            VisibleChatMessage.PlainText("testestestestestestestestestestestestestestestestestestest")
+                        ),
+                    ),
+                    ChatElement.Message(
+                        senderId = 202746796L,
+                        senderName = "SIGTERM",
+                        senderAvatarUrl = "https://q1.qlogo.cn/g?b=qq&nk=202746796&s=0&timestamp=1682467820331",
+                        time = "11:45",
+                        messageId = randSrcId(),
+                        visibleMessages = listOf(
+                            VisibleChatMessage.At(3129693328L, "WhichWho"),
+                            VisibleChatMessage.PlainText(" this is my error log"),
+                            VisibleChatMessage.Image("https://mirai.mamoe.net/assets/uploads/files/1672243675745-ece9effe-c9eb-4bcb-aba1-529e6f0c5f49-image.png")
 
-            ChatView(subjectName = "Group1",
-                subjectAvatar = "https://q1.qlogo.cn/g?b=qq&nk=3129693328&s=0&timestamp=1673582758562",
-                messages = flow { emit(PagingData.from(list.asReversed())) }.collectAsLazyPagingItems(),
-                audioStatus = mapOf(),
-                listState = state,
-                {}, {}
-            )
+                        ),
+                    ),
+                    ChatElement.Message(
+                        senderId = 1425419431,
+                        senderName = "ojhdt",
+                        senderAvatarUrl = "https://q1.qlogo.cn/g?b=qq&nk=1425419431&s=0&timestamp=1681953695785",
+                        time = "12:12",
+                        messageId = randSrcId(),
+                        visibleMessages = listOf(
+                            VisibleChatMessage.PlainText("testestestestestestestestestestestest")
+                        ),
+                    ),
+                    ChatElement.Message(
+                        senderId = 1425419431,
+                        senderName = "ojhdt",
+                        senderAvatarUrl = "https://q1.qlogo.cn/g?b=qq&nk=1425419431&s=0&timestamp=1681953695785",
+                        time = "12:12",
+                        messageId = randSrcId(),
+                        visibleMessages = listOf(
+                            VisibleChatMessage.PlainText("testestestestestestestestestest")
+                        ),
+                    ),
+                )
+
+                ChatView(subjectName = "Group1",
+                    subjectAvatar = "https://q1.qlogo.cn/g?b=qq&nk=3129693328&s=0&timestamp=1673582758562",
+                    messages = flow { emit(PagingData.from(list.asReversed())) }.collectAsLazyPagingItems(),
+                    audioStatus = mapOf(),
+                    listState = state,
+                    {}, {}
+                )
+            }
         }
     }
+
 }

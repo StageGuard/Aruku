@@ -4,7 +4,6 @@ import android.content.Context
 import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.text.ClickableText
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -29,10 +28,11 @@ fun PlainText(
     Text(
         text = element.content,
         modifier = modifier,
-        style = MaterialTheme.typography.bodyLarge.copy(
-            color = LocalContentColor.current
-        ),
-        lineHeight = 22.sp
+        style = MaterialTheme.typography.bodyLarge,
+        lineHeight = 22.sp,
+        onTextLayout = {
+
+        }
     )
 }
 

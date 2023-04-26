@@ -44,6 +44,7 @@ class AudioCache(
 
     override val coroutineContext: CoroutineContext = context + SupervisorJob()
 
+    // only runs in main dispatcher
     @OptIn(ExperimentalCoroutinesApi::class)
     fun attachListener(fileMd5: String, listener: AudioStatusListener) {
         stateListeners[fileMd5] = listener
@@ -57,14 +58,14 @@ class AudioCache(
         val job = launch(start = CoroutineStart.LAZY) {
             runCatching {
                 if (resolveCacheFile(fileMd5).md5.uppercase().contentEquals(fileMd5)) {
-                    withContext(Dispatchers.Main) { stateListeners[fileMd5]?.onState(State.Ready) }
+                    stateListeners[fileMd5]?.onState(State.Ready)
                     return@launch
                 }
             }.onFailure {
                 if (it is FileNotFoundException && downloadJobs[fileMd5] == null) {
                     logger.i("observing audio $fileMd5 which is not cached, starting caching job.")
                     val url = database.suspendIO { audioUrls().getAudioUrl(fileMd5).firstOrNull()?.url }
-                    if(url != null) withContext(Dispatchers.Main) { appendDownloadJob(fileMd5, url) }
+                    if(url != null) appendDownloadJob(fileMd5, url)
                     return@onFailure
                 }
 
@@ -74,20 +75,23 @@ class AudioCache(
             while (isActive) { // cancel listener job when listener is detached.
                 stateListeners[fileMd5]?.onState(State.Preparing(0.0))
 
-                val currDownloadJob = suspendCancellableCoroutine {
-                    var downloadJob: DownloadJob? = downloadJobs[fileMd5]
-                    while (downloadJob == null) { downloadJob = downloadJobs[fileMd5] }
-                    it.resume(downloadJob, null)
+                val currDownloadJob = withContext(Dispatchers.IO) {
+                    suspendCancellableCoroutine {
+                        var downloadJob: DownloadJob? = downloadJobs[fileMd5]
+                        while (downloadJob == null) { downloadJob = downloadJobs[fileMd5] }
+                        it.resume(downloadJob, null)
+                    }
                 }
 
                 val currListener = stateListeners[fileMd5]
                 if (currListener != null) {
-                    withContext(Dispatchers.Main) { currListener.onState(currDownloadJob.state.value) }
-                    currDownloadJob.stateChannel.consumeAsFlow().cancellable().collect {
-                        withContext(Dispatchers.Main) { currListener.onState(it) }
-                    }
-                }
+                    currListener.onState(currDownloadJob.state.value)
+                    currDownloadJob.stateChannel
+                        .consumeAsFlow()
+                        .cancellable().
+                        collect { currListener.onState(it) }
 
+                }
             }
         }
 

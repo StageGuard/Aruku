@@ -20,8 +20,7 @@ sealed interface MessageElement : Parcelable {
 
 fun MessageSource.calculateMessageId(): Int {
     return arrayOf<Any>(time, fromId, targetId, *ids.toTypedArray())
-        .map { it.hashCode() }
-        .foldRight(botId.hashCode()) { hash, acc -> 31 * acc + hash }
+        .foldRight(botId.hashCode()) { prop, acc -> 31 * acc + prop.hashCode() }
 }
 
 @OptIn(MiraiExperimentalApi::class)
@@ -30,12 +29,7 @@ suspend fun MessageChain.toMessageElements(contact: Contact? = null): List<Messa
         this@toMessageElements.filterNot { it is MessageSource }.forEach { m ->
             when (m) {
                 is net.mamoe.mirai.message.data.At -> {
-                    add(
-                        At(
-                            m.target,
-                            m.getDisplay(contact as? Group)
-                        )
-                    )
+                    add(At(m.target, m.getDisplay(contact as? Group)))
                 }
 
                 is net.mamoe.mirai.message.data.AtAll -> AtAll

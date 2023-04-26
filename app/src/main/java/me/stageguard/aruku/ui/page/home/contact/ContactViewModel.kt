@@ -14,6 +14,7 @@ import me.stageguard.aruku.database.mapOk
 import me.stageguard.aruku.domain.MainRepository
 import me.stageguard.aruku.service.parcel.ArukuContact
 import me.stageguard.aruku.service.parcel.ArukuContactType
+import me.stageguard.aruku.ui.UiState
 
 /**
  * Created by LoliBall on 2022/12/31 17:13.
@@ -25,6 +26,7 @@ class ContactViewModel(
 ) : ViewModel() {
     private val contactUpdateFlow = MutableStateFlow(0L)
 
+    @UiState
     val groups: StateFlow<LoadState<List<SimpleContactData>>> =
         repository.getGroups(bot).mapOk { data ->
             data.map {
@@ -39,6 +41,7 @@ class ContactViewModel(
             }
         }.stateIn(viewModelScope, SharingStarted.Lazily, LoadState.Loading())
 
+    @UiState
     val friends: StateFlow<LoadState<List<SimpleContactData>>> =
         repository.getFriends(bot).mapOk { data ->
             data.map {

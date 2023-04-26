@@ -31,7 +31,7 @@ private val patternMMdd by lazy {
 }
 
 fun Long.toFormattedTime(): String = patternHHmm.format(
-    LocalDateTime.ofEpochSecond(this@toFormattedTime, 0, zoneOffset)
+    LocalDateTime.ofEpochSecond(this@toFormattedTime / 1000, 0, zoneOffset)
 )
 
 @Composable

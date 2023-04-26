@@ -5,15 +5,12 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.core.view.WindowCompat
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
@@ -48,11 +45,7 @@ class MainActivity : ComponentActivity() {
             val focusManager = LocalFocusManager.current
             val systemUiController = rememberSystemUiController(window)
             val serviceConnected = serviceConnector.connected.observeAsState(false)
-            val isDarkTheme = isSystemInDarkTheme()
             ArukuTheme {
-                SideEffect {
-                    systemUiController.setStatusBarColor(Color.Transparent, isDarkTheme)
-                }
                 Box(
                     modifier = Modifier
                         .clickable(

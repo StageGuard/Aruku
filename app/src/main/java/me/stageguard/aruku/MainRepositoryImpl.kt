@@ -242,7 +242,7 @@ class MainRepositoryImpl(
         return Pager(
             config = PagingConfig(
                 pageSize = 20,
-                prefetchDistance = 40,
+                prefetchDistance = 20,
                 initialLoadSize = 40,
                 enablePlaceholders = false
             ),

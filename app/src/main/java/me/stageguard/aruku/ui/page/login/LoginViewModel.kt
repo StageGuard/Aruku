@@ -5,12 +5,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import me.stageguard.aruku.domain.MainRepository
 import me.stageguard.aruku.service.parcel.AccountLoginData
+import me.stageguard.aruku.ui.UiState
 import net.mamoe.mirai.utils.BotConfiguration
 import net.mamoe.mirai.utils.secondsToMillis
 
 class LoginViewModel(
     private val repository: MainRepository
 ) : ViewModel() {
+    @UiState
     val accountInfo: MutableState<AccountLoginData> by lazy {
         mutableStateOf(
             AccountLoginData(

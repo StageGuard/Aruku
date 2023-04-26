@@ -73,6 +73,7 @@ dependencies {
     implementation "androidx.compose.runtime:runtime-livedata:$compose_version"
     implementation 'androidx.compose.material3:material3:1.1.0-alpha07'
     implementation 'androidx.paging:paging-compose:1.0.0-alpha18'
+    implementation "androidx.constraintlayout:constraintlayout-compose:1.0.1"
 
     // jetpack lifecycle
     implementation "androidx.lifecycle:lifecycle-runtime-ktx:$lifecycle_version"

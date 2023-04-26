@@ -7,7 +7,6 @@ import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.with
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -102,7 +101,6 @@ private fun HomeView(
                     .fillMaxSize()
                     .nestedScroll(scrollState.nestedScrollConnection),
                 containerColor = Color.Transparent,
-                contentWindowInsets = WindowInsets(0.dp, 0.dp, 0.dp, 0.dp),
                 topBar = {
                     HomeTopAppBar(
                         title = currNavPage.label.stringResC,

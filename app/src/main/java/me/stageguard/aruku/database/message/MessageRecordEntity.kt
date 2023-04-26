@@ -31,6 +31,6 @@ data class MessageRecordEntity(
     @ColumnInfo(name = "sender") val sender: Long,
     @ColumnInfo(name = "sender_name") val senderName: String,
     @PrimaryKey @ColumnInfo(name = "message_id") val messageId: Int,
-    @ColumnInfo(name = "time") val time: Int,
+    @ColumnInfo(name = "time") val time: Long,
     @ColumnInfo(name = "message") val message: List<MessageElement>,
 ) : Parcelable

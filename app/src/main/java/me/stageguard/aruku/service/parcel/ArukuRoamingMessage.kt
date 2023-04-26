@@ -10,7 +10,7 @@ data class ArukuRoamingMessage(
     val from: Long,
     val messageId: Int,
     val seq: Int,
-    val time: Int,
+    val time: Long,
     val message: List<MessageElement>
 ) : Parcelable {
     companion object {

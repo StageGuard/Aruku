@@ -1,14 +1,13 @@
 package me.stageguard.aruku.ui.page.chat
 
 import android.content.Context
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,7 +15,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.paddingFrom
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -33,10 +33,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.LastBaseline
+import androidx.compose.ui.layout.layoutId
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.constraintlayout.compose.ConstraintLayout
+import androidx.constraintlayout.compose.ConstraintSet
 import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.itemsIndexed
 import coil.compose.AsyncImage
@@ -76,8 +79,13 @@ fun ChatListView(
             itemsIndexed(chatList, { _, element -> element.uniqueKey }) { index, element ->
                 when (element) {
                     is ChatElement.Message -> {
-                        val nextSentByCurrent =
+                        val lastSentByCurrent =
                             if (index + 1 >= chatList.itemCount) false else chatList[index + 1].run {
+                                this is ChatElement.Message && this.senderId == element.senderId
+                            }
+
+                        val nextSentByCurrent =
+                            if (index == 0) false else chatList[index - 1].run {
                                 this is ChatElement.Message && this.senderId == element.senderId
                             }
 
@@ -88,20 +96,27 @@ fun ChatListView(
                             onUnregister = onUnRegisterAudioStatusListener
                         )
 
+                        val sentByBot = element.senderId == bot
                         Message(
                             context = context,
                             messageId = element.messageId,
                             senderId = element.senderId,
                             senderName = element.senderName,
-                            senderAvatarData = element.senderAvatarUrl,
-                            sentByBot = element.senderId == bot,
-                            showSender = !nextSentByCurrent,
+                            senderAvatar = element.senderAvatarUrl,
+                            isAlignmentStart = !sentByBot,
+                            primarySender = sentByBot,
+                            showAvatar = true/*!lastSentByCurrent && !sentByBot*/,
+                            occupyAvatarSpace = true/*!sentByBot*/,
+                            showSender = true/*!lastSentByCurrent && !sentByBot*/,
+                            topCorner = true/*!lastSentByCurrent*/,
+                            bottomCorner = true/*!nextSentByCurrent*/,
+                            startCorner = true/*sentByBot*/,
                             time = element.time,
                             messages = element.visibleMessages,
                             audioStatus = audio?.run { audioStatus[identity] },
                             modifier = Modifier.padding(
                                 horizontal = 10.dp,
-                                vertical = if (nextSentByCurrent) 2.dp else 5.dp
+                                vertical = if (nextSentByCurrent || lastSentByCurrent) 2.dp else 5.dp
                             ),
                             onClickAvatar = { }
                         )
@@ -128,93 +143,168 @@ private fun Message(
     messageId: Int,
     senderId: Long,
     senderName: String,
-    senderAvatarData: Any?,
-    sentByBot: Boolean,
+    senderAvatar: Any?,
+    isAlignmentStart: Boolean, // align layout to left (avatar|message) if true
+    primarySender: Boolean,
+    showAvatar: Boolean, // show avatar if true
+    occupyAvatarSpace: Boolean, // set a empty space as place holder of avatar if !showAvatar
     showSender: Boolean,
+    topCorner: Boolean,
+    bottomCorner: Boolean,
+    startCorner: Boolean, // start corner if true or else end corner of message content
     time: String,
     messages: List<VisibleChatMessage>,
     audioStatus: ChatAudioStatus?,
     modifier: Modifier = Modifier,
     onClickAvatar: (Long) -> Unit,
 ) {
+    val avatarSize = 45.dp
+    /*Column(modifier = Modifier.fillMaxWidth()) {
+        @Composable
+        fun RowScope.AvatarOrPlaceHolder(modifier: Modifier = Modifier) {
+            val layoutModifier =
 
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .align(if (!sentByBot) Alignment.Start else Alignment.End)
-                .then(modifier)
-        ) {
-            if (!sentByBot) { // avatar
-                val avatarModifier = Modifier
-                    .padding(end = 10.dp)
-                    .size(42.dp)
-                    .align(Alignment.Top)
-                if (showSender) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(context).data(senderAvatarData).crossfade(true)
-                            .build(),
-                        contentDescription = "avatar of $senderId",
-                        modifier = avatarModifier
-                            .clickable { onClickAvatar(senderId) }
-                            .border(1.5.dp, MaterialTheme.colorScheme.primary, CircleShape)
-                            .border(3.dp, MaterialTheme.colorScheme.surface, CircleShape)
-                            .clip(CircleShape)
-                            .then(Modifier.align(Alignment.Top)),
-                        contentScale = ContentScale.Crop,
-                    )
-                } else {
-                    Spacer(modifier = Modifier.align(Alignment.Top))
-                }
+            if (showAvatar) {
+
+            } else if (occupyAvatarSpace) {
+                Spacer(modifier = modifier.then(layoutModifier))
+            }
+        }
+
+        @Composable
+        fun RowScope.SenderInfoAndMessageContent() {
+            @Composable
+            fun RowScope.SenderName() {
+
             }
 
-            // message content
-            Column(
-                modifier = Modifier
-                    .padding(
-                        start = if (!sentByBot && !showSender) 52.dp else (if (sentByBot) 26.dp else 0.dp),
-                        end = if (sentByBot) 0.dp else 26.dp
-                    )
-                    .wrapContentSize()
-            ) {
-                if (!sentByBot && showSender) {
-                    Text(
-                        text = senderName,
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontWeight = FontWeight.SemiBold
-                        ),
-                        modifier = Modifier
-                            .align(Alignment.Start)
-                            .paddingFrom(LastBaseline, after = 8.dp)
-                            .padding(top = 3.dp, bottom = 3.dp)
-                    )
-                }
-                Surface(
-                    color = if (sentByBot) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.surfaceVariant
-                    },
-                    shape = RoundedCornerShape(
-                        if (sentByBot) 20.dp else 4.dp,
-                        if (sentByBot) 4.dp else 20.dp,
-                        20.dp,
-                        20.dp
-                    )
+            @Composable
+            fun RowScope.SenderIdentity() {
+                //Text(text =) // TODO: 管理员，群主之类的标识
+            }
 
-                ) {
-                    RichMessage(
-                        list = messages,
-                        audioStatus = audioStatus,
-                        time = time,
-                        context = context,
-                        sentByBot = sentByBot,
-                        modifier = Modifier
-                            .wrapContentSize()
-                            .defaultMinSize(40.dp)
+            Column {
+                if(showSender) {
+                    Row(modifier = Modifier
+                        .align(if (isAlignmentStart) Alignment.Start else Alignment.End)
+                        .padding(
+                            start = if (isAlignmentStart) 5.dp else 0.dp,
+                            end = if (!isAlignmentStart) 5.dp else 0.dp
+                        )
                     ) {
-
+                        if (isAlignmentStart) {
+                            SenderName()
+                            SenderIdentity()
+                        } else {
+                            SenderIdentity()
+                            SenderName()
+                        }
                     }
                 }
+
+            }
+        }
+
+        Row(
+            modifier = modifier
+                .align(if (isAlignmentStart) Alignment.Start else Alignment.End)
+                .padding(
+                    start = if (isAlignmentStart) 0.dp else 30.dp,
+                    end = if (!isAlignmentStart) 0.dp else 30.dp,
+                )
+        ) {
+            if (isAlignmentStart) {
+                AvatarOrPlaceHolder()
+                SenderInfoAndMessageContent()
+            } else {
+                SenderInfoAndMessageContent()
+                AvatarOrPlaceHolder()
+            }
+        }
+    }*/
+    BoxWithConstraints(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        val constraintSet = ConstraintSet {
+            val avatarRef = createRefFor("avatar")
+            val senderNameRef = createRefFor("senderName")
+            //val senderIdentityRef = createRefFor("senderIdentity")
+            val messageContentRef = createRefFor("messageContent")
+
+            constrain(avatarRef) {
+                top.linkTo(parent.top)
+                if (isAlignmentStart) start.linkTo(parent.start)
+                if (!isAlignmentStart) end.linkTo(parent.end)
+            }
+            constrain(senderNameRef) {
+                top.linkTo(parent.top)
+                if (isAlignmentStart) start.linkTo(
+                    anchor = if (showAvatar) avatarRef.end else parent.start,
+                    margin = if (showAvatar) 6.dp else if (occupyAvatarSpace) (avatarSize + 6.dp) else 0.dp
+                )
+                if (!isAlignmentStart) end.linkTo(
+                    if (showAvatar) avatarRef.start else parent.end,
+                    margin = if (showAvatar) 6.dp else if (occupyAvatarSpace) (avatarSize + 6.dp) else 0.dp
+                )
+            }
+            constrain(messageContentRef) {
+                top.linkTo(
+                    if(showSender) senderNameRef.bottom else parent.top,
+                    if(showSender) 5.dp else 0.dp
+                )
+                if (isAlignmentStart) start.linkTo(
+                    anchor = if (showAvatar) avatarRef.end else parent.start,
+                    margin = if (showAvatar) 6.dp else if (occupyAvatarSpace) (avatarSize + 6.dp) else 0.dp
+                )
+                if (!isAlignmentStart) end.linkTo(
+                    if (showAvatar) avatarRef.start else parent.end,
+                    margin = if (showAvatar) 6.dp else if (occupyAvatarSpace) (avatarSize + 6.dp) else 0.dp
+                )
+            }
+        }
+
+        ConstraintLayout(
+            constraintSet = constraintSet,
+            modifier = Modifier.fillMaxWidth().wrapContentHeight()
+        ) {
+            AsyncImage(
+                model = ImageRequest.Builder(context).data(senderAvatar).crossfade(true)
+                    .build(),
+                contentDescription = "avatar of $senderId",
+                modifier = Modifier
+                    .layoutId("avatar")
+                    .size(avatarSize)
+                    .clip(CircleShape)
+                    .clickable { onClickAvatar(senderId) },
+                contentScale = ContentScale.Crop,
+            )
+            Text(
+                text = senderName,
+                style = MaterialTheme.typography.bodyMedium
+                    .copy(fontWeight = FontWeight.SemiBold),
+                modifier = Modifier
+                    .layoutId("senderName")
+                    .paddingFrom(LastBaseline, after = 8.dp)
+            )
+            Surface(
+                color = MaterialTheme.colorScheme.run { if (primarySender) primary else surfaceVariant },
+                shape = RoundedCornerShape(
+                    if (startCorner) 12.dp else if (topCorner) 12.dp else 4.dp,
+                    if (!startCorner) 12.dp else if (topCorner) 12.dp else 4.dp,
+                    if (!startCorner) 12.dp else if (bottomCorner) 12.dp else 4.dp,
+                    if (startCorner) 12.dp else if (bottomCorner) 12.dp else 4.dp,
+                ),
+                modifier = Modifier.layoutId("messageContent").wrapContentWidth()
+            ) {
+                RichMessage(
+                    list = messages,
+                    audioStatus = audioStatus,
+                    time = time,
+                    context = context,
+                    primarySender = primarySender,
+                    modifier = Modifier.defaultMinSize(40.dp),
+                    onClickAnnotated = { }
+                )
             }
         }
     }
@@ -226,7 +316,7 @@ private fun RichMessage(
     audioStatus: ChatAudioStatus?,
     time: String,
     context: Context,
-    sentByBot: Boolean,
+    primarySender: Boolean,
     modifier: Modifier = Modifier,
     onClickAnnotated: (VisibleChatMessage) -> Unit,
 ) {
@@ -241,7 +331,7 @@ private fun RichMessage(
                 text = time,
                 modifier = Modifier.padding(textPadding),
                 style = MaterialTheme.typography.bodySmall.copy(
-                    color = if (sentByBot) MaterialTheme.colorScheme.inversePrimary else MaterialTheme.colorScheme.primary,
+                    color = if (primarySender) MaterialTheme.colorScheme.inversePrimary else MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.SemiBold
                 )
             )
@@ -306,10 +396,10 @@ private fun RichMessage(
             ) {
                 list.forEach { msg ->
                     when (msg) {
-                        is VisibleChatMessage.PlainText -> PlainText(msg, sentByBot)
+                        is VisibleChatMessage.PlainText -> PlainText(msg, primarySender)
                         is VisibleChatMessage.Image -> Image(msg, context) { }
-                        is VisibleChatMessage.At -> At(msg, sentByBot) { }
-                        is VisibleChatMessage.AtAll -> AtAll(msg, sentByBot)
+                        is VisibleChatMessage.At -> At(msg, primarySender) { }
+                        is VisibleChatMessage.AtAll -> AtAll(msg, primarySender)
                         is VisibleChatMessage.Face -> Face(msg, context)
                         is VisibleChatMessage.FlashImage -> FlashImage(msg, context) { }
                         is VisibleChatMessage.Audio -> {
@@ -320,6 +410,7 @@ private fun RichMessage(
                         is VisibleChatMessage.Forward -> {}
                         is VisibleChatMessage.Unsupported -> Unsupported(msg)
 
+                        else -> {}
                     }
                 }
             }

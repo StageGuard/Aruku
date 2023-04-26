@@ -29,7 +29,7 @@ abstract class MessageRecordDao : BaseDao<MessageRecordEntity> {
         account: Long,
         subject: Long,
         type: ArukuContactType,
-        after: Int
+        after: Long
     ): Flow<List<MessageRecordEntity>>
 
     // query last n messages
@@ -55,7 +55,7 @@ abstract class MessageRecordDao : BaseDao<MessageRecordEntity> {
         account: Long,
         subject: Long,
         type: ArukuContactType,
-        before: Int,
+        before: Long,
         limit: Int = 20
     ): Flow<List<MessageRecordEntity>>
 
@@ -64,8 +64,8 @@ abstract class MessageRecordDao : BaseDao<MessageRecordEntity> {
         account: Long,
         subject: Long,
         type: ArukuContactType,
-        limit: Int = 20,
-        before: Int
+        before: Long,
+        limit: Int = 20
     ): PagingSource<Int, MessageRecordEntity>
 
     // group
@@ -75,8 +75,8 @@ abstract class MessageRecordDao : BaseDao<MessageRecordEntity> {
     fun getLastNGroupMessages(account: Long, group: Long, limit: Int = 20) =
         getLastNMessages(account, group, ArukuContactType.GROUP, limit)
 
-    fun getLastNGroupMessagesBefore(account: Long, group: Long, limit: Int = 20, before: Int) =
-        getLastNMessagesBefore(account, group, ArukuContactType.GROUP, limit, before)
+    fun getLastNGroupMessagesBefore(account: Long, group: Long, before: Long, limit: Int = 20) =
+        getLastNMessagesBefore(account, group, ArukuContactType.GROUP, before, limit)
 
 
     fun getGroupMessagesPaging(account: Long, group: Long) =
@@ -88,10 +88,10 @@ abstract class MessageRecordDao : BaseDao<MessageRecordEntity> {
     fun getLastNGroupMessagesBeforePaging(
         account: Long,
         group: Long,
-        limit: Int = 20,
-        before: Int
+        before: Long,
+        limit: Int = 20
     ) =
-        getLastNMessagesBeforePaging(account, group, ArukuContactType.GROUP, limit, before)
+        getLastNMessagesBeforePaging(account, group, ArukuContactType.GROUP, before, limit)
 
 
     // friend
@@ -101,8 +101,8 @@ abstract class MessageRecordDao : BaseDao<MessageRecordEntity> {
     fun getLastNFriendMessages(account: Long, friend: Long, limit: Int = 20) =
         getLastNMessages(account, friend, ArukuContactType.FRIEND, limit)
 
-    fun getLastNFriendMessagesBefore(account: Long, friend: Long, limit: Int = 20, before: Int) =
-        getLastNMessagesBefore(account, friend, ArukuContactType.FRIEND, limit, before)
+    fun getLastNFriendMessagesBefore(account: Long, friend: Long, before: Long, limit: Int = 20) =
+        getLastNMessagesBefore(account, friend, ArukuContactType.FRIEND, before, limit)
 
     fun getFriendMessagesPaging(account: Long, friend: Long) =
         getMessagesPaging(account, friend, ArukuContactType.FRIEND)
@@ -113,10 +113,9 @@ abstract class MessageRecordDao : BaseDao<MessageRecordEntity> {
     fun getLastNFriendMessagesBeforePaging(
         account: Long,
         friend: Long,
-        limit: Int = 20,
-        before: Int
-    ) =
-        getLastNMessagesBeforePaging(account, friend, ArukuContactType.FRIEND, limit, before)
+        before: Long,
+        limit: Int = 20
+    ) = getLastNMessagesBeforePaging(account, friend, ArukuContactType.FRIEND, before, limit)
 
 //    @Query("select * from message_record where account_id=:account and type='TEMP' and subject=:group and sender=:member")
 //    abstract fun getTempMessages(account: Long, group: Long, member: Long): Flow<MessageRecordEntity?>

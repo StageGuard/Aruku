@@ -1,10 +1,10 @@
 package me.stageguard.aruku.domain
 
-import android.util.Log
 import androidx.paging.PagingSource
 import androidx.paging.PagingState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancelAndJoin
@@ -23,7 +23,7 @@ import me.stageguard.aruku.service.bridge.RoamingQueryBridge
 import me.stageguard.aruku.service.bridge.suspendIO
 import me.stageguard.aruku.service.parcel.ArukuContact
 import me.stageguard.aruku.service.parcel.ArukuRoamingMessage
-import me.stageguard.aruku.util.tag
+import me.stageguard.aruku.util.createAndroidLogger
 import net.mamoe.mirai.utils.ConcurrentLinkedQueue
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
@@ -38,7 +38,8 @@ class CombinedMessagePagingSource(
     private val account: Long,
     private val contact: ArukuContact,
     context: CoroutineContext = EmptyCoroutineContext,
-) : PagingSource<Int, MessageRecordEntity>(), KoinComponent, CoroutineScope {
+) : PagingSource<Long, MessageRecordEntity>(), KoinComponent, CoroutineScope {
+    private val logger = createAndroidLogger("CombinedMessagePagingSource")
     private val database: ArukuDatabase by inject()
     private val messageDao = database.messageRecords()
 
@@ -51,7 +52,7 @@ class CombinedMessagePagingSource(
 
     // append key is message id
     private var lastAppendKey: Int? = null
-    private var lastSubscribedTime: Int? = null
+    private var lastSubscribedTime: Long? = null
 
     private var subscribedMessageCount = 0
     private var historyMessageCount = 0
@@ -64,7 +65,7 @@ class CombinedMessagePagingSource(
         var subscriptionJob: Job
 
         while (isActive) {
-            subscriptionJob = launch {
+            subscriptionJob = launch(Dispatchers.IO) {
                 subscriptionSource.cancellable().collect { records ->
                     if (records.isEmpty()) return@collect
 
@@ -86,12 +87,9 @@ class CombinedMessagePagingSource(
 
     override val keyReuseSupported: Boolean = true
 
-    override suspend fun load(params: LoadParams<Int>): LoadResult<Int, MessageRecordEntity> {
+    override suspend fun load(params: LoadParams<Long>): LoadResult<Long, MessageRecordEntity> {
         val halfSize = params.loadSize / 2
-        Log.d(
-            tag(),
-            "call load. params=${params.toString().substringAfterLast('$')}, key=${params.key}"
-        )
+        logger.d("call load. params=${params.toString().substringAfterLast('$')}, key=${params.key}")
 
         when (params) {
             is LoadParams.Refresh -> {
@@ -113,7 +111,7 @@ class CombinedMessagePagingSource(
                         LoadResult.Page(
                             data = historyResult.data,
                             prevKey = lastSubscribedTime,
-                            nextKey = lastAppendKey,
+                            nextKey = lastAppendKey?.toLong(),
                             itemsBefore = 0,
                             itemsAfter = 0
                         )
@@ -137,7 +135,7 @@ class CombinedMessagePagingSource(
                     ?: return LoadResult.Page(
                         data = listOf(),
                         prevKey = SUBSCRIPTION_LOCK_ACQUIRING,
-                        nextKey = lastAppendKey,
+                        nextKey = lastAppendKey?.toLong(),
                         itemsBefore = 0,
                         itemsAfter = subscribedMessageCount + historyMessageCount
                     )
@@ -155,7 +153,7 @@ class CombinedMessagePagingSource(
                 return LoadResult.Page(
                     data = cached,
                     prevKey = SUBSCRIPTION_LOCK_ACQUIRING,
-                    nextKey = lastAppendKey,
+                    nextKey = lastAppendKey?.toLong(),
                     itemsBefore = 0,
                     itemsAfter = subscribedMessageCount + historyMessageCount
                 )
@@ -163,7 +161,7 @@ class CombinedMessagePagingSource(
 
             is LoadParams.Append -> {
                 return when (val historyResult = historySource.load(
-                    LoadParams.Append(params.key, halfSize, params.placeholdersEnabled)
+                    LoadParams.Append(params.key.toInt(), halfSize, params.placeholdersEnabled)
                 )) {
                     is LoadResult.Page -> {
                         historyMessageCount += historyResult.data.size
@@ -173,7 +171,7 @@ class CombinedMessagePagingSource(
                         LoadResult.Page(
                             data = historyResult.data,
                             prevKey = lastSubscribedTime,
-                            nextKey = lastAppendKey,
+                            nextKey = lastAppendKey?.toLong(),
                             itemsBefore = subscribedMessageCount + historyMessageCount,
                             itemsAfter = 0
                         )
@@ -192,10 +190,10 @@ class CombinedMessagePagingSource(
         }
     }
 
-    override fun getRefreshKey(state: PagingState<Int, MessageRecordEntity>): Int = 0
+    override fun getRefreshKey(state: PagingState<Long, MessageRecordEntity>): Long = 0
 
     companion object {
-        private const val SUBSCRIPTION_LOCK_ACQUIRING = -1
+        private const val SUBSCRIPTION_LOCK_ACQUIRING = -1L
     }
 }
 
@@ -218,8 +216,8 @@ class HistoryMessagePagingSource(
     private val account: Long,
     private val contact: ArukuContact,
     context: CoroutineContext = EmptyCoroutineContext,
-) :
-    PagingSource<Int, MessageRecordEntity>(), KoinComponent, CoroutineScope {
+) : PagingSource<Int, MessageRecordEntity>(), KoinComponent, CoroutineScope {
+    private val logger = createAndroidLogger("HistoryMessagePagingSource")
     private val database: ArukuDatabase by inject()
     private val repo: MainRepository by inject()
 
@@ -230,16 +228,13 @@ class HistoryMessagePagingSource(
     }
 
     private var lastSeq: Int? = null
-    private var lastTime: Int? = null
+    private var lastTime: Long? = null
 
     override val coroutineContext = context + SupervisorJob()
 
     @Suppress("FoldInitializerAndIfToElvis")
     override suspend fun load(params: LoadParams<Int>): LoadResult<Int, MessageRecordEntity> {
-        Log.d(
-            tag(),
-            "call load. params=${params.toString().substringAfterLast('$')}, key=${params.key}"
-        )
+        logger.d("call load. params=${params.toString().substringAfterLast('$')}, key=${params.key}")
 
         val messageId = params.key
         val loadSize = params.loadSize
@@ -327,7 +322,7 @@ class HistoryMessagePagingSource(
             }
         } else { // continue to load
             suspend fun loadBeforeOffline(
-                time: Int,
+                time: Long,
                 checkAllLoaded: Boolean = false
             ): LoadResult<Int, MessageRecordEntity> {
                 val dbRecords = database.suspendIO {

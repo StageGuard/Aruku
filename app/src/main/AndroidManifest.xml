@@ -15,6 +15,7 @@
             android:roundIcon="@mipmap/ic_launcher_round"
             android:usesCleartextTraffic="true"
             android:supportsRtl="true"
+            android:enableOnBackInvokedCallback="true"
             android:theme="@style/Theme.Aruku"
             tools:targetApi="31">
         <activity

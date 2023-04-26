@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.*
 import me.stageguard.aruku.R
 import me.stageguard.aruku.domain.MainRepository
 import me.stageguard.aruku.ui.LocalNavController
+import me.stageguard.aruku.ui.UiState
 import me.stageguard.aruku.ui.page.NAV_CHAT
 import me.stageguard.aruku.ui.page.UIAccountState
 import me.stageguard.aruku.ui.page.home.contact.HomeContactPage
@@ -31,6 +32,7 @@ class HomeViewModel(
     @OptIn(ExperimentalCoroutinesApi::class)
     private val accountObserver = Channel<Map<Long, UIAccountState>>()
     private val accountListUpdateFlow = MutableStateFlow(0L)
+    @UiState
     val accounts: StateFlow<List<BasicAccountInfo>> = accountObserver
         .receiveAsFlow()
         .combine(accountListUpdateFlow) { info, _ -> info }

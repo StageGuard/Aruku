@@ -16,6 +16,7 @@ import me.stageguard.aruku.domain.MainRepository
 import me.stageguard.aruku.domain.data.message.*
 import me.stageguard.aruku.service.parcel.ArukuContactType
 import me.stageguard.aruku.service.parcel.AudioStatusListener
+import me.stageguard.aruku.ui.UiState
 import me.stageguard.aruku.ui.page.ChatPageNav
 import me.stageguard.aruku.util.toFormattedTime
 
@@ -26,19 +27,23 @@ class ChatViewModel(
 ) : ViewModel() {
     private val contact = chatNav.contact
 
+    @UiState
     val subjectName = flow {
         val name = repository.getNickname(bot, contact)
         if (name != null) emit(name)
     }.stateIn(viewModelScope, SharingStarted.Lazily, contact.subject.toString())
 
+    @UiState
     val subjectAvatar = flow<String?> {
         val url = repository.getAvatarUrl(bot, contact)
         if (url != null) emit(url)
     }.stateIn(viewModelScope, SharingStarted.Lazily, null)
 
     private val _audioList = mutableStateMapOf<String, ChatAudioStatus>()
+    @UiState
     val audio = snapshotFlow { _audioList.toMap() }
 
+    @UiState
     val messages: Flow<PagingData<ChatElement>> =
         repository.getMessageRecords(bot, contact).map { data ->
             data.map { record ->
@@ -71,7 +76,7 @@ class ChatViewModel(
                         ArukuContactType.FRIEND -> repository.getAvatarUrl(bot, record.contact)
                         ArukuContactType.TEMP -> error("temp message is currently unsupported")
                     },
-                    time = record.time.toLong().toFormattedTime(),
+                    time = record.time.toFormattedTime(),
                     messageId = record.messageId,
                     visibleMessages = visibleMessages
                 ) as ChatElement
