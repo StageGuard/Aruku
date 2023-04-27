@@ -13,10 +13,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.paddingFrom
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -27,14 +26,16 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.LastBaseline
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.layoutId
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -47,6 +48,7 @@ import coil.request.ImageRequest
 import com.google.accompanist.flowlayout.FlowRow
 import com.google.accompanist.flowlayout.MainAxisAlignment
 import me.stageguard.aruku.ui.LocalBot
+import kotlin.math.min
 
 @Composable
 fun ChatListView(
@@ -63,10 +65,6 @@ fun ChatListView(
 
     LaunchedEffect(true) {
         lazyListState.scrollToItem(0)
-    }
-
-    LaunchedEffect(key1 = chatList) {
-        println(chatList.itemCount)
     }
 
     Box(modifier = modifier) {
@@ -105,12 +103,13 @@ fun ChatListView(
                             senderAvatar = element.senderAvatarUrl,
                             isAlignmentStart = !sentByBot,
                             primarySender = sentByBot,
-                            showAvatar = true/*!lastSentByCurrent && !sentByBot*/,
-                            occupyAvatarSpace = true/*!sentByBot*/,
-                            showSender = true/*!lastSentByCurrent && !sentByBot*/,
-                            topCorner = true/*!lastSentByCurrent*/,
-                            bottomCorner = true/*!nextSentByCurrent*/,
-                            startCorner = true/*sentByBot*/,
+                            showAvatar = !lastSentByCurrent && !sentByBot,
+                            occupyAvatarSpace = !sentByBot,
+                            showSender = !lastSentByCurrent && !sentByBot,
+                            topCorner = !lastSentByCurrent,
+                            bottomCorner = !nextSentByCurrent,
+                            startCorner = sentByBot,
+                            endCorner = !sentByBot,
                             time = element.time,
                             messages = element.visibleMessages,
                             audioStatus = audio?.run { audioStatus[identity] },
@@ -152,76 +151,24 @@ private fun Message(
     topCorner: Boolean,
     bottomCorner: Boolean,
     startCorner: Boolean, // start corner if true or else end corner of message content
+    endCorner: Boolean,
     time: String,
     messages: List<VisibleChatMessage>,
     audioStatus: ChatAudioStatus?,
     modifier: Modifier = Modifier,
     onClickAvatar: (Long) -> Unit,
 ) {
+    val density = LocalDensity.current
+
     val avatarSize = 45.dp
-    /*Column(modifier = Modifier.fillMaxWidth()) {
-        @Composable
-        fun RowScope.AvatarOrPlaceHolder(modifier: Modifier = Modifier) {
-            val layoutModifier =
+    val avatarMargin = 6.dp
+    val messageContentSideMargin = 45.dp
+    val roundCornerSize = 16.dp
 
-            if (showAvatar) {
+    val avatarWidth = remember(density, showAvatar) {
+        if (showAvatar || occupyAvatarSpace) with(density) { (avatarSize + avatarMargin).roundToPx() } else 0
+    }
 
-            } else if (occupyAvatarSpace) {
-                Spacer(modifier = modifier.then(layoutModifier))
-            }
-        }
-
-        @Composable
-        fun RowScope.SenderInfoAndMessageContent() {
-            @Composable
-            fun RowScope.SenderName() {
-
-            }
-
-            @Composable
-            fun RowScope.SenderIdentity() {
-                //Text(text =) // TODO: 管理员，群主之类的标识
-            }
-
-            Column {
-                if(showSender) {
-                    Row(modifier = Modifier
-                        .align(if (isAlignmentStart) Alignment.Start else Alignment.End)
-                        .padding(
-                            start = if (isAlignmentStart) 5.dp else 0.dp,
-                            end = if (!isAlignmentStart) 5.dp else 0.dp
-                        )
-                    ) {
-                        if (isAlignmentStart) {
-                            SenderName()
-                            SenderIdentity()
-                        } else {
-                            SenderIdentity()
-                            SenderName()
-                        }
-                    }
-                }
-
-            }
-        }
-
-        Row(
-            modifier = modifier
-                .align(if (isAlignmentStart) Alignment.Start else Alignment.End)
-                .padding(
-                    start = if (isAlignmentStart) 0.dp else 30.dp,
-                    end = if (!isAlignmentStart) 0.dp else 30.dp,
-                )
-        ) {
-            if (isAlignmentStart) {
-                AvatarOrPlaceHolder()
-                SenderInfoAndMessageContent()
-            } else {
-                SenderInfoAndMessageContent()
-                AvatarOrPlaceHolder()
-            }
-        }
-    }*/
     BoxWithConstraints(
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -231,20 +178,23 @@ private fun Message(
             //val senderIdentityRef = createRefFor("senderIdentity")
             val messageContentRef = createRefFor("messageContent")
 
+            val calculatedMargin = if (showAvatar) avatarMargin else
+                if (occupyAvatarSpace) (avatarSize + avatarMargin) else 0.dp
+
             constrain(avatarRef) {
                 top.linkTo(parent.top)
                 if (isAlignmentStart) start.linkTo(parent.start)
                 if (!isAlignmentStart) end.linkTo(parent.end)
             }
             constrain(senderNameRef) {
-                top.linkTo(parent.top)
+                top.linkTo(parent.top, 2.dp)
                 if (isAlignmentStart) start.linkTo(
                     anchor = if (showAvatar) avatarRef.end else parent.start,
-                    margin = if (showAvatar) 6.dp else if (occupyAvatarSpace) (avatarSize + 6.dp) else 0.dp
+                    margin = calculatedMargin
                 )
                 if (!isAlignmentStart) end.linkTo(
                     if (showAvatar) avatarRef.start else parent.end,
-                    margin = if (showAvatar) 6.dp else if (occupyAvatarSpace) (avatarSize + 6.dp) else 0.dp
+                    margin = calculatedMargin
                 )
             }
             constrain(messageContentRef) {
@@ -254,20 +204,26 @@ private fun Message(
                 )
                 if (isAlignmentStart) start.linkTo(
                     anchor = if (showAvatar) avatarRef.end else parent.start,
-                    margin = if (showAvatar) 6.dp else if (occupyAvatarSpace) (avatarSize + 6.dp) else 0.dp
+                    margin = calculatedMargin
                 )
                 if (!isAlignmentStart) end.linkTo(
                     if (showAvatar) avatarRef.start else parent.end,
-                    margin = if (showAvatar) 6.dp else if (occupyAvatarSpace) (avatarSize + 6.dp) else 0.dp
+                    margin = calculatedMargin
                 )
             }
         }
 
         ConstraintLayout(
             constraintSet = constraintSet,
-            modifier = Modifier.fillMaxWidth().wrapContentHeight()
+            modifier = modifier
+                .wrapContentHeight()
+                .fillMaxWidth()
         ) {
-            AsyncImage(
+            val messageContentWidth = remember(density, constraints.maxWidth, showAvatar) {
+                constraints.maxWidth - avatarWidth - with(density) { messageContentSideMargin.roundToPx() }
+            }
+
+            if(showAvatar) AsyncImage(
                 model = ImageRequest.Builder(context).data(senderAvatar).crossfade(true)
                     .build(),
                 contentDescription = "avatar of $senderId",
@@ -278,23 +234,28 @@ private fun Message(
                     .clickable { onClickAvatar(senderId) },
                 contentScale = ContentScale.Crop,
             )
-            Text(
+            if (showSender) Text(
                 text = senderName,
                 style = MaterialTheme.typography.bodyMedium
                     .copy(fontWeight = FontWeight.SemiBold),
-                modifier = Modifier
-                    .layoutId("senderName")
-                    .paddingFrom(LastBaseline, after = 8.dp)
+                modifier = Modifier.layoutId("senderName")
             )
             Surface(
                 color = MaterialTheme.colorScheme.run { if (primarySender) primary else surfaceVariant },
                 shape = RoundedCornerShape(
-                    if (startCorner) 12.dp else if (topCorner) 12.dp else 4.dp,
-                    if (!startCorner) 12.dp else if (topCorner) 12.dp else 4.dp,
-                    if (!startCorner) 12.dp else if (bottomCorner) 12.dp else 4.dp,
-                    if (startCorner) 12.dp else if (bottomCorner) 12.dp else 4.dp,
+                    if (startCorner) roundCornerSize else if (topCorner) roundCornerSize else 4.dp,
+                    if (endCorner) roundCornerSize else if (topCorner) roundCornerSize else 4.dp,
+                    if (endCorner) roundCornerSize else if (bottomCorner) roundCornerSize else 4.dp,
+                    if (startCorner) roundCornerSize else if (bottomCorner) roundCornerSize else 4.dp,
                 ),
-                modifier = Modifier.layoutId("messageContent").wrapContentWidth()
+                modifier = Modifier
+                    .layoutId("messageContent")
+                    .layout { measurable, constraints ->
+                        val placeable = measurable.measure(constraints)
+                        layout(min(messageContentWidth, placeable.width), placeable.height) {
+                            placeable.placeRelative(0, 0)
+                        }
+                    }
             ) {
                 RichMessage(
                     list = messages,
@@ -302,7 +263,10 @@ private fun Message(
                     time = time,
                     context = context,
                     primarySender = primarySender,
-                    modifier = Modifier.defaultMinSize(40.dp),
+                    modifier = Modifier.widthIn(
+                        min = 45.dp,
+                        max = with(density) { messageContentWidth.toDp() }
+                    ),
                     onClickAnnotated = { }
                 )
             }
@@ -380,7 +344,7 @@ private fun RichMessage(
             )
         }
     } else {
-        Column {
+        Column(modifier = modifier) {
             FlowRow(
                 mainAxisAlignment = if (list.size == 1) {
                     MainAxisAlignment.Center
