@@ -2,19 +2,36 @@ package me.stageguard.aruku.ui.page.chat
 
 import android.content.Context
 import android.net.Uri
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import me.stageguard.aruku.R
 import me.stageguard.aruku.util.stringResC
 import okhttp3.internal.toLongOrDefault
@@ -153,25 +170,64 @@ fun FlashImage(
 fun Audio(
     element: VisibleChatMessage.Audio,
     status: ChatAudioStatus?,
+    primary: Boolean,
     modifier: Modifier = Modifier,
     onClick: (identity: String) -> Unit,
-) { // TODO: audio visible element, currently plain text
-    PlainText(
-        VisibleChatMessage.PlainText(buildString {
-            append("[Audio]")
-            append("[")
-            if (status == null) append("NotPrepared") else when (status) {
-                is ChatAudioStatus.Error -> append("Error: ${status.msg}")
-                is ChatAudioStatus.Preparing -> append("Preparing: ").append(status.progress)
-                is ChatAudioStatus.NotFound -> append("NotFound")
-                is ChatAudioStatus.Ready -> append("Ready")
+) {
+    val density = LocalDensity.current
+
+    val width = with(density) { 150.dp.roundToPx().toFloat() }
+    val height = with(density) { 50.dp.roundToPx().toFloat() }
+
+    val contentColor = MaterialTheme.colorScheme.run { if (primary) onPrimary else this.primary }
+    val backgroundColor = MaterialTheme.colorScheme.run { if (primary) this.primary else surfaceVariant }
+
+    val indicatorSize = with(density) { 35.dp.roundToPx().toFloat() }
+    val progressCircleSize = run {
+        val size = with(density) { 28.dp.roundToPx().toFloat() }
+        Size(size, size)
+    }
+    val progressStrokeWidth = with(density) { 3.dp.roundToPx().toFloat() }
+
+    val indicatorCenterOffset = Offset(height / 2f, height / 2f)
+    val progressCircleTLOffset = run {
+        val size = progressCircleSize.width / 2f
+        indicatorCenterOffset - Offset(size, size)
+    }
+
+    var rotateStartAngle by remember { mutableStateOf(0f) }
+    var sweepAngle by remember { mutableStateOf(0f) }
+
+    LaunchedEffect(key1 = element) {
+        launch(Dispatchers.IO) {
+            while (isActive) {
+                rotateStartAngle = (rotateStartAngle + 2f) % 360f
+                if (sweepAngle < 180f) sweepAngle += 0.2f
+                delay(10) // 让给其他协程
             }
-            append("]")
-            append(element.name)
-        }),
-        primary = false,
-        modifier = modifier,
-    )
+        }
+    }
+
+    Canvas(modifier = with(density) { modifier.requiredSize(width.toDp(), height.toDp()) }) {
+        drawCircle(
+            color = contentColor,
+            radius = indicatorSize / 2f,
+            center = indicatorCenterOffset,
+        )
+
+        drawArc(
+            color = backgroundColor,
+            startAngle = rotateStartAngle,
+            sweepAngle = sweepAngle,
+            useCenter = false,
+            topLeft = progressCircleTLOffset,
+            size = progressCircleSize,
+            style = Stroke(
+                width = progressStrokeWidth,
+                cap = StrokeCap.Round,
+            )
+        )
+    }
 }
 
 @Composable

@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -258,15 +257,25 @@ private fun Message(
                     }
             ) {
                 RichMessage(
+                    context = context,
                     list = messages,
                     audioStatus = audioStatus,
                     time = time,
-                    context = context,
-                    primarySender = primarySender,
+                    primaryRole = primarySender,
                     modifier = Modifier.widthIn(
                         min = 45.dp,
                         max = with(density) { messageContentWidth.toDp() }
                     ),
+                    contentPadding = messages.run {
+                        val single = singleOrNull() ?: return@run 8.dp
+                        if (
+                            single is VisibleChatMessage.Image ||
+                            single is VisibleChatMessage.FlashImage ||
+                            single is VisibleChatMessage.Audio ||
+                            single is VisibleChatMessage.File ||
+                            single is VisibleChatMessage.Forward
+                        ) return@run 0.dp else return@run 8.dp
+                    },
                     onClickAnnotated = { }
                 )
             }
@@ -276,11 +285,12 @@ private fun Message(
 
 @Composable
 private fun RichMessage(
+    context: Context,
     list: List<VisibleChatMessage>,
     audioStatus: ChatAudioStatus?,
     time: String,
-    context: Context,
-    primarySender: Boolean,
+    primaryRole: Boolean,
+    contentPadding: Dp,
     modifier: Modifier = Modifier,
     onClickAnnotated: (VisibleChatMessage) -> Unit,
 ) {
@@ -295,25 +305,51 @@ private fun RichMessage(
                 text = time,
                 modifier = Modifier.padding(textPadding),
                 style = MaterialTheme.typography.bodySmall.copy(
-                    color = if (primarySender) MaterialTheme.colorScheme.inversePrimary else MaterialTheme.colorScheme.primary,
+                    color = MaterialTheme.colorScheme.run { if (primaryRole) inversePrimary else primary },
                     fontWeight = FontWeight.SemiBold
                 )
             )
         }
     }
 
-    val contentPadding = run {
-        val single = list.singleOrNull() ?: return@run 8.dp
-        if (
-            single is VisibleChatMessage.Image ||
-            single is VisibleChatMessage.FlashImage ||
-            single is VisibleChatMessage.Audio ||
-            single is VisibleChatMessage.File ||
-            single is VisibleChatMessage.Forward
-        ) return@run 0.dp else return@run 8.dp
+    Box() {
+        FlowRow(
+            mainAxisAlignment = if (list.size == 1) MainAxisAlignment.Center else MainAxisAlignment.Start,
+            modifier = modifier
+                .padding(contentPadding)
+                .padding(2.dp)
+        ) {
+            list.forEach { msg ->
+                when (msg) {
+                    is VisibleChatMessage.PlainText -> PlainText(msg, primaryRole)
+                    is VisibleChatMessage.Image -> Image(msg, context) { }
+                    is VisibleChatMessage.At -> At(msg, primaryRole) { }
+                    is VisibleChatMessage.AtAll -> AtAll(msg, primaryRole)
+                    is VisibleChatMessage.Face -> Face(msg, context)
+                    is VisibleChatMessage.FlashImage -> FlashImage(msg, context) { }
+                    is VisibleChatMessage.Audio -> {
+                        Audio(msg, audioStatus, primaryRole) { }
+                    }
+
+                    is VisibleChatMessage.File -> File(msg) { }
+                    is VisibleChatMessage.Forward -> {}
+                    is VisibleChatMessage.Unsupported -> Unsupported(msg)
+
+                    else -> {}
+                }
+            }
+        }
+
+        /*MessageTimeIndicator(
+            color = Color.Black.copy(alpha = 0.3f),
+            textPadding = 2.dp,
+            mdf = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(horizontal = 10.dp, vertical = 8.dp)
+        )*/
     }
 
-    if (list.size == 1 && list.singleOrNull().run {
+    /*if (list.size == 1 && list.singleOrNull().run {
             this is VisibleChatMessage.Image || this is VisibleChatMessage.FlashImage
         }) { // only a image
         Box(
@@ -335,49 +371,10 @@ private fun RichMessage(
 
                 else -> error("UNREACHABLE")
             }
-            MessageTimeIndicator(
-                color = Color.Black.copy(alpha = 0.3f),
-                textPadding = 2.dp,
-                mdf = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(horizontal = 10.dp, vertical = 8.dp)
-            )
         }
     } else {
         Column(modifier = modifier) {
-            FlowRow(
-                mainAxisAlignment = if (list.size == 1) {
-                    MainAxisAlignment.Center
-                } else {
-                    MainAxisAlignment.Start
-                },
-                modifier = modifier.then(
-                    Modifier
-                        .padding(2.dp)
-                        .padding(horizontal = contentPadding)
-                        .padding(top = contentPadding, bottom = 3.dp)
-                )
-            ) {
-                list.forEach { msg ->
-                    when (msg) {
-                        is VisibleChatMessage.PlainText -> PlainText(msg, primarySender)
-                        is VisibleChatMessage.Image -> Image(msg, context) { }
-                        is VisibleChatMessage.At -> At(msg, primarySender) { }
-                        is VisibleChatMessage.AtAll -> AtAll(msg, primarySender)
-                        is VisibleChatMessage.Face -> Face(msg, context)
-                        is VisibleChatMessage.FlashImage -> FlashImage(msg, context) { }
-                        is VisibleChatMessage.Audio -> {
-                            Audio(msg, audioStatus) { }
-                        }
 
-                        is VisibleChatMessage.File -> File(msg) { }
-                        is VisibleChatMessage.Forward -> {}
-                        is VisibleChatMessage.Unsupported -> Unsupported(msg)
-
-                        else -> {}
-                    }
-                }
-            }
             MessageTimeIndicator(
                 color = Color.Transparent,
                 mdf = Modifier
@@ -386,7 +383,7 @@ private fun RichMessage(
                     .padding(start = 30.dp)
             )
         }
-    }
+    }*/
 }
 
 @Composable

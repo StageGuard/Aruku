@@ -1,10 +1,29 @@
 package me.stageguard.aruku.ui.page.chat
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.add
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.BottomAppBar
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.surfaceColorAtElevation
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -271,12 +290,57 @@ fun ChatViewPreview() {
                             VisibleChatMessage.PlainText("testestestestestestestestestest")
                         ),
                     ),
+                    ChatElement.Message(
+                        senderId = 3129693328L,
+                        senderName = "WhichWho",
+                        senderAvatarUrl = "https://q1.qlogo.cn/g?b=qq&nk=3129693328&s=0&timestamp=1673582758562",
+                        time = "11:45",
+                        messageId = randSrcId(),
+                        visibleMessages = listOf(
+                            VisibleChatMessage.Audio("audio1", "123123123")
+                        ),
+                    ),
+                    ChatElement.Message(
+                        senderId = 3129693328L,
+                        senderName = "WhichWho",
+                        senderAvatarUrl = "https://q1.qlogo.cn/g?b=qq&nk=3129693328&s=0&timestamp=1673582758562",
+                        time = "11:45",
+                        messageId = randSrcId(),
+                        visibleMessages = listOf(
+                            VisibleChatMessage.Audio("audio2", "123123123")
+                        ),
+                    ),
+                    ChatElement.Message(
+                        senderId = 3129693328L,
+                        senderName = "WhichWho",
+                        senderAvatarUrl = "https://q1.qlogo.cn/g?b=qq&nk=3129693328&s=0&timestamp=1673582758562",
+                        time = "11:45",
+                        messageId = randSrcId(),
+                        visibleMessages = listOf(
+                            VisibleChatMessage.Audio("audio3", "123123123")
+                        ),
+                    ),
+                    ChatElement.Message(
+                        senderId = 3129693328L,
+                        senderName = "WhichWho",
+                        senderAvatarUrl = "https://q1.qlogo.cn/g?b=qq&nk=3129693328&s=0&timestamp=1673582758562",
+                        time = "11:45",
+                        messageId = randSrcId(),
+                        visibleMessages = listOf(
+                            VisibleChatMessage.Audio("audio4", "123123123")
+                        ),
+                    ),
                 )
 
                 ChatView(subjectName = "Group1",
                     subjectAvatar = "https://q1.qlogo.cn/g?b=qq&nk=3129693328&s=0&timestamp=1673582758562",
                     messages = flow { emit(PagingData.from(list.asReversed())) }.collectAsLazyPagingItems(),
-                    audioStatus = mapOf(),
+                    audioStatus = mapOf(
+                        "audio1" to ChatAudioStatus.Error("my error"),
+                        "audio2" to ChatAudioStatus.NotFound,
+                        "audio3" to ChatAudioStatus.Preparing(0.48),
+                        "audio4" to ChatAudioStatus.Ready(List(20) { Math.random() }),
+                    ),
                     listState = state,
                     {}, {}
                 )

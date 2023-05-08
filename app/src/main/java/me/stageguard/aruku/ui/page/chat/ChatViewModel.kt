@@ -85,14 +85,13 @@ class ChatViewModel(
 
     fun attachAudioStatusListener(audioFileMd5: String) {
         repository.attachAudioStatusListener(audioFileMd5, AudioStatusListener {
-            val fileMd5 = audioFileMd5
             val status = when(it) {
                 is AudioCache.State.Error -> ChatAudioStatus.Error(it.msg ?: "unknown error")
                 is AudioCache.State.NotFound -> ChatAudioStatus.NotFound
-                is AudioCache.State.Ready -> ChatAudioStatus.Ready
+                is AudioCache.State.Ready -> ChatAudioStatus.Ready(List(20) { Math.random() })
                 is AudioCache.State.Preparing -> ChatAudioStatus.Preparing(it.progress)
             }
-            _audioList[fileMd5] = status
+            _audioList[audioFileMd5] = status
         })
     }
 
@@ -167,7 +166,7 @@ sealed interface ChatElement {
 }
 
 sealed interface ChatAudioStatus {
-    object Ready : ChatAudioStatus
+    class Ready(val waveLine: List<Double>) : ChatAudioStatus
     class Preparing(val progress: Double) : ChatAudioStatus
     object NotFound : ChatAudioStatus
     class Error(val msg: String?) : ChatAudioStatus
