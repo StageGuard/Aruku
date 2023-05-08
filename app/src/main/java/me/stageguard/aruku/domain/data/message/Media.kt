@@ -1,5 +1,6 @@
 package me.stageguard.aruku.domain.data.message
 
+import android.os.Parcelable
 import kotlinx.parcelize.Parcelize
 import kotlinx.serialization.Serializable
 
@@ -12,7 +13,7 @@ data class Audio(
     val fileMd5: String,
     val fileSize: Long,
     val extension: String,
-) : MessageElement {
+) : MessageElement, Parcelable {
     override fun contentToString(): String {
         return "[语音]"
     }
@@ -53,7 +54,7 @@ data class File(
     val extension: String?,
     val size: Long,
     val expiryTime: Long?,
-) : MessageElement {
+) : MessageElement, Parcelable {
     override fun contentToString(): String {
         return "[文件]$name.$extension"
     }

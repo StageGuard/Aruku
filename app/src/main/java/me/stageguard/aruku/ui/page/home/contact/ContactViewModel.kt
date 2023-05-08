@@ -12,8 +12,8 @@ import kotlinx.coroutines.launch
 import me.stageguard.aruku.database.LoadState
 import me.stageguard.aruku.database.mapOk
 import me.stageguard.aruku.domain.MainRepository
-import me.stageguard.aruku.service.parcel.ArukuContact
-import me.stageguard.aruku.service.parcel.ArukuContactType
+import me.stageguard.aruku.service.parcel.ContactId
+import me.stageguard.aruku.service.parcel.ContactType
 import me.stageguard.aruku.ui.UiState
 
 /**
@@ -31,11 +31,11 @@ class ContactViewModel(
         repository.getGroups(bot).mapOk { data ->
             data.map {
                 SimpleContactData(
-                    ArukuContact(ArukuContactType.GROUP, it.id),
+                    ContactId(ContactType.GROUP, it.contact.subject),
                     it.name,
                     repository.getAvatarUrl(
                         bot,
-                        ArukuContact(ArukuContactType.GROUP, it.id)
+                        ContactId(ContactType.GROUP, it.contact.subject)
                     )
                 )
             }
@@ -46,11 +46,11 @@ class ContactViewModel(
         repository.getFriends(bot).mapOk { data ->
             data.map {
                 SimpleContactData(
-                    ArukuContact(ArukuContactType.FRIEND, it.id),
+                    ContactId(ContactType.FRIEND, it.contact.subject),
                     it.name,
                     repository.getAvatarUrl(
                         bot,
-                        ArukuContact(ArukuContactType.FRIEND, it.id)
+                        ContactId(ContactType.FRIEND, it.contact.subject)
                     )
                 )
             }
@@ -66,7 +66,7 @@ class ContactViewModel(
 data class ContactTab(@StringRes val title: Int, val content: @Composable () -> Unit)
 
 data class SimpleContactData(
-    val contact: ArukuContact,
+    val contact: ContactId,
     val name: String,
     val avatarData: Any?,
 )

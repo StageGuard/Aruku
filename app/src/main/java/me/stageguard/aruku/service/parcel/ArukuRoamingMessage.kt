@@ -6,7 +6,7 @@ import me.stageguard.aruku.domain.data.message.MessageElement
 
 @Parcelize
 data class ArukuRoamingMessage(
-    val contact: ArukuContact,
+    val contact: ContactId,
     val from: Long,
     val messageId: Int,
     val seq: Int,
@@ -15,7 +15,7 @@ data class ArukuRoamingMessage(
 ) : Parcelable {
     companion object {
         val INVALID = ArukuRoamingMessage(
-            contact = ArukuContact(ArukuContactType.GROUP, -1),
+            contact = ContactId(ContactType.GROUP, -1),
             from = -1,
             messageId = -1,
             seq = -1,

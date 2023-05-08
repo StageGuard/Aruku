@@ -3,7 +3,7 @@ package me.stageguard.aruku.service.parcel
 import android.os.Parcelable
 import kotlinx.parcelize.Parcelize
 
-sealed class AccountState(open val account: Long) {
+sealed class AccountState private constructor(open val account: Long) {
     @Parcelize
     class Logging(override val account: Long) : AccountState(account), Parcelable
 

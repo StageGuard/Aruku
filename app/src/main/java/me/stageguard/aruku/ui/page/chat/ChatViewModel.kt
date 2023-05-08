@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.*
 import me.stageguard.aruku.cache.AudioCache
 import me.stageguard.aruku.domain.MainRepository
 import me.stageguard.aruku.domain.data.message.*
-import me.stageguard.aruku.service.parcel.ArukuContactType
+import me.stageguard.aruku.service.parcel.ContactType
 import me.stageguard.aruku.service.parcel.AudioStatusListener
 import me.stageguard.aruku.ui.UiState
 import me.stageguard.aruku.ui.page.ChatPageNav
@@ -47,7 +47,7 @@ class ChatViewModel(
     val messages: Flow<PagingData<ChatElement>> =
         repository.getMessageRecords(bot, contact).map { data ->
             data.map { record ->
-                val memberInfo = if (record.contact.type == ArukuContactType.GROUP) {
+                val memberInfo = if (record.contact.type == ContactType.GROUP) {
                     repository.getGroupMemberInfo(bot, record.contact.subject, record.sender)
                 } else null
 
@@ -72,9 +72,9 @@ class ChatViewModel(
                     senderId = record.sender,
                     senderName = record.senderName,
                     senderAvatarUrl = when (record.contact.type) {
-                        ArukuContactType.GROUP -> memberInfo?.senderAvatarUrl
-                        ArukuContactType.FRIEND -> repository.getAvatarUrl(bot, record.contact)
-                        ArukuContactType.TEMP -> error("temp message is currently unsupported")
+                        ContactType.GROUP -> memberInfo?.senderAvatarUrl
+                        ContactType.FRIEND -> repository.getAvatarUrl(bot, record.contact)
+                        ContactType.TEMP -> error("temp message is currently unsupported")
                     },
                     time = record.time.toFormattedTime(),
                     messageId = record.messageId,

@@ -10,8 +10,8 @@ import me.stageguard.aruku.ui.page.ChatPageNav
 
 @Parcelize
 @Serializable
-data class ArukuContact(
-    val type: ArukuContactType,
+data class ContactId(
+    val type: ContactType,
     val subject: Long,
 ) : Parcelable {
     fun toNavArg(messageId: Int? = null): String {
@@ -25,12 +25,12 @@ data class ArukuContact(
     }
 
     override fun equals(other: Any?): Boolean {
-        if (other !is ArukuContact) return false
+        if (other !is ContactId) return false
         return other.hashCode() == hashCode()
     }
 }
 
 @Parcelize
-enum class ArukuContactType : Parcelable {
+enum class ContactType : Parcelable {
     FRIEND, GROUP, TEMP
 }

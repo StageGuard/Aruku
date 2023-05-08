@@ -5,7 +5,8 @@ import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.Index
 import kotlinx.serialization.Serializable
-import me.stageguard.aruku.service.parcel.ArukuContact
+import me.stageguard.aruku.service.parcel.ContactId
+import me.stageguard.aruku.service.parcel.Message
 
 @Serializable
 @Entity(
@@ -15,7 +16,7 @@ import me.stageguard.aruku.service.parcel.ArukuContact
 )
 data class MessagePreviewEntity(
     @ColumnInfo(name = "account_id") val account: Long,
-    @Embedded val contact: ArukuContact,
+    @Embedded val contact: ContactId,
     @ColumnInfo(name = "time") var time: Long,
     @ColumnInfo(name = "preview") var previewContent: String,
     @ColumnInfo(name = "unread_count") var unreadCount: Int,
@@ -23,3 +24,17 @@ data class MessagePreviewEntity(
     // so it can represents combined column (account, contact) as primary key
     @ColumnInfo(name = "message_id") var messageId: Int,
 )
+
+fun Message.toPreviewEntity(unreadCount: Int = 1) =
+    MessagePreviewEntity(
+        account,
+        contact,
+        time,
+        buildString {
+            append(senderName)
+            append(": ")
+            append(message)
+        },
+        1,
+        messageId
+    )

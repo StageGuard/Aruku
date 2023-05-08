@@ -2,7 +2,7 @@ package me.stageguard.aruku.domain.data.message
 
 import android.os.Parcelable
 import android.util.Log
-import me.stageguard.aruku.domain.data.message.*
+import kotlinx.parcelize.Parcelize
 import me.stageguard.aruku.util.tag
 import net.mamoe.mirai.contact.Contact
 import net.mamoe.mirai.contact.Group
@@ -14,6 +14,7 @@ import net.mamoe.mirai.message.data.OnlineAudio
 import net.mamoe.mirai.utils.MiraiExperimentalApi
 import net.mamoe.mirai.utils.toUHexString
 
+@Parcelize
 sealed interface MessageElement : Parcelable {
     fun contentToString(): String
 }

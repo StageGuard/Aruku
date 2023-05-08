@@ -1,5 +1,6 @@
 package me.stageguard.aruku.domain.data.message
 
+import android.os.Parcelable
 import kotlinx.parcelize.Parcelize
 import kotlinx.serialization.Serializable
 
@@ -10,7 +11,7 @@ data class Image(
     val uuid: String,
     val width: Int,
     val height: Int,
-) : MessageElement {
+) : MessageElement, Parcelable {
     override fun contentToString(): String {
         return "[图片]"
     }
@@ -21,7 +22,7 @@ data class Image(
 data class Face(
     val id: Int,
     val name: String,
-) : MessageElement {
+) : MessageElement, Parcelable {
     override fun contentToString(): String {
         return name
     }

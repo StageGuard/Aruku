@@ -1,15 +1,12 @@
 package me.stageguard.aruku
 
-import android.content.Context
 import androidx.room.Room
 import com.heyanle.okkv2.MMKVStore
 import com.heyanle.okkv2.core.Okkv
 import loli.ball.okkv2.composeInterceptor
-import me.stageguard.aruku.cache.AudioCache
 import me.stageguard.aruku.database.ArukuDatabase
 import me.stageguard.aruku.database.DBTypeConverters
 import me.stageguard.aruku.domain.MainRepository
-import me.stageguard.aruku.domain.RetrofitDownloadService
 import me.stageguard.aruku.ui.page.MainViewModel
 import me.stageguard.aruku.ui.page.chat.ChatViewModel
 import me.stageguard.aruku.ui.page.home.HomeViewModel
@@ -20,7 +17,6 @@ import net.mamoe.mirai.BotFactory
 import org.koin.androidx.viewmodel.dsl.viewModel
 import org.koin.core.qualifier.qualifier
 import org.koin.dsl.module
-import retrofit2.Retrofit
 import java.util.concurrent.ConcurrentHashMap
 
 val applicationModule = module {
@@ -43,15 +39,6 @@ val applicationModule = module {
     }
 
     // cache
-    single { Retrofit.Builder().baseUrl("http://localhost/").build() }
-    single(createdAtStart = false) { params ->
-        AudioCache(
-            params.get(),
-            get<Context>().externalCacheDir!!.resolve("audio_cache"),
-            get<ArukuDatabase>(),
-            get<Retrofit>().create(RetrofitDownloadService::class.java)
-        )
-    }
     single(qualifier = qualifier("avatar_cache")) {
         ConcurrentHashMap<Long, String>()
     }
@@ -69,10 +56,10 @@ val applicationModule = module {
         )
     }
 
+    // view model
     single(createdAtStart = false) { params ->
         MainViewModel(get(), get(), params.get(), params.get())
     }
-    // view model
     viewModel { LoginViewModel(get()) }
     viewModel { HomeViewModel(get()) }
     viewModel { MessageViewModel(get()) }

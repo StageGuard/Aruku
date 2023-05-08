@@ -8,7 +8,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class Forward(
     val list: List<Node>
-) : MessageElement {
+) : MessageElement, Parcelable {
     override fun contentToString(): String {
         return "[转发消息]"
     }
@@ -27,7 +27,7 @@ data class Forward(
 @Serializable
 data class Quote(
     val messageId: Int,
-) : MessageElement {
+) : MessageElement, Parcelable {
     override fun contentToString(): String {
         return ""
     }

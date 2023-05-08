@@ -7,7 +7,7 @@ import kotlinx.parcelize.Parcelize
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
-import me.stageguard.aruku.service.parcel.ArukuContact
+import me.stageguard.aruku.service.parcel.ContactId
 
 object ChatPageNavType : NavType<ChatPageNav>(false) {
 
@@ -31,6 +31,6 @@ object ChatPageNavType : NavType<ChatPageNav>(false) {
 @Parcelize
 @Serializable
 data class ChatPageNav(
-    val contact: ArukuContact,
+    val contact: ContactId,
     val messageId: Int? = null
 ) : Parcelable

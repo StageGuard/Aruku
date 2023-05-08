@@ -4,7 +4,6 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import me.stageguard.aruku.service.parcel.AccountLoginData
-import me.stageguard.aruku.util.Into
 
 @Entity(tableName = "account")
 data class AccountEntity(
@@ -20,18 +19,31 @@ data class AccountEntity(
     @ColumnInfo(name = "auto_reconnect") var autoReconnect: Boolean,
     @ColumnInfo(name = "reconnection_retry_times") var reconnectionRetryTimes: Int,
     @ColumnInfo(name = "is_offline_manually") var isOfflineManually: Boolean,
-) : Into<AccountLoginData> {
-    override fun into(): AccountLoginData {
-        return AccountLoginData(
-            accountNo = this@AccountEntity.accountNo,
-            passwordMd5 = this@AccountEntity.passwordMd5,
-            protocol = this@AccountEntity.loginProtocol,
-            heartbeatStrategy = this@AccountEntity.heartbeatStrategy,
-            heartbeatPeriodMillis = this@AccountEntity.heartbeatPeriodMillis,
-            heartbeatTimeoutMillis = this@AccountEntity.heartbeatTimeoutMillis,
-            statHeartbeatPeriodMillis = this@AccountEntity.statHeartbeatPeriodMillis,
-            autoReconnect = this@AccountEntity.autoReconnect,
-            reconnectionRetryTimes = this@AccountEntity.reconnectionRetryTimes
-        )
-    }
-}
+)
+
+fun AccountEntity.toLoginData() = AccountLoginData(
+    accountNo = this@AccountEntity.accountNo,
+    passwordMd5 = this@AccountEntity.passwordMd5,
+    protocol = this@AccountEntity.loginProtocol,
+    heartbeatStrategy = this@AccountEntity.heartbeatStrategy,
+    heartbeatPeriodMillis = this@AccountEntity.heartbeatPeriodMillis,
+    heartbeatTimeoutMillis = this@AccountEntity.heartbeatTimeoutMillis,
+    statHeartbeatPeriodMillis = this@AccountEntity.statHeartbeatPeriodMillis,
+    autoReconnect = this@AccountEntity.autoReconnect,
+    reconnectionRetryTimes = this@AccountEntity.reconnectionRetryTimes,
+)
+
+fun AccountLoginData.toEntity() = AccountEntity(
+    accountNo = this@AccountLoginData.accountNo,
+    nickname = "",
+    avatarUrl = "",
+    passwordMd5 = this@AccountLoginData.passwordMd5,
+    loginProtocol = this@AccountLoginData.protocol,
+    heartbeatStrategy = this@AccountLoginData.heartbeatStrategy,
+    heartbeatPeriodMillis = this@AccountLoginData.heartbeatPeriodMillis,
+    heartbeatTimeoutMillis = this@AccountLoginData.heartbeatTimeoutMillis,
+    statHeartbeatPeriodMillis = this@AccountLoginData.statHeartbeatPeriodMillis,
+    autoReconnect = this@AccountLoginData.autoReconnect,
+    reconnectionRetryTimes = this@AccountLoginData.reconnectionRetryTimes,
+    isOfflineManually = false,
+)

@@ -5,20 +5,20 @@ import androidx.room.Dao
 import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 import me.stageguard.aruku.database.BaseDao
-import me.stageguard.aruku.service.parcel.ArukuContactType
+import me.stageguard.aruku.service.parcel.ContactType
 
 @Dao
 abstract class MessagePreviewDao : BaseDao<MessagePreviewEntity> {
     @Query("select * from message_preview where account_id=:account and type=:type order by time desc")
     abstract fun getMessages(
         account: Long,
-        type: ArukuContactType
+        type: ContactType
     ): Flow<List<MessagePreviewEntity>>
 
     @Query("select * from message_preview where account_id=:account and type=:type order by time desc limit :limit")
     abstract fun getMessages(
         account: Long,
-        type: ArukuContactType,
+        type: ContactType,
         limit: Int
     ): Flow<List<MessagePreviewEntity>>
 
@@ -32,6 +32,6 @@ abstract class MessagePreviewDao : BaseDao<MessagePreviewEntity> {
     abstract fun getExactMessagePreview(
         account: Long,
         subject: Long,
-        type: ArukuContactType
+        type: ContactType
     ): List<MessagePreviewEntity>
 }

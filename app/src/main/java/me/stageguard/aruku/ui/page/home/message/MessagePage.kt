@@ -35,8 +35,8 @@ import com.valentinilk.shimmer.shimmer
 import me.stageguard.aruku.R
 import me.stageguard.aruku.database.LoadState
 import me.stageguard.aruku.database.ok
-import me.stageguard.aruku.service.parcel.ArukuContact
-import me.stageguard.aruku.service.parcel.ArukuContactType
+import me.stageguard.aruku.service.parcel.ContactId
+import me.stageguard.aruku.service.parcel.ContactType
 import me.stageguard.aruku.ui.LocalBot
 import me.stageguard.aruku.ui.common.FastScrollToTopFab
 import me.stageguard.aruku.ui.common.WhitePage
@@ -57,7 +57,7 @@ import java.time.ZoneOffset
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun HomeMessagePage(padding: PaddingValues, onContactClick: (ArukuContact, Int) -> Unit) {
+fun HomeMessagePage(padding: PaddingValues, onContactClick: (ContactId, Int) -> Unit) {
     val bot = LocalBot.current
     val viewModel: MessageViewModel = koinViewModel { parametersOf(bot) }
 
@@ -295,7 +295,7 @@ fun MessageCardPreview() {
         }
     }.shuffled().map { (icon, message) ->
         SimpleMessagePreview(
-            ArukuContact(ArukuContactType.GROUP, 123123L),
+            ContactId(ContactType.GROUP, 123123L),
             icon,
             message,
             "message preview",

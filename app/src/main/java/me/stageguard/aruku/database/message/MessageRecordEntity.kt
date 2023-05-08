@@ -9,7 +9,8 @@ import androidx.room.PrimaryKey
 import kotlinx.parcelize.Parcelize
 import kotlinx.serialization.Serializable
 import me.stageguard.aruku.domain.data.message.MessageElement
-import me.stageguard.aruku.service.parcel.ArukuContact
+import me.stageguard.aruku.service.parcel.ContactId
+import me.stageguard.aruku.service.parcel.Message
 
 @Parcelize
 @Serializable
@@ -27,10 +28,13 @@ import me.stageguard.aruku.service.parcel.ArukuContact
 )
 data class MessageRecordEntity(
     @ColumnInfo(name = "account_id") val account: Long,
-    @Embedded val contact: ArukuContact,
+    @Embedded val contact: ContactId,
     @ColumnInfo(name = "sender") val sender: Long,
     @ColumnInfo(name = "sender_name") val senderName: String,
     @PrimaryKey @ColumnInfo(name = "message_id") val messageId: Int,
     @ColumnInfo(name = "time") val time: Long,
     @ColumnInfo(name = "message") val message: List<MessageElement>,
 ) : Parcelable
+
+fun Message.toEntity() =
+    MessageRecordEntity(account, contact, sender, senderName, messageId, time, message)

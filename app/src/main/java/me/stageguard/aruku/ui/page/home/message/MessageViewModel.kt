@@ -13,7 +13,7 @@ import kotlinx.coroutines.launch
 import me.stageguard.aruku.database.LoadState
 import me.stageguard.aruku.database.mapOk
 import me.stageguard.aruku.domain.MainRepository
-import me.stageguard.aruku.service.parcel.ArukuContact
+import me.stageguard.aruku.service.parcel.ContactId
 import me.stageguard.aruku.ui.UiState
 import me.stageguard.aruku.util.tag
 import net.mamoe.mirai.utils.Either
@@ -67,7 +67,7 @@ class MessageViewModel(
         currentBotChannel.trySend(id)
     }
 
-    fun clearUnreadCount(account: Long, contact: ArukuContact) {
+    fun clearUnreadCount(account: Long, contact: ContactId) {
         viewModelScope.launch(Dispatchers.IO) {
             repository.clearUnreadCount(account, contact)
         }
@@ -75,7 +75,7 @@ class MessageViewModel(
 }
 
 data class SimpleMessagePreview(
-    val contact: ArukuContact,
+    val contact: ContactId,
     val avatarData: Any?,
     val name: String,
     val preview: String,

@@ -1,5 +1,6 @@
 package me.stageguard.aruku.domain.data.message
 
+import android.os.Parcelable
 import kotlinx.parcelize.Parcelize
 import kotlinx.serialization.Serializable
 
@@ -9,7 +10,7 @@ data class Poke(
     val name: String,
     val type: Int,
     val id: Int
-) : MessageElement {
+) : MessageElement, Parcelable {
     override fun contentToString(): String {
         return buildString {
             append("[")
@@ -46,7 +47,7 @@ data class VipFace(
     val id: Int,
     val name: String,
     val count: Int,
-) : MessageElement {
+) : MessageElement, Parcelable {
     override fun contentToString(): String {
         return "[VIP表情]${names[id] ?: "表情"}x${count}"
     }
@@ -73,7 +74,7 @@ data class VipFace(
 @Serializable
 data class Dice(
     val value: Int,
-) : MessageElement {
+) : MessageElement, Parcelable {
     override fun contentToString(): String {
         return "[骰子]"
     }
@@ -84,7 +85,7 @@ data class Dice(
 data class RPS(
     private val id: Int,
     val name: String,
-) : MessageElement {
+) : MessageElement, Parcelable {
     override fun contentToString(): String {
         return "[$name]"
     }
@@ -103,7 +104,7 @@ data class RPS(
 data class MarketFace(
     val id: Int,
     val name: String
-) : MessageElement {
+) : MessageElement, Parcelable {
     override fun contentToString(): String {
         return name
     }
@@ -116,7 +117,7 @@ data class FlashImage(
     val uuid: String,
     val width: Int,
     val height: Int,
-) : MessageElement {
+) : MessageElement, Parcelable {
     override fun contentToString(): String {
         return "[闪照]"
     }

@@ -22,8 +22,8 @@ import com.google.accompanist.pager.*
 import kotlinx.coroutines.launch
 import me.stageguard.aruku.R
 import me.stageguard.aruku.database.LoadState
-import me.stageguard.aruku.service.parcel.ArukuContact
-import me.stageguard.aruku.service.parcel.ArukuContactType
+import me.stageguard.aruku.service.parcel.ContactId
+import me.stageguard.aruku.service.parcel.ContactType
 import me.stageguard.aruku.ui.LocalBot
 import me.stageguard.aruku.ui.common.WhitePage
 import me.stageguard.aruku.ui.common.pagerTabIndicatorOffsetMD3
@@ -134,7 +134,7 @@ fun ContactTabs(tabs: List<ContactTab>, pagerState: PagerState, modifier: Modifi
 fun ContactTabContent(
     data: List<SimpleContactData>,
     modifier: Modifier = Modifier,
-    onContactClick: (ArukuContact) -> Unit
+    onContactClick: (ContactId) -> Unit
 ) {
     LazyColumn(
         modifier = modifier,
@@ -227,17 +227,17 @@ fun ContactTabContentPreview() {
         ContactTabContent(
             data = listOf(
                 SimpleContactData(
-                    ArukuContact(ArukuContactType.GROUP, 1234556L),
+                    ContactId(ContactType.GROUP, 1234556L),
                     "group 1",
                     R.mipmap.ic_launcher
                 ),
                 SimpleContactData(
-                    ArukuContact(ArukuContactType.GROUP, 114514L),
+                    ContactId(ContactType.GROUP, 114514L),
                     "group 2",
                     R.mipmap.load_loading
                 ),
                 SimpleContactData(
-                    ArukuContact(ArukuContactType.FRIEND, 1919810L),
+                    ContactId(ContactType.FRIEND, 1919810L),
                     "friend 1",
                     R.mipmap.load_empty
                 )

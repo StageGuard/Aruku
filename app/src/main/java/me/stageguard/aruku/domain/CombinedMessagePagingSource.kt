@@ -21,7 +21,7 @@ import me.stageguard.aruku.database.message.MessageRecordDao
 import me.stageguard.aruku.database.message.MessageRecordEntity
 import me.stageguard.aruku.service.bridge.RoamingQueryBridge
 import me.stageguard.aruku.service.bridge.suspendIO
-import me.stageguard.aruku.service.parcel.ArukuContact
+import me.stageguard.aruku.service.parcel.ContactId
 import me.stageguard.aruku.service.parcel.ArukuRoamingMessage
 import me.stageguard.aruku.util.createAndroidLogger
 import net.mamoe.mirai.utils.ConcurrentLinkedQueue
@@ -36,7 +36,7 @@ import kotlin.coroutines.EmptyCoroutineContext
  */
 class CombinedMessagePagingSource(
     private val account: Long,
-    private val contact: ArukuContact,
+    private val contact: ContactId,
     context: CoroutineContext = EmptyCoroutineContext,
 ) : PagingSource<Long, MessageRecordEntity>(), KoinComponent, CoroutineScope {
     private val logger = createAndroidLogger("CombinedMessagePagingSource")
@@ -214,7 +214,7 @@ class CombinedMessagePagingSource(
  */
 class HistoryMessagePagingSource(
     private val account: Long,
-    private val contact: ArukuContact,
+    private val contact: ContactId,
     context: CoroutineContext = EmptyCoroutineContext,
 ) : PagingSource<Int, MessageRecordEntity>(), KoinComponent, CoroutineScope {
     private val logger = createAndroidLogger("HistoryMessagePagingSource")

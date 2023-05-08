@@ -7,10 +7,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import me.stageguard.aruku.database.account.AccountDao
 import me.stageguard.aruku.database.account.AccountEntity
-import me.stageguard.aruku.database.contact.FriendDao
-import me.stageguard.aruku.database.contact.FriendEntity
-import me.stageguard.aruku.database.contact.GroupDao
-import me.stageguard.aruku.database.contact.GroupEntity
+import me.stageguard.aruku.database.contact.ContactDao
+import me.stageguard.aruku.database.contact.ContactEntity
 import me.stageguard.aruku.database.message.AudioUrlDao
 import me.stageguard.aruku.database.message.AudioUrlEntity
 import me.stageguard.aruku.database.message.MessagePreviewDao
@@ -25,8 +23,7 @@ import kotlin.coroutines.suspendCoroutine
         AccountEntity::class,
         MessageRecordEntity::class,
         MessagePreviewEntity::class,
-        GroupEntity::class,
-        FriendEntity::class,
+        ContactEntity::class,
         AudioUrlEntity::class
     ],
     version = 1,
@@ -39,9 +36,7 @@ abstract class ArukuDatabase : RoomDatabase() {
 
     abstract fun messageRecords(): MessageRecordDao
 
-    abstract fun groups(): GroupDao
-
-    abstract fun friends(): FriendDao
+    abstract fun contacts(): ContactDao
 
     abstract fun messagePreview(): MessagePreviewDao
 

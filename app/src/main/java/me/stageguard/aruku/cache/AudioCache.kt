@@ -20,20 +20,21 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.parcelize.Parcelize
-import me.stageguard.aruku.database.ArukuDatabase
 import me.stageguard.aruku.domain.RetrofitDownloadService
+import me.stageguard.aruku.service.bridge.AudioUrlQueryBridge
 import me.stageguard.aruku.service.parcel.AudioStatusListener
 import me.stageguard.aruku.util.createAndroidLogger
 import me.stageguard.aruku.util.md5
 import java.io.File
 import java.io.FileNotFoundException
+import java.lang.ref.WeakReference
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.CoroutineContext
 
 class AudioCache(
     context: CoroutineContext,
     private val cacheFolder: File,
-    private val database: ArukuDatabase,
+    private val audioUrlQueryBridge: WeakReference<AudioUrlQueryBridge>,
     private val downloadService: RetrofitDownloadService
 ) : CoroutineScope {
     private val logger = createAndroidLogger("AudioCache")
@@ -63,8 +64,9 @@ class AudioCache(
                 }
             }.onFailure {
                 if (it is FileNotFoundException && downloadJobs[fileMd5] == null) {
+                    val bridge = audioUrlQueryBridge.get() ?: return@onFailure
                     logger.i("observing audio $fileMd5 which is not cached, starting caching job.")
-                    val url = database.suspendIO { audioUrls().getAudioUrl(fileMd5).firstOrNull()?.url }
+                    val url = bridge.query(fileMd5)
                     if(url != null) appendDownloadJob(fileMd5, url)
                     return@onFailure
                 }

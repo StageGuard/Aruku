@@ -1,5 +1,6 @@
 package me.stageguard.aruku.domain.data.message
 
+import android.os.Parcelable
 import kotlinx.parcelize.Parcelize
 import kotlinx.serialization.Serializable
 
@@ -7,7 +8,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class PlainText(
     val text: String,
-) : MessageElement {
+) : MessageElement, Parcelable {
     override fun contentToString(): String {
         return text
     }
@@ -18,7 +19,7 @@ data class PlainText(
 data class At(
     val target: Long,
     val display: String,
-) : MessageElement {
+) : MessageElement, Parcelable {
     override fun contentToString(): String {
         return "@$display"
     }
@@ -26,7 +27,7 @@ data class At(
 
 @Parcelize
 @Serializable
-object AtAll : MessageElement {
+object AtAll : MessageElement, Parcelable {
     override fun contentToString(): String {
         return "@所有人"
     }

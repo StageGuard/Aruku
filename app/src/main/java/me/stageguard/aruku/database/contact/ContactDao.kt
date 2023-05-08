@@ -5,40 +5,29 @@ import androidx.room.Dao
 import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 import me.stageguard.aruku.database.BaseDao
+import me.stageguard.aruku.service.parcel.ContactType
 
 // TODO: add custom upsert method for group and friend
 @Dao
-abstract class GroupDao : BaseDao<GroupEntity> {
-    @Query("select * from `group` where account_id=:account")
-    abstract fun getGroups(account: Long): List<GroupEntity>
+abstract class ContactDao : BaseDao<ContactEntity> {
+    @Query("select * from `contact` where account_id=:account")
+    abstract fun getContacts(account: Long): List<ContactEntity>
 
-    @Query("select * from `group` where account_id=:account")
-    abstract fun getGroupsPaging(account: Long): PagingSource<Int, GroupEntity>
+    @Query("select * from `contact` where account_id=:account and type=:type")
+    abstract fun getContacts(account: Long, type: ContactType): List<ContactEntity>
 
-    @Query("select * from `group` where account_id=:account")
-    abstract fun getGroupsFlow(account: Long): Flow<List<GroupEntity>>
+    @Query("select * from `contact` where account_id=:account")
+    abstract fun getContactsPaging(account: Long): PagingSource<Int, ContactEntity>
 
-    @Query("select * from `group` where account_id=:account and group_id=:id")
-    abstract fun getGroup(account: Long, id: Long): List<GroupEntity>
+    @Query("select * from `contact` where account_id=:account and type=:type")
+    abstract fun getContactsPaging(account: Long, type: ContactType): PagingSource<Int, ContactEntity>
 
-    @Query("delete from `group` where account_id=:account and group_id=:id")
-    abstract fun deleteViaId(account: Long, id: Long)
-}
+    @Query("select * from `contact` where account_id=:account")
+    abstract fun getContactsFlow(account: Long): Flow<List<ContactEntity>>
 
-@Dao
-abstract class FriendDao : BaseDao<FriendEntity> {
-    @Query("select * from friend where account_id=:account")
-    abstract fun getFriends(account: Long): List<FriendEntity>
+    @Query("select * from `contact` where account_id=:account and type=:type")
+    abstract fun getContactsFlow(account: Long, type: ContactType): Flow<List<ContactEntity>>
 
-    @Query("select * from friend where account_id=:account")
-    abstract fun getFriendsPaging(account: Long): PagingSource<Int, FriendEntity>
-
-    @Query("select * from friend where account_id=:account")
-    abstract fun getFriendsFlow(account: Long): Flow<List<FriendEntity>>
-
-    @Query("select * from friend where account_id=:account and friend_id=:id")
-    abstract fun getFriend(account: Long, id: Long): List<FriendEntity>
-
-    @Query("delete from friend where account_id=:account and friend_id=:id")
-    abstract fun deleteViaId(account: Long, id: Long)
+    @Query("select * from `contact` where account_id=:account and subject=:subject and type=:type")
+    abstract fun getContact(account: Long, subject: Long, type: ContactType): List<ContactEntity>
 }

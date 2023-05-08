@@ -47,11 +47,11 @@ class MainActivity : ComponentActivity() {
             val serviceConnected = serviceConnector.connected.observeAsState(false)
             ArukuTheme {
                 Box(
-                    modifier = Modifier
-                        .clickable(
-                            indication = null,
-                            interactionSource = remember { MutableInteractionSource() },
-                            onClick = { focusManager.clearFocus() })
+                    modifier = Modifier.clickable(
+                        indication = null,
+                        interactionSource = remember { MutableInteractionSource() },
+                        onClick = { focusManager.clearFocus() }
+                    )
                 ) {
                     CompositionLocalProvider(
                         LocalStringLocale provides StringLocale(this@MainActivity),
