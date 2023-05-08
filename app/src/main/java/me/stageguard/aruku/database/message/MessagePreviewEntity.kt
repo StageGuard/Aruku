@@ -5,6 +5,7 @@ import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.Index
 import kotlinx.serialization.Serializable
+import me.stageguard.aruku.domain.data.message.contentToString
 import me.stageguard.aruku.service.parcel.ContactId
 import me.stageguard.aruku.service.parcel.Message
 
@@ -33,8 +34,8 @@ fun Message.toPreviewEntity(unreadCount: Int = 1) =
         buildString {
             append(senderName)
             append(": ")
-            append(message)
+            append(message.contentToString())
         },
-        1,
+        unreadCount,
         messageId
     )

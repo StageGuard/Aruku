@@ -4,6 +4,8 @@ import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.emitAll
@@ -11,6 +13,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import me.stageguard.aruku.database.ArukuDatabase
 import me.stageguard.aruku.database.LoadState
 import me.stageguard.aruku.database.account.AccountEntity
@@ -45,23 +48,19 @@ import me.stageguard.aruku.util.createAndroidLogger
 import java.lang.ref.WeakReference
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.CoroutineContext
-import kotlin.coroutines.EmptyCoroutineContext
 
 class MainRepositoryImpl(
     private val connectorRef: WeakReference<ServiceConnector>,
     private val database: ArukuDatabase,
     private val avatarCache: ConcurrentHashMap<Long, String>,
     private val nicknameCache: ConcurrentHashMap<Long, String>
-) : MainRepository, CoroutineScope {
+) : MainRepository, CoroutineScope by MainScope() {
     private val logger = createAndroidLogger("MainRepositoryImpl")
     private val binder: ServiceBridge? get() = connectorRef.get()?.binder
 
-    override val coroutineContext: CoroutineContext
-        get() = EmptyCoroutineContext
-
     init {
         launch {
-            val binder0 = awaitBinder()
+            val binder0 = withContext(Dispatchers.IO) { awaitBinder() }
 
             binder0.attachContactSyncer(object : ContactSyncBridge {
                 override fun onSyncContact(op: ContactSyncOp, account: Long, contacts: List<ContactInfo>) {
@@ -104,11 +103,9 @@ class MainRepositoryImpl(
                             message.contact.type
                         ).singleOrNull()
 
-                        if (existing != null) {
-                            messagePreview().update(existing.apply { unreadCount++ })
-                        } else {
-                            messagePreview().insert(message.toPreviewEntity(1))
-                        }
+                        messagePreview().upsert(message.toPreviewEntity(
+                            existing?.unreadCount?.plus(1) ?: 1
+                        ))
                     } }
                 }
             })
@@ -364,7 +361,7 @@ class MainRepositoryImpl(
                 binder0 = binder
             }
             if (binder0 != null) {
-                cont.resumeWith(Result.success(binder0!!))
+                cont.resumeWith(Result.success(binder0))
             } else {
                 cont.resumeWith(Result.failure(Exception("await binder is null")))
             }
