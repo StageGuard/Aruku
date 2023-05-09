@@ -179,7 +179,7 @@ class AudioCache(
             logger.i("cache audio $fileMd5 complete.")
         }
         job.start()
-        logger.i("audio $fileMd5 cache job $job is started.")
+        logger.i("audio $fileMd5 cache job is started.")
     }
 
     private fun resolveCacheFile(fileMd5: String): File =

@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import me.stageguard.aruku.database.ArukuDatabase
@@ -32,6 +33,7 @@ import me.stageguard.aruku.database.message.toPreviewEntity
 import me.stageguard.aruku.domain.CombinedMessagePagingSource
 import me.stageguard.aruku.domain.MainRepository
 import me.stageguard.aruku.service.ServiceConnector
+import me.stageguard.aruku.service.bridge.AudioUrlQueryBridge
 import me.stageguard.aruku.service.bridge.BotStateObserver
 import me.stageguard.aruku.service.bridge.ContactSyncBridge
 import me.stageguard.aruku.service.bridge.LoginSolverBridge
@@ -134,6 +136,7 @@ class MainRepositoryImpl(
                 override fun onMessage(message: Message) {
                     with(mainScope) { database.launchIO {
                         messageRecords().upsert(message.toEntity())
+                        processMessage(message)
 
                         val existing = messagePreview().getExactMessagePreview(
                             message.account,
@@ -148,6 +151,13 @@ class MainRepositoryImpl(
                 }
             })
 
+            binder0.setAudioUrlQueryBridge(object : AudioUrlQueryBridge {
+                // TODO: don't runBlocking
+                override fun query(fileMd5: String): String? = runBlocking {
+                    database.audioUrls().getAudioUrl(fileMd5).singleOrNull()?.url
+                }
+            })
+
             launch {
                 val all = database.suspendIO { accounts().getAll() }
                 all.forEach { account ->
@@ -156,6 +166,10 @@ class MainRepositoryImpl(
                 }
             }
         }
+
+    }
+
+    private suspend fun processMessage(message: Message) {
 
     }
 
