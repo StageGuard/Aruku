@@ -7,7 +7,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.material3.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -28,17 +32,15 @@ import me.stageguard.aruku.util.stringResC
  */
 
 @Composable
-@OptIn(ExperimentalMaterial3Api::class)
 fun CaptchaRequired(
     state: LoginState.CaptchaRequired,
-    onRetryCaptcha: (Long) -> Unit,
-    onSubmitCaptcha: (Long, String) -> Unit,
+    onSubmitCaptcha: (Long, String?) -> Unit,
     onCancelLogin: (Long) -> Unit
 ) {
     val captchaType = state.type
     val captchaResult = remember { mutableStateOf("") }
     AlertDialog(
-        onDismissRequest = { onRetryCaptcha(state.bot) },
+        onDismissRequest = { onSubmitCaptcha(state.bot, null) },
         title = {
             Text(
                 text = R.string.captcha_required.stringResC,
@@ -140,7 +142,7 @@ fun CaptchaRequiredSlider() {
         CaptchaRequired(
             LoginState.CaptchaRequired(
                 123, CaptchaType.Slider(123, "https://example.com/captcha_url")
-            ), { }, { _, _ -> }, { }
+            ), { _, _ -> }, { }
         )
     }
 }
@@ -152,7 +154,7 @@ fun CaptchaRequiredUDL() {
         CaptchaRequired(
             LoginState.CaptchaRequired(
                 123, CaptchaType.UnsafeDevice(123, "https://example.com/udl_url")
-            ), { }, { _, _ -> }, { }
+            ), { _, _ -> }, { }
         )
     }
 }
@@ -165,7 +167,7 @@ fun CaptchaRequiredPicture() {
             LoginState.CaptchaRequired(
                 123,
                 CaptchaType.Picture(123, byteArrayOf())
-            ), { }, { _, _ -> }, { }
+            ), { _, _ -> }, { }
         )
     }
 }
@@ -178,7 +180,7 @@ fun SMSRequest() {
             LoginState.CaptchaRequired(
                 123,
                 CaptchaType.SMSRequest(123, "+8611451419198")
-            ), { }, { _, _ -> }, { }
+            ), { _, _ -> }, { }
         )
     }
 }

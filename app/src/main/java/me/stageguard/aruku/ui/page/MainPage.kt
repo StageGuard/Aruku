@@ -1,15 +1,20 @@
 package me.stageguard.aruku.ui.page
 
+import android.widget.Toast
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.navigation.navArgument
 import com.google.accompanist.navigation.animation.AnimatedNavHost
 import com.google.accompanist.navigation.animation.rememberAnimatedNavController
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.launch
+import me.stageguard.aruku.ArukuApplication
+import me.stageguard.aruku.R
 import me.stageguard.aruku.service.parcel.AccountState
 import me.stageguard.aruku.ui.LocalAccountsState
 import me.stageguard.aruku.ui.LocalBot
@@ -22,6 +27,7 @@ import me.stageguard.aruku.ui.page.home.HomePage
 import me.stageguard.aruku.ui.page.login.CaptchaRequired
 import me.stageguard.aruku.ui.page.login.LoginPage
 import me.stageguard.aruku.ui.page.login.LoginState
+import me.stageguard.aruku.util.stringRes
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
 
@@ -47,6 +53,7 @@ fun MainPage(
     val state by viewModel.accountsState.collectAsState(mapOf())
 
     val navController = rememberAnimatedNavController()
+    val coroutineScope = rememberCoroutineScope()
 
     CompositionLocalProvider(
         LocalBot provides activeBot,
@@ -57,15 +64,22 @@ fun MainPage(
             animatedComposable(NAV_HOME) {
                 HomePage(
                     onSwitchAccount = { accountNo -> viewModel.activeAccountPref.set(accountNo) },
-                    onLogout = { viewModel.doLogout(it) },
-                    onLogin = { viewModel.doLogin(it) }
+                    onLogout = { viewModel.logout(it) },
+                    onLogin = { viewModel.login(it) }
                 )
             }
             animatedComposable(NAV_LOGIN) {
-                LoginPage(onLoginSuccess = { accountNo ->
-                    viewModel.activeAccountPref.set(accountNo)
-                    navController.popBackStack()
-                })
+                LoginPage(
+                    doLogin = { viewModel.addBotAndLogin(it) },
+                    submitCaptcha = { coroutineScope.launch { viewModel.submitCaptcha(it) } },
+                    onLoginFailed = {
+                        viewModel.removeBot(it)
+                    },
+                    onLoginSuccess = {
+                        viewModel.activeAccountPref.set(it)
+                        navController.popBackStack()
+                    }
+                )
             }
             animatedComposable(
                 route = "$NAV_CHAT/{contact}",
@@ -85,11 +99,16 @@ fun MainPage(
             is UIAccountState.Login -> if (loginState.state is LoginState.CaptchaRequired) {
                 CaptchaRequired(
                     state = loginState.state,
-                    onRetryCaptcha = { accountNo -> viewModel.submitCaptcha(accountNo, null) },
-                    onSubmitCaptcha = { accountNo, result ->
-                        viewModel.submitCaptcha(accountNo, result)
+                    onSubmitCaptcha = { _, result ->
+                        coroutineScope.launch { viewModel.submitCaptcha(result) }
                     },
-                    onCancelLogin = { viewModel.cancelLogin(it) },
+                    onCancelLogin = {
+                        Toast.makeText(
+                            ArukuApplication.INSTANCE.applicationContext,
+                            R.string.login_failed_please_retry.stringRes(it),
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    },
                 )
             }
 

@@ -22,7 +22,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.parcelize.Parcelize
 import me.stageguard.aruku.domain.RetrofitDownloadService
 import me.stageguard.aruku.service.bridge.AudioUrlQueryBridge
-import me.stageguard.aruku.service.parcel.AudioStatusListener
+import me.stageguard.aruku.service.bridge.AudioStatusListener
 import me.stageguard.aruku.util.createAndroidLogger
 import me.stageguard.aruku.util.md5
 import java.io.File

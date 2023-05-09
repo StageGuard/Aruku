@@ -28,7 +28,6 @@ import me.stageguard.aruku.R
 import me.stageguard.aruku.service.parcel.AccountLoginData
 import me.stageguard.aruku.ui.LocalAccountsState
 import me.stageguard.aruku.ui.common.SingleItemLazyColumn
-import me.stageguard.aruku.ui.page.MainViewModel
 import me.stageguard.aruku.ui.page.UIAccountState
 import me.stageguard.aruku.ui.theme.ArukuTheme
 import me.stageguard.aruku.util.createAndroidLogger
@@ -41,17 +40,21 @@ private val logger = createAndroidLogger("LoginPage")
 
 @Composable
 fun LoginPage(
+    doLogin: (AccountLoginData) -> Unit,
+    submitCaptcha: (String?) -> Unit,
+
+    onLoginFailed: (Long) -> Unit,
     onLoginSuccess: (Long) -> Unit
 ) {
     val viewModel: LoginViewModel = koinViewModel()
-    val mainSharedViewModel: MainViewModel = koinViewModel()
 
     val accountsState = LocalAccountsState.current
     var loginAccount: Long? by remember { mutableStateOf(null) }
-
     var lastLoginState: LoginState by remember { mutableStateOf(LoginState.Default) }
 
     val currentOnLoginSuccess by rememberUpdatedState(onLoginSuccess)
+    val currentOnLoginFailed by rememberUpdatedState(onLoginFailed)
+
     LaunchedEffect(accountsState) {
         val loginAccountState = accountsState[loginAccount]
         logger.i("account state: $loginAccountState")
@@ -66,20 +69,16 @@ fun LoginPage(
         accountInfo = viewModel.accountInfo,
         state = lastLoginState,
         onLoginClick = {
-            mainSharedViewModel.doLogin(it, viewModel.accountInfo.value)
+            doLogin(viewModel.accountInfo.value)
             loginAccount = it
         },
         onLoginFailedClick = {
             lastLoginState = LoginState.Default
-            mainSharedViewModel.removeAccount(it)
-        },
-        onRetryCaptchaClick = {
-            lastLoginState = LoginState.Default
-            mainSharedViewModel.retryCaptcha(it)
+            currentOnLoginFailed(it)
         },
         onSubmitCaptchaClick = { acc, result ->
-            lastLoginState = LoginState.Default
-            mainSharedViewModel.submitCaptcha(acc, result)
+            lastLoginState = LoginState.Logging
+            submitCaptcha(result)
         }
     )
 }
@@ -91,8 +90,7 @@ fun LoginView(
     state: LoginState,
     onLoginClick: (Long) -> Unit,
     onLoginFailedClick: (Long) -> Unit,
-    onRetryCaptchaClick: (Long) -> Unit,
-    onSubmitCaptchaClick: (Long, String) -> Unit
+    onSubmitCaptchaClick: (Long, String?) -> Unit
 ) {
     val account = rememberSaveable { mutableStateOf("") }
     val isAccountValid = account.value.toLongOrNull()?.run { true } ?: true
@@ -280,7 +278,6 @@ fun LoginView(
                     } else if (state is LoginState.CaptchaRequired) {
                         CaptchaRequired(
                             state,
-                            onRetryCaptchaClick,
                             onSubmitCaptchaClick,
                             onLoginFailedClick
                         )
@@ -313,7 +310,6 @@ fun LoginViewPreview() {
             loginState,
             onLoginClick = {},
             onLoginFailedClick = {},
-            onRetryCaptchaClick = {},
             onSubmitCaptchaClick = { _, _ -> })
     }
 }

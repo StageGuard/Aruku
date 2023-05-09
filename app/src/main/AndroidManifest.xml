@@ -34,7 +34,8 @@
                 android:name=".service.ArukuMiraiService"
                 android:description="@string/app_mirai_service_desc"
                 android:enabled="true"
-                android:exported="false" />
+                android:exported="false"
+                android:process=":ArukuMiraiProcess" />
     </application>
 
 </manifest>

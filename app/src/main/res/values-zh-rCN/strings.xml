@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_mirai_service_desc">Aruku mirai 后台服务</string>
+    <string name="app_mirai_service_desc">Aruku 后台服务</string>
     <string name="messages">消息</string>
     <string name="login_message">登录</string>
     <string name="login_desc">登录以解锁更多功能</string>

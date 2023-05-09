@@ -33,6 +33,7 @@ import me.stageguard.aruku.database.message.toPreviewEntity
 import me.stageguard.aruku.domain.CombinedMessagePagingSource
 import me.stageguard.aruku.domain.MainRepository
 import me.stageguard.aruku.service.ServiceConnector
+import me.stageguard.aruku.service.bridge.AudioStatusListener
 import me.stageguard.aruku.service.bridge.AudioUrlQueryBridge
 import me.stageguard.aruku.service.bridge.BotStateObserver
 import me.stageguard.aruku.service.bridge.ContactSyncBridge
@@ -45,7 +46,6 @@ import me.stageguard.aruku.service.parcel.AccountInfoImpl
 import me.stageguard.aruku.service.parcel.AccountLoginData
 import me.stageguard.aruku.service.parcel.AccountProfile
 import me.stageguard.aruku.service.parcel.AccountState
-import me.stageguard.aruku.service.parcel.AudioStatusListener
 import me.stageguard.aruku.service.parcel.ContactId
 import me.stageguard.aruku.service.parcel.ContactInfo
 import me.stageguard.aruku.service.parcel.ContactSyncOp
@@ -187,6 +187,10 @@ class MainRepositoryImpl(
 
     override fun removeBot(accountNo: Long): Boolean {
         assertServiceConnected()
+        launch { database.suspendIO {
+            val existing = accounts()[accountNo]
+            accounts().delete(*existing.toTypedArray())
+        } }
         return binder?.removeBot(accountNo) ?: false
     }
 

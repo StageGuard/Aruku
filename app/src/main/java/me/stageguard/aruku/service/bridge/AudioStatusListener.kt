@@ -1,4 +1,4 @@
-package me.stageguard.aruku.service.parcel
+package me.stageguard.aruku.service.bridge
 
 import me.stageguard.aruku.cache.AudioCache
 import remoter.annotations.ParamOut

@@ -34,6 +34,7 @@ import me.stageguard.aruku.domain.RetrofitDownloadService
 import me.stageguard.aruku.domain.data.message.calculateMessageId
 import me.stageguard.aruku.domain.data.message.toMessageElements
 import me.stageguard.aruku.service.ArukuLoginSolver.Solution
+import me.stageguard.aruku.service.bridge.AudioStatusListener
 import me.stageguard.aruku.service.bridge.AudioUrlQueryBridge
 import me.stageguard.aruku.service.bridge.BotStateObserver
 import me.stageguard.aruku.service.bridge.ContactSyncBridge
@@ -50,7 +51,6 @@ import me.stageguard.aruku.service.parcel.AccountState
 import me.stageguard.aruku.service.parcel.AccountState.CaptchaType
 import me.stageguard.aruku.service.parcel.AccountState.OfflineCause
 import me.stageguard.aruku.service.parcel.ArukuRoamingMessage
-import me.stageguard.aruku.service.parcel.AudioStatusListener
 import me.stageguard.aruku.service.parcel.ContactId
 import me.stageguard.aruku.service.parcel.ContactSyncOp
 import me.stageguard.aruku.service.parcel.ContactType

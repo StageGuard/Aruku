@@ -15,7 +15,7 @@ import me.stageguard.aruku.cache.AudioCache
 import me.stageguard.aruku.domain.MainRepository
 import me.stageguard.aruku.domain.data.message.*
 import me.stageguard.aruku.service.parcel.ContactType
-import me.stageguard.aruku.service.parcel.AudioStatusListener
+import me.stageguard.aruku.service.bridge.AudioStatusListener
 import me.stageguard.aruku.ui.UiState
 import me.stageguard.aruku.ui.page.ChatPageNav
 import me.stageguard.aruku.util.toFormattedTime
