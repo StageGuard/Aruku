@@ -68,9 +68,7 @@ class MainViewModel(
         serviceAccountStateFlow
             .flowWithLifecycle(composableLifecycleOwner.lifecycle)
             .map { states -> states.map { (account, state) -> account to state.mapUiState() }.toMap() }
-            /*.combineTransform(additionalStateProducer.consumeAsFlow()) { ord, add ->
-                emit(ord.filter { it.key != add.first }.toMutableMap().apply { set(add.first, add.second) })
-            }*/.onEach {
+            .onEach {
                 logger.i("AccountState: " + it.entries.joinToString { e -> "${e.key}: ${e.value}" })
             }.stateIn(viewModelScope, SharingStarted.Lazily, mapOf())
 

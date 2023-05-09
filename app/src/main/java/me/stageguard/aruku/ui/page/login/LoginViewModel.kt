@@ -31,11 +31,31 @@ class LoginViewModel(
 }
 
 sealed interface LoginState {
-    object Default : LoginState
-    object Logging : LoginState
-    class CaptchaRequired(val bot: Long, val type: CaptchaType) : LoginState
-    class Failed(val bot: Long, val cause: String) : LoginState
-    class Success(val bot: Long) : LoginState
+    object Default : LoginState {
+        override fun toString(): String {
+            return "Default"
+        }
+    }
+    object Logging : LoginState {
+        override fun toString(): String {
+            return "Logging"
+        }
+    }
+    class CaptchaRequired(val bot: Long, val type: CaptchaType) : LoginState {
+        override fun toString(): String {
+            return "CaptchaRequired(bot=$bot, type=$type)"
+        }
+    }
+    class Failed(val bot: Long, val cause: String) : LoginState {
+        override fun toString(): String {
+            return "Failed($bot=bot, cause=$cause)"
+        }
+    }
+    class Success(val bot: Long) : LoginState {
+        override fun toString(): String {
+            return "Success(bot=$bot)"
+        }
+    }
 }
 
 sealed class CaptchaType(val bot: Long) {

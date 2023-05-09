@@ -57,6 +57,7 @@ class MainRepositoryImpl(
 ) : MainRepository, CoroutineScope by MainScope() {
     private val logger = createAndroidLogger("MainRepositoryImpl")
     private val binder: ServiceBridge? get() = connectorRef.get()?.binder
+    private val mainScope = this
 
     init {
         launch {
@@ -64,7 +65,7 @@ class MainRepositoryImpl(
 
             binder0.attachContactSyncer(object : ContactSyncBridge {
                 override fun onSyncContact(op: ContactSyncOp, account: Long, contacts: List<ContactInfo>) {
-                    launch { database.suspendIO {
+                    with(mainScope) { database.launchIO {
                         if (op == ContactSyncOp.REFRESH) {
                             val cached = contacts().getContacts(account)
                             val online = contacts.map { it.toEntity(account) }
@@ -82,7 +83,7 @@ class MainRepositoryImpl(
                 }
 
                 override fun onUpdateAccountInfo(info: AccountInfo) {
-                    launch { database.suspendIO {
+                    with(mainScope) { database.launchIO {
                         val account = accounts()[info.accountNo].singleOrNull()
                         if (account != null) accounts().upsert(account.apply {
                             this.nickname = info.nickname
@@ -94,7 +95,7 @@ class MainRepositoryImpl(
 
             binder0.subscribeMessages(object : MessageSubscriber {
                 override fun onMessage(message: Message) {
-                    launch { database.suspendIO {
+                    with(mainScope) { database.launchIO {
                         messageRecords().upsert(message.toEntity())
 
                         val existing = messagePreview().getExactMessagePreview(
@@ -151,11 +152,6 @@ class MainRepositoryImpl(
     override fun getBots(): List<Long> {
         assertServiceConnected()
         return binder?.getBots() ?: listOf()
-    }
-
-    override fun loginAll() {
-        assertServiceConnected()
-        binder?.loginAll()
     }
 
     override fun login(accountNo: Long): Boolean {
@@ -354,6 +350,9 @@ class MainRepositoryImpl(
         }
     }
 
+    /**
+     * await binder will block a whole thread
+     */
     private suspend fun awaitBinder(): ServiceBridge {
         return suspendCancellableCoroutine { cont ->
             var binder0 = binder

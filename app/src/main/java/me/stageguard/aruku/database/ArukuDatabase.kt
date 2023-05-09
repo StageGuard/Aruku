@@ -3,7 +3,9 @@ package me.stageguard.aruku.database
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.stageguard.aruku.database.account.AccountDao
 import me.stageguard.aruku.database.account.AccountEntity
@@ -50,6 +52,10 @@ abstract class ArukuDatabase : RoomDatabase() {
         return withContext(Dispatchers.IO) {
             suspendCoroutine { it.resume(invoke(block)) }
         }
+    }
+
+    context(CoroutineScope) fun launchIO(block: suspend ArukuDatabase.() -> Unit) {
+        launch(Dispatchers.IO) { block() }
     }
 
 }

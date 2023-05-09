@@ -24,7 +24,6 @@ interface MainRepository {
     fun removeBot(accountNo: Long): Boolean
     fun deleteBot(accountNo: Long): Boolean
     fun getBots(): List<Long>
-    fun loginAll()
     fun login(accountNo: Long): Boolean
     fun logout(accountNo: Long): Boolean
     fun attachLoginSolver(solver: LoginSolverBridge)

@@ -72,7 +72,6 @@ import net.mamoe.mirai.contact.Friend
 import net.mamoe.mirai.contact.Group
 import net.mamoe.mirai.contact.getMember
 import net.mamoe.mirai.contact.nameCardOrNick
-import net.mamoe.mirai.event.EventChannel
 import net.mamoe.mirai.event.Listener
 import net.mamoe.mirai.event.ListeningStatus
 import net.mamoe.mirai.event.events.BotEvent
@@ -163,10 +162,6 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
         override fun getBots(): List<Long> {
             return service.bots.keys().toList()
 
-        }
-
-        override fun loginAll() {
-            service.bots.forEach { (no, _) -> login(no) }
         }
 
         override fun login(accountNo: Long): Boolean {
@@ -428,8 +423,13 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
      *  then cancel bot job to ensure that event channels and all jobs is stopped.
      */
     private fun login(account: Long): Boolean {
-        val bot = bots[account] ?: return false
+        var bot = bots[account] ?: return false
         if (bot.isOnline) return true
+        if (bot.coroutineContext[Job]?.isCancelled == true) {
+            logger.w("bot $account is cancelled, renewing bot instance.")
+            val info = loginData[account]
+            if (info != null) bots[account] = createBot(info).also { bot = it }
+        }
 
         val job = botJobs[account]
         if (job != null && job.isActive) {
@@ -439,49 +439,38 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
 
         var onlineEventSubscriber: Listener<BotOnlineEvent>? = null
         var offlineEventSubscriber: Listener<BotOfflineEvent>? = null
+        var botSubscribers: List<Listener<*>>? = null
 
         botJobs[account] = launch(context = CoroutineExceptionHandler { context, th ->
+            botJobs.remove(account)
+
             if (th is LoginFailedException) {
                 logger.e("login $account failed.", th)
-                stateChannel.trySend(
-                    AccountState.Offline(
-                        account,
-                        OfflineCause.LOGIN_FAILED,
-                        th.message
-                    )
-                )
+                stateChannel.trySend(AccountState.Offline(account, OfflineCause.LOGIN_FAILED, th.message))
                 return@CoroutineExceptionHandler
             }
 
             val matcher = Regex("create a new bot instance", RegexOption.IGNORE_CASE)
             if (th is IllegalStateException && th.toString().contains(matcher)) {
-                logger.w("bot isn't recoverable, renewing bot and logging.")
+                logger.e("bot $account isn't recoverable.")
                 context[Job]?.cancel()
                 onlineEventSubscriber?.cancel()
                 offlineEventSubscriber?.cancel()
-                renewBotAndLogin(account)
+                stateChannel.trySend(AccountState.Offline(account, OfflineCause.LOGIN_FAILED, th.message))
                 return@CoroutineExceptionHandler
             }
 
             logger.e("uncaught exception while logging $account.", th)
-            stateChannel.trySend(
-                AccountState.Offline(
-                    account,
-                    OfflineCause.LOGIN_FAILED,
-                    th.message
-                )
-            )
-            removeBot(account)
+            stateChannel.trySend(AccountState.Offline(account, OfflineCause.LOGIN_FAILED, th.message))
         } + SupervisorJob()) {
-            val scopedEventChannel = bot.eventChannel.parentScope(this)
 
-            onlineEventSubscriber = scopedEventChannel.subscribe { event ->
+            onlineEventSubscriber = bot.eventChannel.subscribe<BotOnlineEvent> { event ->
                 logger.i("bot ${event.bot.id} login success.")
                 stateChannel.send(AccountState.Online(event.bot.id))
-                if (event.bot.isActive) ListeningStatus.LISTENING else ListeningStatus.STOPPED
+                if (bot.isActive) ListeningStatus.LISTENING else ListeningStatus.STOPPED
             }
 
-            offlineEventSubscriber = scopedEventChannel.subscribe { event ->
+            offlineEventSubscriber = bot.eventChannel.subscribe { event ->
                 val message: String
                 var stopSubscription = false
 
@@ -500,19 +489,22 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
                     }
 
                     else -> {
-                        message =
-                            (event as? BotOfflineEvent.CauseAware)?.cause?.message ?: "dropped"
+                        message = (event as? BotOfflineEvent.CauseAware)?.cause?.message ?: "dropped"
                         OfflineCause.DISCONNECTED
                     }
                 }
 
                 stateChannel.send(AccountState.Offline(event.bot.id, offlineCause, message))
-                if (stopSubscription) ListeningStatus.STOPPED else ListeningStatus.LISTENING
+                if (stopSubscription) {
+                    onlineEventSubscriber?.cancel()
+                    botSubscribers?.forEach(Listener<*>::cancel)
+                    ListeningStatus.STOPPED
+                } else ListeningStatus.LISTENING
             }
 
             stateChannel.send(AccountState.Logging(bot.id))
             bot.login()
-            initializeBot(bot, scopedEventChannel)
+            botSubscribers = initializeBot(bot)
 
             bot.join()
         }
@@ -536,7 +528,7 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
     }
 
     // should use bot coroutine scope
-    private fun initializeBot(bot: Bot, scopedChannel: EventChannel<BotEvent>) {
+    private fun initializeBot(bot: Bot): List<Listener<*>> = buildList {
         // ensure that process contacts after syncing complete
         val syncContactLock = Mutex(true)
         // cache contacts and profile
@@ -560,7 +552,7 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
         }
 
         // subscribe message events
-        scopedChannel.subscribe<MessageEvent>(coroutineContext = CoroutineExceptionHandler { _, t ->
+        add(bot.eventChannel.subscribe<MessageEvent>(coroutineContext = CoroutineExceptionHandler { _, t ->
             if (t is IllegalStateException &&
                 t.toString().contains(Regex("UNKNOWN_MESSAGE_EVENT_TYPE"))
             ) {
@@ -607,10 +599,14 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
             }
 
             return@subscribe ListeningStatus.LISTENING
-        }
+        }.apply { invokeOnCompletion {
+            logger.i("message subscriber of bot ${bot.id} is cancelled.")
+        } }.also {
+            logger.i("message subscriber of bot ${bot.id} is started.")
+        })
 
         // sync contact changes
-        scopedChannel.subscribe<BotEvent> { event ->
+        add(bot.eventChannel.subscribe<BotEvent> { event ->
             if (!event.bot.isActive) return@subscribe ListeningStatus.STOPPED
             if (
                 event !is FriendAddEvent &&
@@ -626,7 +622,7 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
             if(syncer != null) when (event) {
                 is FriendAddEvent, is StrangerRelationChangeEvent.Friended -> {
                     val friend = if (event is FriendAddEvent) event.friend
-                        else (event as StrangerRelationChangeEvent.Friended).friend
+                    else (event as StrangerRelationChangeEvent.Friended).friend
 
                     syncer.onSyncContact(ContactSyncOp.ENTRANCE, event.bot.id, listOf(friend.toContactInfo()))
                     logger.i("friend added via event, friend=${friend}.")
@@ -650,7 +646,11 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
 
             syncContactLock.unlock()
             return@subscribe ListeningStatus.LISTENING
-        }
+        }.apply { invokeOnCompletion {
+            logger.i("contact syncer subscriber of bot ${bot.id} is cancelled.")
+        } }.also {
+            logger.i("contact syncer subscriber of bot ${bot.id} is started.")
+        })
     }
 
     private fun logout(account: Long): Boolean {
@@ -665,10 +665,11 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
         launch {
             closeBotAndJoin(account)
             stateChannel.send(AccountState.Offline(account, OfflineCause.SUBJECTIVE, null))
-
-            val rm = botJobs.remove(account, job)
-            if (!rm) logger.w("bot job $account is not removed after logout.")
+            println("logout sent")
         }
+
+        val rm = botJobs.remove(account, job)
+        if (!rm) logger.w("bot job $account is not removed after logout.")
         return true
     }
 

@@ -15,7 +15,6 @@ interface ServiceBridge {
     fun addBot(@ParamIn info: AccountLoginData?, alsoLogin: Boolean): Boolean
     fun removeBot(accountNo: Long): Boolean
     fun getBots(): List<Long>
-    fun loginAll()
     fun login(accountNo: Long): Boolean
     fun logout(accountNo: Long): Boolean
     fun attachBotStateObserver(identity: String, @ParamIn observer: BotStateObserver)
