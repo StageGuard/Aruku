@@ -17,8 +17,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.SpanStyle
@@ -35,6 +38,9 @@ import kotlinx.coroutines.launch
 import me.stageguard.aruku.R
 import me.stageguard.aruku.util.stringResC
 import okhttp3.internal.toLongOrDefault
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.random.Random
 
 @Composable
 fun PlainText(
@@ -194,16 +200,26 @@ fun Audio(
         val size = progressCircleSize.width / 2f
         indicatorCenterOffset - Offset(size, size)
     }
+    val startButtonRadius = with(density) { 6.dp.roundToPx().toFloat() }
+    val waveBarHalfHeight = with(density) { 10.dp.roundToPx().toFloat() }
+    val waveBarWidth = with(density) { 5.dp.roundToPx().toFloat() }
+    val waveBarMargin = with(density) { 2.dp.roundToPx().toFloat() }
 
-    var rotateStartAngle by remember { mutableStateOf(0f) }
-    var sweepAngle by remember { mutableStateOf(0f) }
+    var currentStatus by remember {
+        mutableStateOf(ChatAudioStatus.Preparing(0.0))
+    }
 
-    LaunchedEffect(key1 = element) {
+    var progressRotateStartAngle by remember { mutableStateOf(0f) }
+    var progressSweepAngle by remember { mutableStateOf(0f) }
+    var startButtonRotateAngle by remember { mutableStateOf(0f) }
+
+    LaunchedEffect(status) {
         launch(Dispatchers.IO) {
             while (isActive) {
-                rotateStartAngle = (rotateStartAngle + 2f) % 360f
-                if (sweepAngle < 180f) sweepAngle += 0.2f
-                delay(10) // 让给其他协程
+                progressRotateStartAngle = (progressRotateStartAngle + 2f) % 360f
+                startButtonRotateAngle = (startButtonRotateAngle + 3f) % 360f
+                if (progressSweepAngle < 180f) progressSweepAngle += 0.2f
+                delay(8L) // 让给其他协程
             }
         }
     }
@@ -217,8 +233,8 @@ fun Audio(
 
         drawArc(
             color = backgroundColor,
-            startAngle = rotateStartAngle,
-            sweepAngle = sweepAngle,
+            startAngle = progressRotateStartAngle,
+            sweepAngle = progressSweepAngle,
             useCenter = false,
             topLeft = progressCircleTLOffset,
             size = progressCircleSize,
@@ -227,6 +243,47 @@ fun Audio(
                 cap = StrokeCap.Round,
             )
         )
+
+
+        drawPath(
+            path = Path().apply {
+                moveTo(
+                    indicatorCenterOffset.x + startButtonRadius * cos(startButtonRotateAngle * Math.PI / 180f).toFloat(),
+                    indicatorCenterOffset.y + startButtonRadius * sin(startButtonRotateAngle * Math.PI / 180f).toFloat()
+                )
+                lineTo(
+                    indicatorCenterOffset.x + startButtonRadius * cos((startButtonRotateAngle - 120f) * Math.PI / 180f).toFloat(),
+                    indicatorCenterOffset.y + startButtonRadius * sin((startButtonRotateAngle - 120f) * Math.PI / 180f).toFloat()
+                )
+                lineTo(
+                    indicatorCenterOffset.x + startButtonRadius * cos((startButtonRotateAngle - 240f) * Math.PI / 180f).toFloat(),
+                    indicatorCenterOffset.y + startButtonRadius * sin((startButtonRotateAngle - 240f) * Math.PI / 180f).toFloat()
+                )
+                close()
+            },
+            color = backgroundColor,
+            style = Fill
+        )
+
+        translate(height, 0f) {
+            repeat(12) { i ->
+                val waveHalfHeight = Random.nextFloat() * waveBarHalfHeight
+                drawLine(
+                    color = contentColor,
+                    start = Offset(
+                        2 * waveBarMargin + i * (waveBarWidth + waveBarMargin),
+                        height / 2 - waveHalfHeight
+                    ),
+                    end = Offset(
+                        2 * waveBarMargin + i * (waveBarWidth + waveBarMargin),
+                        height / 2 + waveHalfHeight
+                    ),
+                    strokeWidth = waveBarWidth,
+                    cap = StrokeCap.Round
+                )
+            }
+        }
+
     }
 }
 

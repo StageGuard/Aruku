@@ -3,6 +3,7 @@ package me.stageguard.aruku.ui.page.home
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedContentScope
 import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.with
 import androidx.compose.foundation.layout.Box
@@ -34,6 +35,8 @@ import me.stageguard.aruku.ui.LocalSystemUiController
 import me.stageguard.aruku.ui.page.NAV_LOGIN
 import me.stageguard.aruku.ui.page.UIAccountState
 import me.stageguard.aruku.ui.theme.ArukuTheme
+import me.stageguard.aruku.ui.theme.ColorAccountOffline
+import me.stageguard.aruku.ui.theme.ColorAccountOnline
 import me.stageguard.aruku.util.stringResC
 import org.koin.androidx.compose.koinViewModel
 
@@ -92,6 +95,11 @@ private fun HomeView(
     val currAccount = bot?.let { id -> accounts.find { it.id == id } }
     val showAccountDialog = remember { mutableStateOf(false) }
 
+    val accountStateColor by animateColorAsState(
+        if (state is UIAccountState.Online) ColorAccountOnline else ColorAccountOffline
+    )
+
+
     SideEffect {
         systemUiController.setNavigationBarColor(navigationContainerColor.copy(0.13f))
         systemUiController.setStatusBarColor(backgroundColor.copy(0.13f))
@@ -113,6 +121,7 @@ private fun HomeView(
                         account = currAccount,
                         barColors = topAppBarColors,
                         scrollBehavior = scrollState,
+                        accountStateColor = accountStateColor,
                         onAvatarClick = {
                             if (accounts.isEmpty()) {
                                 onNavigateToLoginPage()

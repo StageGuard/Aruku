@@ -21,12 +21,12 @@ import me.stageguard.aruku.database.message.MessageRecordDao
 import me.stageguard.aruku.database.message.MessageRecordEntity
 import me.stageguard.aruku.service.bridge.RoamingQueryBridge
 import me.stageguard.aruku.service.bridge.suspendIO
-import me.stageguard.aruku.service.parcel.ContactId
 import me.stageguard.aruku.service.parcel.ArukuRoamingMessage
+import me.stageguard.aruku.service.parcel.ContactId
 import me.stageguard.aruku.util.createAndroidLogger
-import net.mamoe.mirai.utils.ConcurrentLinkedQueue
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import java.util.concurrent.ConcurrentLinkedQueue
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.EmptyCoroutineContext
 

@@ -26,12 +26,14 @@ import me.stageguard.aruku.database.account.toEntity
 import me.stageguard.aruku.database.account.toLoginData
 import me.stageguard.aruku.database.contact.ContactEntity
 import me.stageguard.aruku.database.contact.toEntity
+import me.stageguard.aruku.database.message.AudioUrlEntity
 import me.stageguard.aruku.database.message.MessagePreviewEntity
 import me.stageguard.aruku.database.message.MessageRecordEntity
 import me.stageguard.aruku.database.message.toEntity
 import me.stageguard.aruku.database.message.toPreviewEntity
 import me.stageguard.aruku.domain.CombinedMessagePagingSource
 import me.stageguard.aruku.domain.MainRepository
+import me.stageguard.aruku.domain.data.message.Audio
 import me.stageguard.aruku.service.ServiceConnector
 import me.stageguard.aruku.service.bridge.AudioStatusListener
 import me.stageguard.aruku.service.bridge.AudioUrlQueryBridge
@@ -170,7 +172,10 @@ class MainRepositoryImpl(
     }
 
     private suspend fun processMessage(message: Message) {
-
+        val audio = message.message.find { it is Audio } as? Audio
+        if(audio != null) database.suspendIO {
+            audioUrls().upsert(AudioUrlEntity(audio.fileMd5, audio.url))
+        }
     }
 
     override fun addBot(info: AccountLoginData, alsoLogin: Boolean): Boolean {
