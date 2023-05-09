@@ -6,8 +6,12 @@ import androidx.paging.PagingData
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.channels.onFailure
+import kotlinx.coroutines.channels.trySendBlocking
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
@@ -28,6 +32,7 @@ import me.stageguard.aruku.database.message.toPreviewEntity
 import me.stageguard.aruku.domain.CombinedMessagePagingSource
 import me.stageguard.aruku.domain.MainRepository
 import me.stageguard.aruku.service.ServiceConnector
+import me.stageguard.aruku.service.bridge.BotStateObserver
 import me.stageguard.aruku.service.bridge.ContactSyncBridge
 import me.stageguard.aruku.service.bridge.LoginSolverBridge
 import me.stageguard.aruku.service.bridge.MessageSubscriber
@@ -37,6 +42,7 @@ import me.stageguard.aruku.service.parcel.AccountInfo
 import me.stageguard.aruku.service.parcel.AccountInfoImpl
 import me.stageguard.aruku.service.parcel.AccountLoginData
 import me.stageguard.aruku.service.parcel.AccountProfile
+import me.stageguard.aruku.service.parcel.AccountState
 import me.stageguard.aruku.service.parcel.AudioStatusListener
 import me.stageguard.aruku.service.parcel.ContactId
 import me.stageguard.aruku.service.parcel.ContactInfo
@@ -45,19 +51,50 @@ import me.stageguard.aruku.service.parcel.ContactType
 import me.stageguard.aruku.service.parcel.GroupMemberInfo
 import me.stageguard.aruku.service.parcel.Message
 import me.stageguard.aruku.util.createAndroidLogger
+import me.stageguard.aruku.util.weakReference
 import java.lang.ref.WeakReference
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.CoroutineContext
 
 class MainRepositoryImpl(
-    private val connectorRef: WeakReference<ServiceConnector>,
     private val database: ArukuDatabase,
     private val avatarCache: ConcurrentHashMap<Long, String>,
     private val nicknameCache: ConcurrentHashMap<Long, String>
 ) : MainRepository, CoroutineScope by MainScope() {
     private val logger = createAndroidLogger("MainRepositoryImpl")
-    private val binder: ServiceBridge? get() = connectorRef.get()?.binder
+
+    private var connectorRef: WeakReference<ServiceConnector>? = null
+    private val binder: ServiceBridge? get() = connectorRef?.get()?.binder
     private val mainScope = this
+
+    override val stateFlow: Flow<Map<Long, AccountState>>
+        get() = channelFlow {
+            val binder0 = binder ?: run {
+                logger.w("Failed to build account state flow because service bridge is null.")
+                return@channelFlow
+            }
+            val states: MutableMap<Long, AccountState> = mutableMapOf()
+
+            // send initial state
+            send(binder0.getLastBotState())
+            // observe state changes
+            binder0.attachBotStateObserver("", BotStateObserver { state ->
+                if (state is AccountState.Offline && state.cause == AccountState.OfflineCause.REMOVE_BOT) {
+                    states.remove(state.account)
+                    return@BotStateObserver
+                }
+                states[state.account] = state
+
+                trySendBlocking(states).onFailure { logger.w("Failed to send account states.", it) }
+            })
+
+            awaitClose { binder0.detachBotStateObserver() }
+        }
+
+
+    override fun attachServiceConnector(connector: ServiceConnector) {
+        connectorRef = connector.weakReference()
+    }
 
     init {
         launch {
@@ -340,7 +377,7 @@ class MainRepositoryImpl(
     }
 
     private fun assertServiceConnected() {
-        val connector = connectorRef.get()
+        val connector = connectorRef?.get()
         if (connector == null) {
             logger.w("ServiceConnector has been collected by gc.")
             return

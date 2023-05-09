@@ -13,7 +13,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.core.view.WindowCompat
+import androidx.lifecycle.flowWithLifecycle
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
+import kotlinx.coroutines.InternalCoroutinesApi
+import kotlinx.coroutines.flow.cancellable
 import me.stageguard.aruku.domain.MainRepository
 import me.stageguard.aruku.service.ServiceConnector
 import me.stageguard.aruku.ui.LocalStringLocale
@@ -23,18 +26,22 @@ import me.stageguard.aruku.ui.page.MainPage
 import me.stageguard.aruku.ui.page.ServiceConnectingPage
 import me.stageguard.aruku.ui.theme.ArukuTheme
 import me.stageguard.aruku.util.StringLocale
+import me.stageguard.aruku.util.createAndroidLogger
 import me.stageguard.aruku.util.weakReference
 import org.koin.android.ext.android.inject
-import org.koin.core.parameter.parametersOf
 
 class MainActivity : ComponentActivity() {
 
+    private val logger = createAndroidLogger("MainActivity")
     private val serviceConnector: ServiceConnector = ServiceConnector(this)
+    private val repo by inject<MainRepository>(mode = LazyThreadSafetyMode.SYNCHRONIZED)
+
+    private val stateFlow by lazy { repo.stateFlow.cancellable().flowWithLifecycle(lifecycle) }
 
     init {
-        // ensure the main repository singleton is created.
-        inject<MainRepository> { parametersOf(serviceConnector.weakReference()) }.value
+        logger.i("initializing main activity.")
         lifecycle.addObserver(serviceConnector)
+        repo.attachServiceConnector(serviceConnector)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -58,7 +65,7 @@ class MainActivity : ComponentActivity() {
                         LocalSystemUiController provides systemUiController
                     ) {
                         if (serviceConnected.value) {
-                            MainPage(serviceConnector.accountState)
+                            MainPage(stateFlow)
                         } else {
                             ServiceConnectingPage(serviceConnector.weakReference())
                         }
@@ -69,6 +76,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    @OptIn(InternalCoroutinesApi::class)
     override fun onDestroy() {
         lifecycle.removeObserver(serviceConnector)
         super.onDestroy()

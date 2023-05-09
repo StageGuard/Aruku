@@ -36,10 +36,12 @@ const val NAV_CHAT = "chat"
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun MainPage(
-    serviceAccountStateFlow: Flow<Map<Long, AccountState>>
+    accountStateFlow: Flow<Map<Long, AccountState>>
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
-    val viewModel: MainViewModel = koinViewModel { parametersOf(serviceAccountStateFlow, lifecycleOwner) }
+    val viewModel: MainViewModel = koinViewModel {
+        parametersOf(accountStateFlow, lifecycleOwner)
+    }
 
     val activeBot by viewModel.activeAccountPref.observeAsState()
     val state by viewModel.accountsState.collectAsState(mapOf())

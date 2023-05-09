@@ -47,9 +47,8 @@ val applicationModule = module {
     }
 
     // repo
-    single<MainRepository>(createdAtStart = false) { params ->
+    single<MainRepository>(createdAtStart = false) {
         MainRepositoryImpl(
-            connectorRef = params.get(),
             database = get(),
             avatarCache = get(qualifier = qualifier("avatar_cache")),
             nicknameCache = get(qualifier = qualifier("nickname_cache")),
@@ -57,7 +56,7 @@ val applicationModule = module {
     }
 
     // view model
-    single(createdAtStart = false) { params ->
+    viewModel { params ->
         MainViewModel(get(), get(), params.get(), params.get())
     }
     viewModel { LoginViewModel(get()) }

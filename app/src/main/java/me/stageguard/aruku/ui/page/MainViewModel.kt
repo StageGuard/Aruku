@@ -30,7 +30,7 @@ import me.stageguard.aruku.util.stringRes
 class MainViewModel(
     private val repository: MainRepository,
     private val okkv: Okkv,
-    serviceAccountStateFlow: Flow<Map<Long, AccountState>>,
+    accountStateFlow: Flow<Map<Long, AccountState>>,
     composableLifecycleOwner: LifecycleOwner,
 ) : ViewModel() {
     private val logger = createAndroidLogger("MainViewModel")
@@ -65,7 +65,7 @@ class MainViewModel(
     // and just receive at here
     @UiState
     val accountsState: Flow<Map<Long, UIAccountState>> =
-        serviceAccountStateFlow
+        accountStateFlow
             .flowWithLifecycle(composableLifecycleOwner.lifecycle)
             .map { states -> states.map { (account, state) -> account to state.mapUiState() }.toMap() }
             .onEach {
