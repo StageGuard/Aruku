@@ -13,7 +13,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.cancellable
 import kotlinx.coroutines.flow.catch
@@ -511,20 +510,9 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
         return true
     }
 
-    private suspend fun closeBotAndJoin(account: Long) {
-        bots[account]?.closeAndJoin()
-        botJobs[account]?.cancelAndJoin()
-    }
-
-    private fun renewBotAndLogin(account: Long) = launch {
-        closeBotAndJoin(account)
-        botJobs.remove(account)
-
-        val info = loginData[account]
-        if (info != null) {
-            bots[account] = createBot(info)
-        }
-        login(account)
+    private fun closeBot(account: Long) {
+        bots[account]?.close()
+        botJobs[account]?.cancel()
     }
 
     // should use bot coroutine scope
@@ -662,11 +650,7 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
             logger.e("bot $account is already offline.")
             return true
         }
-        launch {
-            closeBotAndJoin(account)
-            stateChannel.send(AccountState.Offline(account, OfflineCause.SUBJECTIVE, null))
-            println("logout sent")
-        }
+        closeBot(account)
 
         val rm = botJobs.remove(account, job)
         if (!rm) logger.w("bot job $account is not removed after logout.")
@@ -675,10 +659,10 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
 
     private fun removeBot(account: Long): Boolean {
         val bot = bots[account] ?: return false
-        launch { closeBotAndJoin(account) }
+        closeBot(account)
+
         bots.remove(account, bot)
         botJobs.remove(account)
-        stateChannel.trySend(AccountState.Offline(account, OfflineCause.REMOVE_BOT, null))
         return true
     }
 
