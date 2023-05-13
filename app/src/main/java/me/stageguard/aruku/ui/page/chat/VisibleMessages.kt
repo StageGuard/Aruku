@@ -36,6 +36,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import me.stageguard.aruku.R
+import me.stageguard.aruku.util.animateFloatAsMutableState
 import me.stageguard.aruku.util.stringResC
 import okhttp3.internal.toLongOrDefault
 import kotlin.math.cos
@@ -210,15 +211,23 @@ fun Audio(
     }
 
     var progressRotateStartAngle by remember { mutableStateOf(0f) }
-    var progressSweepAngle by remember { mutableStateOf(0f) }
+    var progressSweepAngle by animateFloatAsMutableState(0f)
     var startButtonRotateAngle by remember { mutableStateOf(0f) }
 
+    var emulatedProgress by remember {
+        mutableStateOf(0)
+    }
     LaunchedEffect(status) {
         launch(Dispatchers.IO) {
             while (isActive) {
+                emulatedProgress++
                 progressRotateStartAngle = (progressRotateStartAngle + 2f) % 360f
                 startButtonRotateAngle = (startButtonRotateAngle + 3f) % 360f
-                if (progressSweepAngle < 180f) progressSweepAngle += 0.2f
+                if (emulatedProgress > 100) {
+                    if (progressSweepAngle < 300f) progressSweepAngle += 40
+                    emulatedProgress = 0
+                }
+
                 delay(8L) // 让给其他协程
             }
         }

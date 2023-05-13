@@ -356,12 +356,20 @@ class MainRepositoryImpl(
     override fun attachAudioStatusListener(audioFileMd5: String, listener: AudioStatusListener) {
         assertServiceConnected()
         val disposable = binder?.attachAudioStatusListener(audioFileMd5, listener)
-        if (disposable != null) audioStatusListeners[audioFileMd5] = disposable
+        if (disposable != null) {
+            audioStatusListeners[audioFileMd5] = disposable
+            logger.i("audio listener for $audioFileMd5 is attached.")
+        }
     }
 
     override fun detachAudioStatusListener(audioFileMd5: String) {
         assertServiceConnected()
-        audioStatusListeners[audioFileMd5]?.dispose()
+        val disposable = audioStatusListeners[audioFileMd5]
+        if (disposable != null) {
+            disposable.dispose()
+            audioStatusListeners.remove(audioFileMd5, disposable)
+            logger.i("audio listener for $audioFileMd5 is disposed.")
+        }
     }
 
     override suspend fun getAccount(account: Long): AccountEntity? {
