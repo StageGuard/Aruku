@@ -16,13 +16,10 @@ interface ServiceBridge {
     fun getBots(): List<Long>
     fun login(accountNo: Long): Boolean
     fun logout(accountNo: Long): Boolean
-    fun attachBotStateObserver(identity: String, @ParamIn observer: BotStateObserver)
-    fun detachBotStateObserver()
-
+    fun attachBotStateObserver(@ParamIn observer: BotStateObserver): DisposableBridge
     fun getLastBotState(): Map<Long, AccountState>
 
-    fun attachLoginSolver(@ParamIn solver: LoginSolverBridge)
-    fun detachLoginSolver()
+    fun attachLoginSolver(@ParamIn solver: LoginSolverBridge): DisposableBridge
 
     fun openRoamingQuery(account: Long, @ParamIn contact: ContactId): RoamingQueryBridge?
 
@@ -33,10 +30,8 @@ interface ServiceBridge {
     fun getNickname(account: Long, @ParamIn contact: ContactId): String?
     fun getGroupMemberInfo(account: Long, groupId: Long, memberId: Long): GroupMemberInfo?
 
-    fun setAudioUrlQueryBridge(@ParamIn bridge: AudioUrlQueryBridge)
-    fun attachAudioStatusListener(audioFileMd5: String, listener: AudioStatusListener)
-    fun detachAudioStatusListener(audioFileMd5: String)
-
-    fun attachContactSyncer(@ParamIn bridge: ContactSyncBridge)
-    fun subscribeMessages(@ParamIn bridge: MessageSubscriber)
+    fun attachAudioQueryBridge(@ParamIn bridge: AudioUrlQueryBridge): DisposableBridge
+    fun attachAudioStatusListener(audioFileMd5: String, listener: AudioStatusListener): DisposableBridge
+    fun attachContactSyncer(@ParamIn bridge: ContactSyncBridge): DisposableBridge
+    fun subscribeMessages(@ParamIn bridge: MessageSubscriber): DisposableBridge
 }

@@ -17,6 +17,7 @@ import androidx.lifecycle.flowWithLifecycle
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
 import kotlinx.coroutines.InternalCoroutinesApi
 import kotlinx.coroutines.flow.cancellable
+import me.stageguard.aruku.MainRepositoryImpl
 import me.stageguard.aruku.domain.MainRepository
 import me.stageguard.aruku.service.ServiceConnector
 import me.stageguard.aruku.ui.LocalStringLocale
@@ -41,7 +42,9 @@ class MainActivity : ComponentActivity() {
     init {
         logger.i("initializing main activity.")
         lifecycle.addObserver(serviceConnector)
-        repo.attachServiceConnector(serviceConnector)
+        lifecycle.addObserver(repo as MainRepositoryImpl)
+
+        repo.referConnector(serviceConnector)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

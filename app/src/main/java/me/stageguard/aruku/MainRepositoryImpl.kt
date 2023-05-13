@@ -1,10 +1,14 @@
 package me.stageguard.aruku
 
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.LifecycleOwner
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.channels.onFailure
@@ -39,6 +43,7 @@ import me.stageguard.aruku.service.bridge.AudioStatusListener
 import me.stageguard.aruku.service.bridge.AudioUrlQueryBridge
 import me.stageguard.aruku.service.bridge.BotStateObserver
 import me.stageguard.aruku.service.bridge.ContactSyncBridge
+import me.stageguard.aruku.service.bridge.DisposableBridge
 import me.stageguard.aruku.service.bridge.LoginSolverBridge
 import me.stageguard.aruku.service.bridge.MessageSubscriber
 import me.stageguard.aruku.service.bridge.RoamingQueryBridge
@@ -58,31 +63,52 @@ import me.stageguard.aruku.util.createAndroidLogger
 import me.stageguard.aruku.util.weakReference
 import java.lang.ref.WeakReference
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentLinkedQueue
 import kotlin.coroutines.CoroutineContext
 
 class MainRepositoryImpl(
     private val database: ArukuDatabase,
     private val avatarCache: ConcurrentHashMap<Long, String>,
     private val nicknameCache: ConcurrentHashMap<Long, String>
-) : MainRepository, CoroutineScope by MainScope() {
+) : MainRepository, LifecycleEventObserver, CoroutineScope by MainScope() {
     private val logger = createAndroidLogger("MainRepositoryImpl")
 
     private var connectorRef: WeakReference<ServiceConnector>? = null
     private val binder: ServiceBridge? get() = connectorRef?.get()?.binder
     private val mainScope = this
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val binderAwaitContext = Dispatchers.IO.limitedParallelism(1)
+
+    /**
+     * singleton disposables
+     *
+     * there several singleton bridges:
+     * * [MessageSubscriber]
+     * * [LoginSolverBridge]
+     * * [ContactSyncBridge]
+     * * [BotStateObserver]
+     * * [AudioUrlQueryBridge]
+     *
+     * singleton bridge only has one instance at the whole application(exclude service) lifecycle.
+     * it is only instantiated in [setupServiceBridge] and disposed on lifecycle destroy.
+     *
+     * Note that [BotStateObserver] is managed by terminal caller coroutine of [stateFlow].
+     * TODO: move to singletonBridgeDisposables
+     *
+     */
+    private val singletonBridgeDisposables: ConcurrentLinkedQueue<DisposableBridge> = ConcurrentLinkedQueue()
+
+    private val audioStatusListeners: ConcurrentHashMap<String, DisposableBridge> = ConcurrentHashMap()
 
     override val stateFlow: Flow<Map<Long, AccountState>>
         get() = channelFlow {
-            val binder0 = binder ?: run {
-                logger.w("Failed to build account state flow because service bridge is null.")
-                return@channelFlow
-            }
+            val binder0 = awaitBinder()
             val states: MutableMap<Long, AccountState> = mutableMapOf()
 
             // send initial state
             send(binder0.getLastBotState())
             // observe state changes
-            binder0.attachBotStateObserver("", BotStateObserver { state ->
+            val disposable = binder0.attachBotStateObserver(BotStateObserver { state ->
                 if (state is AccountState.Offline && state.cause == AccountState.OfflineCause.REMOVE_BOT) {
                     states.remove(state.account)
                     return@BotStateObserver
@@ -92,84 +118,103 @@ class MainRepositoryImpl(
                 trySendBlocking(states).onFailure { logger.w("Failed to send account states.", it) }
             })
 
-            awaitClose { binder0.detachBotStateObserver() }
+            awaitClose { disposable.dispose() }
         }
 
+    init {
+        mainScope.launch {
+            val all = database.suspendIO { accounts().getAll() }
+            all.forEach { account ->
+                logger.i("reading account data ${account.accountNo}.")
+                awaitBinder().addBot(account.toLoginData(), !account.isOfflineManually)
+            }
+        }
+    }
 
-    override fun attachServiceConnector(connector: ServiceConnector) {
+    override fun referConnector(connector: ServiceConnector) {
         connectorRef = connector.weakReference()
     }
 
-    init {
-        launch {
-            val binder0 = withContext(Dispatchers.IO) { awaitBinder() }
+    private fun setupServiceBridge() = launch {
+        val binder0 = awaitBinder()
 
-            binder0.attachContactSyncer(object : ContactSyncBridge {
-                override fun onSyncContact(op: ContactSyncOp, account: Long, contacts: List<ContactInfo>) {
-                    with(mainScope) { database.launchIO {
-                        if (op == ContactSyncOp.REFRESH) {
-                            val cached = contacts().getContacts(account)
-                            val online = contacts.map { it.toEntity(account) }
+        binder0.attachContactSyncer(object : ContactSyncBridge {
+            override fun onSyncContact(op: ContactSyncOp, account: Long, contacts: List<ContactInfo>) {
+                with(mainScope) { database.launchIO {
+                    if (op == ContactSyncOp.REFRESH) {
+                        val cached = contacts().getContacts(account)
+                        val online = contacts.map { it.toEntity(account) }
 
-                            contacts().delete(*(cached - online.toSet()).toTypedArray())
-                            contacts().upsert(*online.toTypedArray())
-                        }
-                        if (op == ContactSyncOp.REMOVE) {
-                            contacts().delete(*contacts.map { it.toEntity(account) }.toTypedArray())
-                        }
-                        if (op == ContactSyncOp.ENTRANCE) {
-                            contacts().upsert(*contacts.map { it.toEntity(account) }.toTypedArray())
-                        }
-                    } }
-                }
-
-                override fun onUpdateAccountInfo(info: AccountInfo) {
-                    with(mainScope) { database.launchIO {
-                        val account = accounts()[info.accountNo].singleOrNull()
-                        if (account != null) accounts().upsert(account.apply {
-                            this.nickname = info.nickname
-                            this.avatarUrl = info.avatarUrl
-                        })
-                    } }
-                }
-            })
-
-            binder0.subscribeMessages(object : MessageSubscriber {
-                override fun onMessage(message: Message) {
-                    with(mainScope) { database.launchIO {
-                        messageRecords().upsert(message.toEntity())
-                        processMessage(message)
-
-                        val existing = messagePreview().getExactMessagePreview(
-                            message.account,
-                            message.contact.subject,
-                            message.contact.type
-                        ).singleOrNull()
-
-                        messagePreview().upsert(message.toPreviewEntity(
-                            existing?.unreadCount?.plus(1) ?: 1
-                        ))
-                    } }
-                }
-            })
-
-            binder0.setAudioUrlQueryBridge(object : AudioUrlQueryBridge {
-                // TODO: don't runBlocking
-                override fun query(fileMd5: String): String? = runBlocking {
-                    database.audioUrls().getAudioUrl(fileMd5).singleOrNull()?.url
-                }
-            })
-
-            launch {
-                val all = database.suspendIO { accounts().getAll() }
-                all.forEach { account ->
-                    logger.i("reading account data ${account.accountNo}.")
-                    binder0.addBot(account.toLoginData(), !account.isOfflineManually)
-                }
+                        contacts().delete(*(cached - online.toSet()).toTypedArray())
+                        contacts().upsert(*online.toTypedArray())
+                    }
+                    if (op == ContactSyncOp.REMOVE) {
+                        contacts().delete(*contacts.map { it.toEntity(account) }.toTypedArray())
+                    }
+                    if (op == ContactSyncOp.ENTRANCE) {
+                        contacts().upsert(*contacts.map { it.toEntity(account) }.toTypedArray())
+                    }
+                } }
             }
-        }
 
+            override fun onUpdateAccountInfo(info: AccountInfo) {
+                with(mainScope) { database.launchIO {
+                    val account = accounts()[info.accountNo].singleOrNull()
+                    if (account != null) accounts().upsert(account.apply {
+                        this.nickname = info.nickname
+                        this.avatarUrl = info.avatarUrl
+                    })
+                } }
+            }
+        }).also { singletonBridgeDisposables.offer(it) }
+
+        binder0.attachAudioQueryBridge(object : AudioUrlQueryBridge {
+            // TODO: don't runBlocking
+            override fun query(fileMd5: String): String? = runBlocking {
+                database.audioUrls().getAudioUrl(fileMd5).singleOrNull()?.url
+            }
+        }).also { singletonBridgeDisposables.offer(it) }
+
+        binder0.subscribeMessages(object : MessageSubscriber {
+            override fun onMessage(message: Message) {
+                with(mainScope) { database.launchIO {
+                    messageRecords().upsert(message.toEntity())
+                    processMessage(message)
+
+                    val existing = messagePreview().getExactMessagePreview(
+                        message.account,
+                        message.contact.subject,
+                        message.contact.type
+                    ).singleOrNull()
+
+                    messagePreview().upsert(message.toPreviewEntity(
+                        existing?.unreadCount?.plus(1) ?: 1
+                    ))
+                } }
+            }
+        }).also { singletonBridgeDisposables.offer(it) }
     }
+
+    override fun onStateChanged(source: LifecycleOwner, event: Lifecycle.Event) {
+        if (event == Lifecycle.Event.ON_CREATE) {
+            if (singletonBridgeDisposables.size > 0) {
+                logger.w("there are service bridge that hasn't disposed before setup.")
+                singletonBridgeDisposables.clear()
+            }
+            setupServiceBridge()
+            logger.i("singleton bridge is setup.")
+        }
+        if (event == Lifecycle.Event.ON_DESTROY) {
+            var disposable = singletonBridgeDisposables.poll()
+            while (disposable != null) {
+                disposable.dispose()
+                disposable = singletonBridgeDisposables.poll()
+            }
+            logger.i("all singleton bridge is disposed.")
+        }
+    }
+
+
 
     private suspend fun processMessage(message: Message) {
         val audio = message.message.find { it is Audio } as? Audio
@@ -232,7 +277,8 @@ class MainRepositoryImpl(
 
     override fun attachLoginSolver(solver: LoginSolverBridge) {
         assertServiceConnected()
-        binder?.attachLoginSolver(solver)
+        val disposable = binder?.attachLoginSolver(solver)
+        if (disposable != null) singletonBridgeDisposables.offer(disposable)
     }
 
     override fun openRoamingQuery(account: Long, contact: ContactId): RoamingQueryBridge? {
@@ -309,12 +355,13 @@ class MainRepositoryImpl(
 
     override fun attachAudioStatusListener(audioFileMd5: String, listener: AudioStatusListener) {
         assertServiceConnected()
-        binder?.attachAudioStatusListener(audioFileMd5, listener)
+        val disposable = binder?.attachAudioStatusListener(audioFileMd5, listener)
+        if (disposable != null) audioStatusListeners[audioFileMd5] = disposable
     }
 
     override fun detachAudioStatusListener(audioFileMd5: String) {
         assertServiceConnected()
-        binder?.detachAudioStatusListener(audioFileMd5)
+        audioStatusListeners[audioFileMd5]?.dispose()
     }
 
     override suspend fun getAccount(account: Long): AccountEntity? {
@@ -411,18 +458,22 @@ class MainRepositoryImpl(
     }
 
     /**
-     * await binder will block a whole thread
+     * await binder will block whole thread
+     * just select a thread from io thread pool ^_^
      */
     private suspend fun awaitBinder(): ServiceBridge {
-        return suspendCancellableCoroutine { cont ->
-            var binder0 = binder
-            while (cont.isActive && binder0 == null) {
-                binder0 = binder
-            }
-            if (binder0 != null) {
-                cont.resumeWith(Result.success(binder0))
-            } else {
-                cont.resumeWith(Result.failure(Exception("await binder is null")))
+        return withContext(binderAwaitContext) {
+            suspendCancellableCoroutine { cont ->
+                var binder0 = binder
+                while (cont.isActive && binder0 == null) {
+                    binder0 = binder
+
+                }
+                if (binder0 != null) {
+                    cont.resumeWith(Result.success(binder0))
+                } else {
+                    cont.resumeWith(Result.failure(Exception("await binder is null")))
+                }
             }
         }
     }

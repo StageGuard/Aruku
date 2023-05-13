@@ -22,7 +22,7 @@ import kotlin.coroutines.EmptyCoroutineContext
 
 interface MainRepository {
     val stateFlow: Flow<Map<Long, AccountState>>
-    fun attachServiceConnector(connector: ServiceConnector)
+    fun referConnector(connector: ServiceConnector)
     // binder
     fun addBot(info: AccountLoginData, alsoLogin: Boolean): Boolean
     fun removeBot(accountNo: Long): Boolean

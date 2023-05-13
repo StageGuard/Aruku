@@ -38,6 +38,7 @@ import me.stageguard.aruku.service.bridge.AudioStatusListener
 import me.stageguard.aruku.service.bridge.AudioUrlQueryBridge
 import me.stageguard.aruku.service.bridge.BotStateObserver
 import me.stageguard.aruku.service.bridge.ContactSyncBridge
+import me.stageguard.aruku.service.bridge.DisposableBridge
 import me.stageguard.aruku.service.bridge.LoginSolverBridge
 import me.stageguard.aruku.service.bridge.MessageSubscriber
 import me.stageguard.aruku.service.bridge.RoamingQueryBridge
@@ -171,7 +172,7 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
             return service.logout(accountNo)
         }
 
-        override fun attachBotStateObserver(identity: String, observer: BotStateObserver) {
+        override fun attachBotStateObserver(observer: BotStateObserver): DisposableBridge {
             if (stateObserver != null) logger.w("attaching multiple BotStateObserver.")
             stateObserver = observer
 
@@ -187,22 +188,16 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
                     state = stateCacheQueue.poll()
                 }
             }
-        }
-
-        override fun detachBotStateObserver() {
-            stateObserver = null
+            return DisposableBridge { stateObserver = null }
         }
 
         override fun getLastBotState(): Map<Long, AccountState> {
             return lastState
         }
 
-        override fun attachLoginSolver(solver: LoginSolverBridge) {
+        override fun attachLoginSolver(solver: LoginSolverBridge): DisposableBridge {
             loginSolver = solver
-        }
-
-        override fun detachLoginSolver() {
-            loginSolver = null
+            return DisposableBridge { loginSolver = null }
         }
 
         override fun openRoamingQuery(account: Long, contact: ContactId): RoamingQueryBridge? {
@@ -265,26 +260,25 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
             )
         }
 
-        override fun setAudioUrlQueryBridge(bridge: AudioUrlQueryBridge) {
+        override fun attachAudioQueryBridge(bridge: AudioUrlQueryBridge): DisposableBridge {
             audioUrlQueryBridge = bridge
+            return DisposableBridge { audioUrlQueryBridge = null }
         }
 
         override fun attachAudioStatusListener(
             audioFileMd5: String,
             listener: AudioStatusListener
-        ) {
+        ): DisposableBridge {
             audioCache.attachListener(audioFileMd5, listener)
+            return DisposableBridge { audioCache.detachListener(audioFileMd5) }
         }
 
-        override fun detachAudioStatusListener(audioFileMd5: String) {
-            audioCache.detachListener(audioFileMd5)
-        }
-
-        override fun attachContactSyncer(bridge: ContactSyncBridge) {
+        override fun attachContactSyncer(bridge: ContactSyncBridge): DisposableBridge {
             contactSyncer = bridge
+            return DisposableBridge { contactSyncer = null }
         }
 
-        override fun subscribeMessages(bridge: MessageSubscriber) {
+        override fun subscribeMessages(bridge: MessageSubscriber): DisposableBridge {
             messageSubscriber = bridge
 
             launch {
@@ -294,6 +288,8 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
                     message = messageCacheQueue.poll()
                 }
             }
+
+            return DisposableBridge { contactSyncer = null }
         }
     }
 
