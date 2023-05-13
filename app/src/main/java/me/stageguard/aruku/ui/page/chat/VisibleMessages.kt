@@ -2,6 +2,7 @@ package me.stageguard.aruku.ui.page.chat
 
 import android.content.Context
 import android.net.Uri
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.requiredSize
@@ -13,6 +14,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -32,6 +34,8 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -201,34 +205,59 @@ fun Audio(
         val size = progressCircleSize.width / 2f
         indicatorCenterOffset - Offset(size, size)
     }
-    val startButtonRadius = with(density) { 6.dp.roundToPx().toFloat() }
+    var startButtonRadius by animateFloatAsMutableState(with(density) { 8.dp.roundToPx().toFloat() }, tween(500))
     val waveBarHalfHeight = with(density) { 10.dp.roundToPx().toFloat() }
     val waveBarWidth = with(density) { 5.dp.roundToPx().toFloat() }
     val waveBarMargin = with(density) { 2.dp.roundToPx().toFloat() }
 
-    var currentStatus by remember {
-        mutableStateOf(ChatAudioStatus.Preparing(0.0))
-    }
-
     var progressRotateStartAngle by remember { mutableStateOf(0f) }
-    var progressSweepAngle by animateFloatAsMutableState(0f)
+    var progressSweepAngle by animateFloatAsMutableState(0f, tween(500))
     var startButtonRotateAngle by remember { mutableStateOf(0f) }
+    var progressBarAlpha by animateFloatAsMutableState(0f, tween(500))
 
-    var emulatedProgress by remember {
-        mutableStateOf(0)
-    }
+    val composableScope = rememberCoroutineScope()
+    var loadingJob: Job? by remember { mutableStateOf(null) }
+    var startButtonResetJob: Job? by remember { mutableStateOf(null) }
+
+    val audioWave = remember { List(12) { Random.nextFloat() } } // TODO: real audio wave
+
     LaunchedEffect(status) {
-        launch(Dispatchers.IO) {
-            while (isActive) {
-                emulatedProgress++
-                progressRotateStartAngle = (progressRotateStartAngle + 2f) % 360f
-                startButtonRotateAngle = (startButtonRotateAngle + 3f) % 360f
-                if (emulatedProgress > 100) {
-                    if (progressSweepAngle < 300f) progressSweepAngle += 40
-                    emulatedProgress = 0
-                }
+        when(status) {
+            is ChatAudioStatus.Preparing -> {
+                startButtonResetJob?.cancelAndJoin()
+                startButtonResetJob = null
 
-                delay(8L) // 让给其他协程
+                startButtonRadius = with(density) { 6.dp.roundToPx().toFloat() }
+                progressBarAlpha = 1f
+                progressSweepAngle = (status.progress * 360f).toFloat()
+
+                if (loadingJob == null) loadingJob = composableScope.launch(Dispatchers.IO) {
+                    while (isActive) {
+                        progressRotateStartAngle = (progressRotateStartAngle + 2f) % 360f
+                        startButtonRotateAngle = (startButtonRotateAngle + 3f) % 360f
+
+                        delay(8L) // 让给其他协程
+                    }
+                }
+            }
+            else -> {
+                val loadingJob0 = loadingJob ?: return@LaunchedEffect
+                loadingJob0.cancelAndJoin()
+                loadingJob = null
+
+                progressBarAlpha = 0f
+                startButtonRadius = with(density) { 8.dp.roundToPx().toFloat() }
+                if (startButtonResetJob == null) {
+                    startButtonResetJob = composableScope.launch(Dispatchers.IO) {
+                        var reminder = startButtonRotateAngle % 120
+                        while (reminder < 120 && isActive) {
+                            reminder += 3f
+                            startButtonRotateAngle = reminder
+                            delay(8L)
+                        }
+                        startButtonRotateAngle = 0f
+                    }
+                }
             }
         }
     }
@@ -247,6 +276,7 @@ fun Audio(
             useCenter = false,
             topLeft = progressCircleTLOffset,
             size = progressCircleSize,
+            alpha = progressBarAlpha,
             style = Stroke(
                 width = progressStrokeWidth,
                 cap = StrokeCap.Round,
@@ -275,8 +305,8 @@ fun Audio(
         )
 
         translate(height, 0f) {
-            repeat(12) { i ->
-                val waveHalfHeight = Random.nextFloat() * waveBarHalfHeight
+            audioWave.forEachIndexed { i, w ->
+                val waveHalfHeight = w * waveBarHalfHeight
                 drawLine(
                     color = contentColor,
                     start = Offset(

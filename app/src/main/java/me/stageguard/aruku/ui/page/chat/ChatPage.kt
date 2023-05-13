@@ -21,9 +21,12 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -34,6 +37,7 @@ import androidx.paging.PagingData
 import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flow
 import me.stageguard.aruku.ui.LocalBot
 import me.stageguard.aruku.ui.LocalNavController
@@ -43,6 +47,7 @@ import me.stageguard.aruku.ui.page.ChatPageNav
 import me.stageguard.aruku.ui.theme.ArukuTheme
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
+import kotlin.random.Random
 
 /**
  * Created by LoliBall on 2023/1/1 19:30.
@@ -330,15 +335,31 @@ fun ChatViewPreview() {
                 ),
             )
 
+            val map = remember {
+                mutableStateMapOf(
+                    "audio1" to ChatAudioStatus.Error("my error"),
+                    "audio2" to ChatAudioStatus.NotFound,
+                    "audio3" to ChatAudioStatus.NotFound,
+                    "audio4" to ChatAudioStatus.Ready(List(20) { Math.random() }),
+                )
+            }
+
+            LaunchedEffect(key1 = Unit, block = {
+                map["audio2"] = ChatAudioStatus.Preparing(0.0)
+                var progress = 0.0
+                while (progress < 1.0) {
+                    delay(Random.nextLong(500, 1000))
+                    progress = (progress + Random.nextDouble(0.4)).coerceAtMost(1.0)
+                    map["audio2"] = ChatAudioStatus.Preparing(progress)
+                }
+                map["audio2"] = ChatAudioStatus.Preparing(1.0)
+                map["audio2"] = ChatAudioStatus.Ready(listOf())
+            })
+
             ChatView(subjectName = "Group1",
                 subjectAvatar = "https://q1.qlogo.cn/g?b=qq&nk=3129693328&s=0&timestamp=1673582758562",
                 messages = flow { emit(PagingData.from(list.asReversed())) }.collectAsLazyPagingItems(),
-                audioStatus = mapOf(
-                    "audio1" to ChatAudioStatus.Error("my error"),
-                    "audio2" to ChatAudioStatus.NotFound,
-                    "audio3" to ChatAudioStatus.Preparing(0.48),
-                    "audio4" to ChatAudioStatus.Ready(List(20) { Math.random() }),
-                ),
+                audioStatus = map,
                 listState = state,
                 {}, {}
             )
