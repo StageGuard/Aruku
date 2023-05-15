@@ -24,6 +24,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -47,6 +48,7 @@ import coil.request.ImageRequest
 import com.google.accompanist.flowlayout.FlowRow
 import com.google.accompanist.flowlayout.MainAxisAlignment
 import me.stageguard.aruku.ui.LocalBot
+import me.stageguard.aruku.ui.LocalPrimaryMessage
 import kotlin.math.min
 
 @Composable
@@ -94,30 +96,31 @@ fun ChatListView(
                         )
 
                         val sentByBot = element.senderId == bot
-                        Message(
-                            context = context,
-                            messageId = element.messageId,
-                            senderId = element.senderId,
-                            senderName = element.senderName,
-                            senderAvatar = element.senderAvatarUrl,
-                            isAlignmentStart = !sentByBot,
-                            primarySender = sentByBot,
-                            showAvatar = !lastSentByCurrent && !sentByBot,
-                            occupyAvatarSpace = !sentByBot,
-                            showSender = !lastSentByCurrent && !sentByBot,
-                            topCorner = !lastSentByCurrent,
-                            bottomCorner = !nextSentByCurrent,
-                            startCorner = sentByBot,
-                            endCorner = !sentByBot,
-                            time = element.time,
-                            messages = element.visibleMessages,
-                            audioStatus = audio?.run { audioStatus[identity] },
-                            modifier = Modifier.padding(
-                                horizontal = 10.dp,
-                                vertical = if (nextSentByCurrent || lastSentByCurrent) 2.dp else 5.dp
-                            ),
-                            onClickAvatar = { }
-                        )
+                        CompositionLocalProvider(LocalPrimaryMessage provides sentByBot) {
+                            Message(
+                                context = context,
+                                messageId = element.messageId,
+                                senderId = element.senderId,
+                                senderName = element.senderName,
+                                senderAvatar = element.senderAvatarUrl,
+                                isAlignmentStart = !sentByBot,
+                                showAvatar = !lastSentByCurrent && !sentByBot,
+                                occupyAvatarSpace = !sentByBot,
+                                showSender = !lastSentByCurrent && !sentByBot,
+                                topCorner = !lastSentByCurrent,
+                                bottomCorner = !nextSentByCurrent,
+                                startCorner = sentByBot,
+                                endCorner = !sentByBot,
+                                time = element.time,
+                                messages = element.visibleMessages,
+                                audioStatus = audio?.run { audioStatus[identity] },
+                                modifier = Modifier.padding(
+                                    horizontal = 10.dp,
+                                    vertical = if (nextSentByCurrent || lastSentByCurrent) 2.dp else 5.dp
+                                ),
+                                onClickAvatar = { }
+                            )
+                        }
                     }
 
                     is ChatElement.DateDivider -> {
@@ -138,12 +141,11 @@ fun ChatListView(
 @Composable
 private fun Message(
     context: Context,
-    messageId: Int,
+    messageId: Long,
     senderId: Long,
     senderName: String,
     senderAvatar: Any?,
     isAlignmentStart: Boolean, // align layout to left (avatar|message) if true
-    primarySender: Boolean,
     showAvatar: Boolean, // show avatar if true
     occupyAvatarSpace: Boolean, // set a empty space as place holder of avatar if !showAvatar
     showSender: Boolean,
@@ -158,6 +160,7 @@ private fun Message(
     onClickAvatar: (Long) -> Unit,
 ) {
     val density = LocalDensity.current
+    val isPrimary = LocalPrimaryMessage.current
 
     val avatarSize = 45.dp
     val avatarMargin = 6.dp
@@ -240,7 +243,7 @@ private fun Message(
                 modifier = Modifier.layoutId("senderName")
             )
             Surface(
-                color = MaterialTheme.colorScheme.run { if (primarySender) primary else surfaceVariant },
+                color = MaterialTheme.colorScheme.run { if (isPrimary) primary else surfaceVariant },
                 shape = RoundedCornerShape(
                     if (startCorner) roundCornerSize else if (topCorner) roundCornerSize else 4.dp,
                     if (endCorner) roundCornerSize else if (topCorner) roundCornerSize else 4.dp,
@@ -261,7 +264,6 @@ private fun Message(
                     list = messages,
                     audioStatus = audioStatus,
                     time = time,
-                    primaryRole = primarySender,
                     modifier = Modifier.widthIn(
                         min = 45.dp,
                         max = with(density) { messageContentWidth.toDp() }
@@ -289,11 +291,12 @@ private fun RichMessage(
     list: List<VisibleChatMessage>,
     audioStatus: ChatAudioStatus?,
     time: String,
-    primaryRole: Boolean,
     contentPadding: Dp,
     modifier: Modifier = Modifier,
     onClickAnnotated: (VisibleChatMessage) -> Unit,
 ) {
+    val isPrimary = LocalPrimaryMessage.current
+
     @Composable
     fun MessageTimeIndicator(color: Color, textPadding: Dp = 0.dp, mdf: Modifier = Modifier) {
         Surface(
@@ -305,7 +308,7 @@ private fun RichMessage(
                 text = time,
                 modifier = Modifier.padding(textPadding),
                 style = MaterialTheme.typography.bodySmall.copy(
-                    color = MaterialTheme.colorScheme.run { if (primaryRole) inversePrimary else primary },
+                    color = MaterialTheme.colorScheme.run { if (isPrimary) inversePrimary else primary },
                     fontWeight = FontWeight.SemiBold
                 )
             )
@@ -321,14 +324,14 @@ private fun RichMessage(
         ) {
             list.forEach { msg ->
                 when (msg) {
-                    is VisibleChatMessage.PlainText -> PlainText(msg, primaryRole)
+                    is VisibleChatMessage.PlainText -> PlainText(msg)
                     is VisibleChatMessage.Image -> Image(msg, context) { }
-                    is VisibleChatMessage.At -> At(msg, primaryRole) { }
-                    is VisibleChatMessage.AtAll -> AtAll(msg, primaryRole)
+                    is VisibleChatMessage.At -> At(msg) { }
+                    is VisibleChatMessage.AtAll -> AtAll(msg)
                     is VisibleChatMessage.Face -> Face(msg, context)
                     is VisibleChatMessage.FlashImage -> FlashImage(msg, context) { }
                     is VisibleChatMessage.Audio -> {
-                        Audio(msg, audioStatus, primaryRole) { }
+                        Audio(msg, audioStatus) { }
                     }
 
                     is VisibleChatMessage.File -> File(msg) { }

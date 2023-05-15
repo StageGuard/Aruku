@@ -160,7 +160,7 @@ fun ChatViewPreview() {
             LocalSystemUiController provides rememberSystemUiController()
         ) {
             val state = rememberLazyListState()
-            val randSrcId = { IntRange(0, 100000).random() }
+            val randSrcId = { LongRange(0, 100000).random() }
 
             val list = listOf(
                 ChatElement.DateDivider("Jan 4, 2023"),

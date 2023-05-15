@@ -1,40 +1,10 @@
 package me.stageguard.aruku.domain
 
-import androidx.paging.PagingSource
-import androidx.paging.PagingState
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.CoroutineStart
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancelAndJoin
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.cancellable
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import me.stageguard.aruku.database.ArukuDatabase
-import me.stageguard.aruku.database.message.MessageRecordDao
-import me.stageguard.aruku.database.message.MessageRecordEntity
-import me.stageguard.aruku.service.bridge.RoamingQueryBridge
-import me.stageguard.aruku.service.bridge.suspendIO
-import me.stageguard.aruku.service.parcel.ArukuRoamingMessage
-import me.stageguard.aruku.service.parcel.ContactId
-import me.stageguard.aruku.util.createAndroidLogger
-import org.koin.core.component.KoinComponent
-import org.koin.core.component.inject
-import java.util.concurrent.ConcurrentLinkedQueue
-import kotlin.coroutines.CoroutineContext
-import kotlin.coroutines.EmptyCoroutineContext
-
 /**
  * combined message paging source
  * which load messages from history source and subscription source
  */
-class CombinedMessagePagingSource(
+/*class CombinedMessagePagingSource(
     private val account: Long,
     private val contact: ContactId,
     context: CoroutineContext = EmptyCoroutineContext,
@@ -195,7 +165,7 @@ class CombinedMessagePagingSource(
     companion object {
         private const val SUBSCRIPTION_LOCK_ACQUIRING = -1L
     }
-}
+}*/
 
 /**
  * history message paging source
@@ -212,11 +182,12 @@ class CombinedMessagePagingSource(
  *
  * The result from roaming query session will be stored to database if success.
  */
+/*
 class HistoryMessagePagingSource(
     private val account: Long,
     private val contact: ContactId,
     context: CoroutineContext = EmptyCoroutineContext,
-) : PagingSource<Int, MessageRecordEntity>(), KoinComponent, CoroutineScope {
+) : PagingSource<Long, MessageRecordEntity>(), KoinComponent, CoroutineScope {
     private val logger = createAndroidLogger("HistoryMessagePagingSource")
     private val database: ArukuDatabase by inject()
     private val repo: MainRepository by inject()
@@ -227,13 +198,13 @@ class HistoryMessagePagingSource(
         messageDao.getMessagesPaging(account, contact.subject, contact.type)
     }
 
-    private var lastSeq: Int? = null
+    private var lastMsgId: Long? = null
     private var lastTime: Long? = null
 
     override val coroutineContext = context + SupervisorJob()
 
     @Suppress("FoldInitializerAndIfToElvis")
-    override suspend fun load(params: LoadParams<Int>): LoadResult<Int, MessageRecordEntity> {
+    override suspend fun load(params: LoadParams<Long>): LoadResult<Long, MessageRecordEntity> {
         logger.d("call load. params=${params.toString().substringAfterLast('$')}, key=${params.key}")
 
         val messageId = params.key
@@ -244,7 +215,7 @@ class HistoryMessagePagingSource(
         // avoid prepend
         if (messageId == null) return LoadResult.Page(listOf(), null, null)
         // get last message sequence
-        if (lastSeq == null) lastSeq = roamingQuerySession.suspendIO { getLastMessageSeq() }
+        if (lastMsgId == null) lastMsgId = roamingQuerySession.suspendIO { getLastMessageId() }
 
         // first load, lastTime = null
         if (messageId == 0) {
@@ -266,11 +237,11 @@ class HistoryMessagePagingSource(
             }
 
             // lastSeq is null, load from database
-            if (lastSeq == null) {
+            if (lastMsgId == null) {
                 return firstLoadOffline()
             } else {
                 val roamingRecords = roamingQuerySession.suspendIO {
-                    getMessagesBefore(lastSeq!!, loadSize, includeSeq = true)
+                    getMessagesBefore(lastMsgId!!, loadSize, includeSeq = true)
                         ?.sortedByDescending { it.seq }
                 }
 
@@ -283,10 +254,10 @@ class HistoryMessagePagingSource(
                 // but also we will try to load from roaming query session again
                 // until all database cache are loaded.
                 if (roamingRecords.isEmpty()) {
-                    if (lastSeq == null) return LoadResult.Error(
+                    if (lastMsgId == null) return LoadResult.Error(
                         IllegalStateException("first load, roaming records is empty but lastSeq is null.")
                     )
-                    lastSeq = lastSeq!! - loadSize
+                    lastMsgId = lastMsgId!! - loadSize
                     return firstLoadOffline(checkAllLoaded = true)
                 } else {
                     val filtered = roamingRecords.filter { it.messageId != 0 }
@@ -298,13 +269,13 @@ class HistoryMessagePagingSource(
                         if (lastTime == null) return LoadResult.Error(
                             IllegalStateException("first load, roaming records is not empty and filtered is empty but lastTime is null.")
                         )
-                        lastSeq = lastSeq!! - roamingRecords.size
+                        lastMsgId = lastMsgId!! - roamingRecords.size
                         return firstLoadOffline()
                     }
 
                     // first load successful from roaming query session
                     filtered.last().apply {
-                        lastSeq = seq - 1
+                        lastMsgId = seq - 1
                         // update lastTime in case to load offline as expected
                         // if continue load from roaming query session fails
                         lastTime = time
@@ -344,7 +315,7 @@ class HistoryMessagePagingSource(
             }
 
             // lastSeq is null, load offline
-            if (lastSeq == null) {
+            if (lastMsgId == null) {
                 if (lastTime == null) return LoadResult.Error(
                     IllegalStateException("loadKey is not 0, lastSeq is null but lastTime is null.")
                 )
@@ -352,7 +323,7 @@ class HistoryMessagePagingSource(
                 return loadBeforeOffline(lastTime!!)
             } else {
                 val roamingRecords = roamingQuerySession.suspendIO {
-                    getMessagesBefore(lastSeq!!, loadSize, includeSeq = false)
+                    getMessagesBefore(lastMsgId!!, loadSize, includeSeq = false)
                         ?.sortedByDescending { it.seq }
                 }
 
@@ -363,7 +334,7 @@ class HistoryMessagePagingSource(
                         IllegalStateException("continue load, roaming records is null but lastTime is null.")
                     )
                     // continue load ensures the seq is not null
-                    lastSeq = lastSeq!! - loadSize
+                    lastMsgId = lastMsgId!! - loadSize
                     return loadBeforeOffline(lastTime!!)
                 }
 
@@ -385,13 +356,13 @@ class HistoryMessagePagingSource(
                         if (lastTime == null) return LoadResult.Error(
                             IllegalStateException("continue load, roaming records is not empty and filtered is empty but lastTime is null.")
                         )
-                        lastSeq = lastSeq!! - roamingRecords.size
+                        lastMsgId = lastMsgId!! - roamingRecords.size
                         return loadBeforeOffline(lastTime!!)
                     }
 
                     // continue load successful from roaming query session
                     filtered.last().apply {
-                        lastSeq = seq - 1
+                        lastMsgId = seq - 1
                         // update lastTime in case to load offline as expected
                         // if continue load from roaming query session fails
                         lastTime = time
@@ -430,4 +401,4 @@ class HistoryMessagePagingSource(
 
         return 0
     }
-}
+}*/

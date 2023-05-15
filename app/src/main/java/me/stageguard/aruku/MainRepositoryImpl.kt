@@ -3,6 +3,7 @@ package me.stageguard.aruku
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
+import androidx.paging.ExperimentalPagingApi
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
@@ -35,8 +36,8 @@ import me.stageguard.aruku.database.message.MessagePreviewEntity
 import me.stageguard.aruku.database.message.MessageRecordEntity
 import me.stageguard.aruku.database.message.toEntity
 import me.stageguard.aruku.database.message.toPreviewEntity
-import me.stageguard.aruku.domain.CombinedMessagePagingSource
 import me.stageguard.aruku.domain.MainRepository
+import me.stageguard.aruku.domain.RoamingMessageMediator
 import me.stageguard.aruku.domain.data.message.Audio
 import me.stageguard.aruku.service.ServiceConnector
 import me.stageguard.aruku.service.bridge.AudioStatusListener
@@ -428,6 +429,7 @@ class MainRepositoryImpl(
         }
     }
 
+    @OptIn(ExperimentalPagingApi::class)
     override fun getMessageRecords(
         account: Long,
         contact: ContactId,
@@ -439,9 +441,9 @@ class MainRepositoryImpl(
                 prefetchDistance = 20,
                 initialLoadSize = 40,
                 enablePlaceholders = false
-            ),
-            initialKey = 0,
-            pagingSourceFactory = { CombinedMessagePagingSource(account, contact, context) }
+           ),
+            remoteMediator = RoamingMessageMediator(account, contact) { openRoamingQuery(account, contact) },
+            pagingSourceFactory = { database.messageRecords().getMessagesPaging(account, contact.subject, contact.type) }
         ).flow
     }
 

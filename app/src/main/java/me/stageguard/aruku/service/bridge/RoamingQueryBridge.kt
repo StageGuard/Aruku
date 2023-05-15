@@ -2,15 +2,18 @@ package me.stageguard.aruku.service.bridge
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import me.stageguard.aruku.service.parcel.ArukuRoamingMessage
+import me.stageguard.aruku.service.parcel.Message
 import remoter.annotations.Remoter
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 
 @Remoter
 interface RoamingQueryBridge {
-    fun getMessagesBefore(seq: Int, count: Int, includeSeq: Boolean): List<ArukuRoamingMessage>?
-    fun getLastMessageSeq(): Int?
+    fun getLastMessageId(): Long?
+
+    fun getMessagesBefore(messageId: Long, count: Int, exclude: Boolean): List<Message>?
+
+
 }
 
 suspend fun <R> RoamingQueryBridge.suspendIO(block: RoamingQueryBridge.() -> R): R {

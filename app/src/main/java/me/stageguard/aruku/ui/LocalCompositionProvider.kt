@@ -25,3 +25,6 @@ val LocalAccountsState: ProvidableCompositionLocal<Map<Long, UIAccountState>> =
 
 val LocalOkkvProvider: ProvidableCompositionLocal<Okkv> =
     compositionLocalOf { error("No Okkv provided.") }
+
+val LocalPrimaryMessage: ProvidableCompositionLocal<Boolean> =
+    compositionLocalOf { error("No primary message theme provided") }

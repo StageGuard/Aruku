@@ -26,7 +26,7 @@ data class Forward(
 @Parcelize
 @Serializable
 data class Quote(
-    val messageId: Int,
+    val messageId: Long,
 ) : MessageElement, Parcelable {
     override fun contentToString(): String {
         return ""

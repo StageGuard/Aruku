@@ -1,6 +1,5 @@
 package me.stageguard.aruku.ui.page.home.message
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.valentinilk.shimmer.Shimmer
@@ -8,14 +7,19 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.cancellable
+import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.flow.consumeAsFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import me.stageguard.aruku.database.LoadState
 import me.stageguard.aruku.database.mapOk
 import me.stageguard.aruku.domain.MainRepository
 import me.stageguard.aruku.service.parcel.ContactId
 import me.stageguard.aruku.ui.UiState
-import me.stageguard.aruku.util.tag
+import me.stageguard.aruku.util.createAndroidLogger
 import net.mamoe.mirai.utils.Either
 
 /**
@@ -25,6 +29,8 @@ import net.mamoe.mirai.utils.Either
 class MessageViewModel(
     private val repository: MainRepository,
 ) : ViewModel() {
+    private val logger = createAndroidLogger("MessageViewModel")
+
     private val currentBotChannel = Channel<Long?>()
 
     @UiState
@@ -60,7 +66,7 @@ class MessageViewModel(
                     }.collect(this@channelFlow::send)
                 }
             }
-            Log.w(this@MessageViewModel.tag(), "message channel is completed.")
+            logger.w("message channel is completed.")
         }.stateIn(viewModelScope, SharingStarted.Eagerly, LoadState.Loading())
 
     fun setActiveBot(id: Long?) {
@@ -81,7 +87,7 @@ data class SimpleMessagePreview(
     val preview: String,
     val time: Long,
     val unreadCount: Int,
-    val messageId: Int,
+    val messageId: Long,
 )
 
 typealias MessagePreviewOrShimmer = Either<Shimmer, SimpleMessagePreview>

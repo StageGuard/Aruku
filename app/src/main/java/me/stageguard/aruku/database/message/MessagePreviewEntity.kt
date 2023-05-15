@@ -23,7 +23,7 @@ data class MessagePreviewEntity(
     @ColumnInfo(name = "unread_count") var unreadCount: Int,
     // message id is calculated by account, contact and other properties
     // so it can represents combined column (account, contact) as primary key
-    @ColumnInfo(name = "message_id") var messageId: Int,
+    @ColumnInfo(name = "message_id") var messageId: Long,
 )
 
 fun Message.toPreviewEntity(unreadCount: Int = 1) =

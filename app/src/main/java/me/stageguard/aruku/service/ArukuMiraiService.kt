@@ -32,6 +32,7 @@ import me.stageguard.aruku.R
 import me.stageguard.aruku.cache.AudioCache
 import me.stageguard.aruku.domain.RetrofitDownloadService
 import me.stageguard.aruku.domain.data.message.calculateMessageId
+import me.stageguard.aruku.domain.data.message.getSeqByMessageId
 import me.stageguard.aruku.domain.data.message.toMessageElements
 import me.stageguard.aruku.service.ArukuLoginSolver.Solution
 import me.stageguard.aruku.service.bridge.AudioStatusListener
@@ -51,7 +52,6 @@ import me.stageguard.aruku.service.parcel.AccountProfile
 import me.stageguard.aruku.service.parcel.AccountState
 import me.stageguard.aruku.service.parcel.AccountState.CaptchaType
 import me.stageguard.aruku.service.parcel.AccountState.OfflineCause
-import me.stageguard.aruku.service.parcel.ArukuRoamingMessage
 import me.stageguard.aruku.service.parcel.ContactId
 import me.stageguard.aruku.service.parcel.ContactSyncOp
 import me.stageguard.aruku.service.parcel.ContactType
@@ -70,8 +70,10 @@ import net.mamoe.mirai.BotFactory
 import net.mamoe.mirai.Mirai
 import net.mamoe.mirai.contact.Friend
 import net.mamoe.mirai.contact.Group
+import net.mamoe.mirai.contact.Member
 import net.mamoe.mirai.contact.getMember
 import net.mamoe.mirai.contact.nameCardOrNick
+import net.mamoe.mirai.contact.remarkOrNameCardOrNick
 import net.mamoe.mirai.event.Listener
 import net.mamoe.mirai.event.ListeningStatus
 import net.mamoe.mirai.event.events.BotEvent
@@ -218,12 +220,7 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
         }
 
         override fun getNickname(account: Long, contact: ContactId): String? {
-            val bot = Bot.getInstanceOrNull(account)
-            return when (contact.type) {
-                ContactType.GROUP -> bot?.getGroup(contact.subject)?.name
-                ContactType.FRIEND -> bot?.getFriend(contact.subject)?.nick
-                ContactType.TEMP -> bot?.getStranger(contact.subject)?.nick
-            }
+            return service.getContactNickname(account, contact)
         }
 
         override fun getGroupMemberInfo(
@@ -231,9 +228,7 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
             groupId: Long,
             memberId: Long
         ): GroupMemberInfo? {
-            val bot = Bot.getInstanceOrNull(account) ?: return null
-            val group = bot.getGroup(groupId) ?: return null
-            return group.getMember(memberId)?.toGroupMemberInfo()
+            return service.getGroupMember(account, groupId, memberId)?.toGroupMemberInfo()
         }
 
         override fun queryAccountInfo(account: Long): AccountInfo? {
@@ -672,6 +667,25 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
         }
     }
 
+    private fun getContactNickname(account: Long, contact: ContactId): String? {
+        val bot = Bot.getInstanceOrNull(account)
+        return when (contact.type) {
+            ContactType.GROUP -> bot?.getGroup(contact.subject)?.name
+            ContactType.FRIEND -> bot?.getFriend(contact.subject)?.nick
+            ContactType.TEMP -> bot?.getStranger(contact.subject)?.nick
+        }
+    }
+
+    private fun getGroupMember(
+        account: Long,
+        groupId: Long,
+        memberId: Long
+    ): Member? {
+        val bot = Bot.getInstanceOrNull(account) ?: return null
+        val group = bot.getGroup(groupId) ?: return null
+        return group.getMember(memberId)
+    }
+
     private fun createRoamingQuerySession(
         account: Long,
         contact: ContactId
@@ -703,30 +717,37 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
             private val roamingSession by lazy { group.roamingMessages }
 
             override fun getMessagesBefore(
-                seq: Int,
+                messageId: Long,
                 count: Int,
-                includeSeq: Boolean
-            ): List<ArukuRoamingMessage>? {
-                logger.d("fetching roaming messages, account=$account, group=$group, seq=$seq, count=$count")
+                exclude: Boolean
+            ): List<Message>? {
+                val seq = getSeqByMessageId(messageId)
+                logger.d("fetching roaming messages, account=$account, group=$group, calculatedSeq=$seq, count=$count")
+
                 return runBlocking(job) {
                     runCatching {
                         roamingSession
-                            .getMessagesBefore(seq)
+                            .getMessagesBefore(if (exclude) seq - 1 else seq)
                             .asFlow()
                             .cancellable()
                             .map { chain ->
-                                ArukuRoamingMessage(
+                                MessageImpl(
+                                    account = account,
                                     contact = contact,
-                                    from = chain.source.fromId,
+                                    sender = chain.source.fromId,
+                                    senderName = when(contact.type) {
+                                        ContactType.GROUP -> getGroupMember(account, contact.subject, chain.source.fromId)
+                                            ?.remarkOrNameCardOrNick ?: chain.source.fromId.toString()
+                                        else -> chain.source.fromId.toString()
+                                    },
                                     messageId = chain.source.calculateMessageId(),
-                                    seq = chain.source.ids.first(),
                                     time = chain.source.time.toLong() * 1000,
                                     message = chain.toMessageElements(group)
                                 )
                             }
                             .catch {
                                 logger.w("roaming query cannot process current: $it")
-                                emit(ArukuRoamingMessage.INVALID)
+                                emit(MessageImpl.ROAMING_INVALID)
                             }
                             .take(count)
                             .toList()
@@ -739,7 +760,7 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
                 }
             }
 
-            override fun getLastMessageSeq(): Int? {
+            override fun getLastMessageId(): Long? {
                 return runBlocking(job) {
                     runCatching {
                         val msg = roamingSession
@@ -749,13 +770,12 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
                             .take(1)
                             .toList()
 
-                        msg.firstOrNull()
+                        return@runCatching msg
+                            .firstOrNull()
                             ?.sourceOrNull
-                            ?.ids
-                            ?.firstOrNull()
-
+                            ?.calculateMessageId()
                     }.onFailure {
-                        logger.w("cannot query last seq of $group", it)
+                        logger.w("cannot query last message source of $group", it)
                     }.getOrNull()
                 }
             }

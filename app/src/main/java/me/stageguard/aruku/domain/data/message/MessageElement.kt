@@ -19,10 +19,14 @@ sealed interface MessageElement : Parcelable {
     fun contentToString(): String
 }
 
-fun MessageSource.calculateMessageId(): Int {
-    return arrayOf<Any>(time, fromId, targetId, *ids.toTypedArray())
+fun MessageSource.calculateMessageId(): Long {
+    val hash = arrayOf<Any>(time, fromId, targetId, *ids.toTypedArray())
         .foldRight(botId.hashCode()) { prop, acc -> 31 * acc + prop.hashCode() }
+
+    return (hash.toLong() and 0x00000000ffffffff) or (ids.first().toLong() shl 32)
 }
+
+fun getSeqByMessageId(messageId: Long): Int = (messageId shr 32).toInt()
 
 @OptIn(MiraiExperimentalApi::class)
 suspend fun MessageChain.toMessageElements(contact: Contact? = null): List<MessageElement> =

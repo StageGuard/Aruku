@@ -14,7 +14,7 @@ data class ContactId(
     val type: ContactType,
     val subject: Long,
 ) : Parcelable {
-    fun toNavArg(messageId: Int? = null): String {
+    fun toNavArg(messageId: Long? = null): String {
         return Json.encodeToString(ChatPageNav(this, messageId))
     }
 

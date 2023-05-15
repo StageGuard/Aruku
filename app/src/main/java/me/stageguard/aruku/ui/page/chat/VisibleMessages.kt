@@ -40,6 +40,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import me.stageguard.aruku.R
+import me.stageguard.aruku.ui.LocalPrimaryMessage
 import me.stageguard.aruku.util.animateFloatAsMutableState
 import me.stageguard.aruku.util.stringResC
 import okhttp3.internal.toLongOrDefault
@@ -50,16 +51,19 @@ import kotlin.random.Random
 @Composable
 fun PlainText(
     element: VisibleChatMessage.PlainText,
-    primary: Boolean,
     modifier: Modifier = Modifier
 ) {
+    val isPrimary = LocalPrimaryMessage.current
+    val textColor = MaterialTheme.colorScheme.run { if (isPrimary) onSecondary else onSecondaryContainer }
+
     Text(
         text = element.content,
         modifier = modifier,
         style = MaterialTheme.typography.bodyLarge,
         lineHeight = 22.sp,
+        color = textColor,
         onTextLayout = {
-
+            it
         }
     )
 }
@@ -85,15 +89,16 @@ fun Image(
 @Composable
 fun At(
     element: VisibleChatMessage.At,
-    primary: Boolean,
     modifier: Modifier = Modifier,
     onClick: (Long) -> Unit,
 ) {
+    val isPrimary = LocalPrimaryMessage.current
+
     val annotatedContent = buildAnnotatedString {
         append(element.targetName)
         addStyle(
             style = SpanStyle(
-                color = if (primary) MaterialTheme.colorScheme.inversePrimary else MaterialTheme.colorScheme.primary,
+                color = if (isPrimary) MaterialTheme.colorScheme.inversePrimary else MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Bold
             ),
             start = 0,
@@ -120,16 +125,17 @@ fun At(
 @Composable
 fun AtAll(
     element: VisibleChatMessage.AtAll,
-    primary: Boolean,
     modifier: Modifier = Modifier
 ) {
+    val isPrimary = LocalPrimaryMessage.current
+
     val atAllText = R.string.message_at_all.stringResC
     Text(
         text = buildAnnotatedString {
             append("@${atAllText}")
             addStyle(
                 style = SpanStyle(
-                    color = if (primary) MaterialTheme.colorScheme.inversePrimary else MaterialTheme.colorScheme.primary,
+                    color = MaterialTheme.colorScheme.run { if (isPrimary) inversePrimary else primary },
                     fontWeight = FontWeight.Bold
                 ),
                 start = 0,
@@ -181,17 +187,18 @@ fun FlashImage(
 fun Audio(
     element: VisibleChatMessage.Audio,
     status: ChatAudioStatus?,
-    primary: Boolean,
     modifier: Modifier = Modifier,
     onClick: (identity: String) -> Unit,
 ) {
     val density = LocalDensity.current
+    val isPrimary = LocalPrimaryMessage.current
 
     val width = with(density) { 150.dp.roundToPx().toFloat() }
     val height = with(density) { 50.dp.roundToPx().toFloat() }
 
-    val contentColor = MaterialTheme.colorScheme.run { if (primary) onPrimary else this.primary }
-    val backgroundColor = MaterialTheme.colorScheme.run { if (primary) this.primary else surfaceVariant }
+    val contentColor = MaterialTheme.colorScheme.run { if (isPrimary) onPrimary else primary }
+    val waveLineColor = MaterialTheme.colorScheme.run { if (isPrimary) onPrimaryContainer else primaryContainer }
+    val backgroundColor = MaterialTheme.colorScheme.run { if (isPrimary) primary else surfaceVariant }
 
     val indicatorSize = with(density) { 35.dp.roundToPx().toFloat() }
     val progressCircleSize = run {
@@ -334,7 +341,6 @@ fun File(
 ) { // TODO: audio visible element, currently plain text
     PlainText(
         VisibleChatMessage.PlainText("[File]${element.name}"),
-        primary = false,
         modifier = modifier,
     )
 }
@@ -346,7 +352,6 @@ fun Unsupported(
 ) {
     PlainText(
         VisibleChatMessage.PlainText("[Unsupported]${element.content.take(15)}"),
-        primary = false,
         modifier = modifier,
     )
 }
