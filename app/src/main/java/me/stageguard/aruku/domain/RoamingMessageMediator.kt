@@ -7,7 +7,6 @@ import androidx.paging.RemoteMediator
 import me.stageguard.aruku.database.ArukuDatabase
 import me.stageguard.aruku.database.message.MessageRecordEntity
 import me.stageguard.aruku.database.message.toEntity
-import me.stageguard.aruku.domain.data.message.getSeqByMessageId
 import me.stageguard.aruku.service.bridge.RoamingQueryBridge
 import me.stageguard.aruku.service.bridge.suspendIO
 import me.stageguard.aruku.service.parcel.ContactId
@@ -34,11 +33,10 @@ class RoamingMessageMediator(
         val messageId = when(loadType) {
             LoadType.REFRESH -> {
                 exclude = false
-                session0.suspendIO { getLastMessageId() }.also { println("refresh seq: ${getSeqByMessageId(it!!)}") }
+                session0.suspendIO { getLastMessageId() }
             }
             LoadType.APPEND -> {
                 exclude = true
-                println("append seq: last=${getSeqByMessageId(state.lastItemOrNull()!!.messageId)}, first=${getSeqByMessageId(state.firstItemOrNull()!!.messageId)}")
                 state.lastItemOrNull()?.messageId
             }
             else -> return MediatorResult.Success(endOfPaginationReached = true)
@@ -50,10 +48,13 @@ class RoamingMessageMediator(
 
         if (messages.isNullOrEmpty()) return MediatorResult.Success(endOfPaginationReached = true)
 
-        println("get roaming: last=${getSeqByMessageId(messages.last().messageId)}, first=${getSeqByMessageId(messages.first().messageId)}")
-        database.suspendIO { database.messageRecords().upsert(*messages.toTypedArray()) }
+        database.suspendIO {
+            database.messageRecords().upsert(
+                *messages.filterNot { it.sender <= 0 || it.messageId <= 0 }.toTypedArray()
+            )
+        }
 
-        return MediatorResult.Success(endOfPaginationReached = false)
+        return MediatorResult.Success(messages.last().run { sender <= 0 || messageId <= 0 })
 
     }
 }

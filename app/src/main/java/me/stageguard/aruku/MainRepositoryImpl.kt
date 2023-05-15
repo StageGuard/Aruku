@@ -436,12 +436,7 @@ class MainRepositoryImpl(
         context: CoroutineContext,
     ): Flow<PagingData<MessageRecordEntity>> {
         return Pager(
-            config = PagingConfig(
-                pageSize = 20,
-                prefetchDistance = 20,
-                initialLoadSize = 40,
-                enablePlaceholders = false
-           ),
+            config = PagingConfig(pageSize = 20),
             remoteMediator = RoamingMessageMediator(account, contact) { openRoamingQuery(account, contact) },
             pagingSourceFactory = { database.messageRecords().getMessagesPaging(account, contact.subject, contact.type) }
         ).flow

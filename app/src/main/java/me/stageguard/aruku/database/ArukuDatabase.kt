@@ -3,10 +3,10 @@ package me.stageguard.aruku.database
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import androidx.room.withTransaction
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import me.stageguard.aruku.database.account.AccountDao
 import me.stageguard.aruku.database.account.AccountEntity
 import me.stageguard.aruku.database.contact.ContactDao
@@ -17,8 +17,6 @@ import me.stageguard.aruku.database.message.MessagePreviewDao
 import me.stageguard.aruku.database.message.MessagePreviewEntity
 import me.stageguard.aruku.database.message.MessageRecordDao
 import me.stageguard.aruku.database.message.MessageRecordEntity
-import kotlin.coroutines.resume
-import kotlin.coroutines.suspendCoroutine
 
 @Database(
     entities = [
@@ -49,9 +47,7 @@ abstract class ArukuDatabase : RoomDatabase() {
     }
 
     suspend fun <T> suspendIO(block: ArukuDatabase.() -> T): T {
-        return withContext(Dispatchers.IO) {
-            suspendCoroutine { it.resume(invoke(block)) }
-        }
+        return this@ArukuDatabase.withTransaction { block(this) }
     }
 
     context(CoroutineScope) fun launchIO(block: suspend ArukuDatabase.() -> Unit) {
