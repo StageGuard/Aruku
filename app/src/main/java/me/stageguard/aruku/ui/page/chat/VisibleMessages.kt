@@ -15,10 +15,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Fill
@@ -51,15 +53,15 @@ import kotlin.random.Random
 @Composable
 fun PlainText(
     element: VisibleChatMessage.PlainText,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    textColor: Color = MaterialTheme.colorScheme.run {
+        if (LocalPrimaryMessage.current) onSecondary else onSecondaryContainer
+    },
 ) {
-    val isPrimary = LocalPrimaryMessage.current
-    val textColor = MaterialTheme.colorScheme.run { if (isPrimary) onSecondary else onSecondaryContainer }
-
     Text(
         text = element.content,
         modifier = modifier,
-        style = MaterialTheme.typography.bodyLarge,
+        style = MaterialTheme.typography.bodyMedium,
         lineHeight = 22.sp,
         color = textColor,
         onTextLayout = {
@@ -93,12 +95,13 @@ fun At(
     onClick: (Long) -> Unit,
 ) {
     val isPrimary = LocalPrimaryMessage.current
+    val currentOnClick by rememberUpdatedState(newValue = onClick)
 
     val annotatedContent = buildAnnotatedString {
         append(element.targetName)
         addStyle(
             style = SpanStyle(
-                color = if (isPrimary) MaterialTheme.colorScheme.inversePrimary else MaterialTheme.colorScheme.primary,
+                color = MaterialTheme.colorScheme.run { if (isPrimary) inversePrimary else primary },
                 fontWeight = FontWeight.Bold
             ),
             start = 0,
@@ -113,11 +116,15 @@ fun At(
     }
     ClickableText(
         text = annotatedContent,
+        style = MaterialTheme.typography.bodyMedium,
         modifier = modifier,
         onClick = {
-            val atTargetAnnotation =
-                annotatedContent.getStringAnnotations("AT", it, it).firstOrNull()
-            if (atTargetAnnotation != null) onClick(atTargetAnnotation.item.toLongOrDefault(-1L))
+            val atTargetAnnotation = annotatedContent
+                .getStringAnnotations("AT", it, it)
+                .firstOrNull()
+            if (atTargetAnnotation != null) {
+                currentOnClick(atTargetAnnotation.item.toLongOrDefault(-1L))
+            }
         }
     )
 }
@@ -125,24 +132,13 @@ fun At(
 @Composable
 fun AtAll(
     element: VisibleChatMessage.AtAll,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onClick: (Long) -> Unit,
 ) {
-    val isPrimary = LocalPrimaryMessage.current
-
-    val atAllText = R.string.message_at_all.stringResC
-    Text(
-        text = buildAnnotatedString {
-            append("@${atAllText}")
-            addStyle(
-                style = SpanStyle(
-                    color = MaterialTheme.colorScheme.run { if (isPrimary) inversePrimary else primary },
-                    fontWeight = FontWeight.Bold
-                ),
-                start = 0,
-                end = atAllText.length
-            )
-        },
+    At(
+        element = VisibleChatMessage.At(-1L, R.string.message_at_all.stringResC),
         modifier = modifier,
+        onClick = onClick,
     )
 }
 

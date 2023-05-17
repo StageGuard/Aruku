@@ -55,7 +55,7 @@ class MainActivity : ComponentActivity() {
             val focusManager = LocalFocusManager.current
             val systemUiController = rememberSystemUiController(window)
             val serviceConnected = serviceConnector.connected.observeAsState(false)
-            ArukuTheme {
+            ArukuTheme(dynamicColor = false) {
                 Box(
                     modifier = Modifier.clickable(
                         indication = null,

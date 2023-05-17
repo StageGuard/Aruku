@@ -1,11 +1,8 @@
 package me.stageguard.aruku.ui.page.home
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedContentScope
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.with
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -13,7 +10,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
@@ -26,8 +22,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.dp
 import me.stageguard.aruku.ui.LocalAccountsState
 import me.stageguard.aruku.ui.LocalBot
 import me.stageguard.aruku.ui.LocalNavController
@@ -37,6 +31,8 @@ import me.stageguard.aruku.ui.page.UIAccountState
 import me.stageguard.aruku.ui.theme.ArukuTheme
 import me.stageguard.aruku.ui.theme.ColorAccountOffline
 import me.stageguard.aruku.ui.theme.ColorAccountOnline
+import me.stageguard.aruku.ui.theme.surface1
+import me.stageguard.aruku.ui.theme.surface4
 import me.stageguard.aruku.util.stringResC
 import org.koin.androidx.compose.koinViewModel
 
@@ -82,9 +78,8 @@ private fun HomeView(
     val bot = LocalBot.current
     val systemUiController = LocalSystemUiController.current
 
-    val backgroundColor = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp)
-    val navigationContainerColor =
-        MaterialTheme.colorScheme.surfaceColorAtElevation(4.dp).copy(alpha = 0.95f)
+    val backgroundColor = MaterialTheme.colorScheme.surface1
+    val navigationContainerColor = MaterialTheme.colorScheme.surface4.copy(alpha = 0.95f)
     val topAppBarColors = TopAppBarDefaults.topAppBarColors(
         containerColor = backgroundColor,
         scrolledContainerColor = navigationContainerColor
@@ -141,7 +136,7 @@ private fun HomeView(
             ) { padding ->
                 AnimatedContent(
                     targetState = currNavPage,
-                    transitionSpec = trans@{
+                    /*transitionSpec = trans@{
                         val spec = tween<IntOffset>(500)
                         val direction =
                             if (targetState.selection.id > initialState.selection.id) {
@@ -153,7 +148,7 @@ private fun HomeView(
                             direction,
                             spec
                         )
-                    },
+                    },*/
                 ) { targetState ->
                     targetState.content(padding)
                 }

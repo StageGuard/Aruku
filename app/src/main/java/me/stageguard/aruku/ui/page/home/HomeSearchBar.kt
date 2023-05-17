@@ -68,16 +68,17 @@ fun HomeSearchBar(
                 modifier = Modifier.fillMaxSize(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(onClick = {
-                    activated.value = !activated.value
-                }) {
+                IconButton(
+                    modifier = Modifier.padding(start = 4.dp),
+                    onClick = { activated.value = !activated.value }
+                ) {
                     Icon(
                         imageVector = when (activated.value) {
                             true -> Icons.Outlined.ArrowBack
                             false -> Icons.Outlined.Search
                         },
                         contentDescription = "home search bar search button",
-                        tint = MaterialTheme.colorScheme.onSecondaryContainer
+                        tint = MaterialTheme.colorScheme.onSurface
 
                     )
                 }
@@ -90,7 +91,7 @@ fun HomeSearchBar(
                     value = textValue.value,
                     onValueChange = { onSearchValueChanges(it.trim()) },
                     enabled = activated.value,
-                    textStyle = MaterialTheme.typography.bodyMedium.merge(
+                    textStyle = MaterialTheme.typography.bodyLarge.merge(
                         TextStyle(color = MaterialTheme.colorScheme.onSurface)
                     ),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
@@ -101,7 +102,8 @@ fun HomeSearchBar(
                         if (textValue.value.isEmpty()) {
                             Text(
                                 text = R.string.home_search_conversation.stringResC,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodyLarge
                             )
                         }
                         innerTextField()

@@ -153,9 +153,9 @@ fun AdvancedOptionsPreview() {
             enabled = true,
             protocol = mutableStateOf(MiraiProtocol.ANDROID_PHONE.toString()),
             heartbeatStrategy = mutableStateOf(HeartbeatStrategy.STAT_HB.toString()),
-            heartbeatPeriodMillis = mutableStateOf(123),
-            statHeartbeatPeriodMillis = mutableStateOf(123),
-            heartbeatTimeoutMillis = mutableStateOf(123),
+            heartbeatPeriodMillis = mutableStateOf(123L),
+            statHeartbeatPeriodMillis = mutableStateOf(123L),
+            heartbeatTimeoutMillis = mutableStateOf(123L),
             autoReconnect = mutableStateOf(true),
             reconnectionRetryTimes = mutableStateOf(123),
         )

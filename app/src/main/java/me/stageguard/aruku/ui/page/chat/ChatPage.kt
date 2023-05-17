@@ -18,7 +18,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -29,7 +28,6 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.rememberNavController
@@ -45,6 +43,8 @@ import me.stageguard.aruku.ui.LocalSystemUiController
 import me.stageguard.aruku.ui.common.ArrowBack
 import me.stageguard.aruku.ui.page.ChatPageNav
 import me.stageguard.aruku.ui.theme.ArukuTheme
+import me.stageguard.aruku.ui.theme.surface1
+import me.stageguard.aruku.ui.theme.surface4
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
 import kotlin.random.Random
@@ -90,11 +90,9 @@ fun ChatView(
 ) {
     val systemUiController = LocalSystemUiController.current
 
-    val backgroundColor = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp).copy(alpha = 0.95f)
-    val navigationContainerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(4.dp).copy(alpha = 0.95f)
-    val topAppBarColors = TopAppBarDefaults.topAppBarColors(containerColor = backgroundColor)
-
-    val scrollState = TopAppBarDefaults.pinnedScrollBehavior()
+    val backgroundColor = MaterialTheme.colorScheme.surface1.copy(alpha = 0.95f)
+    val navigationContainerColor = MaterialTheme.colorScheme.surface4.copy(alpha = 0.95f)
+    val topAppBarColors = TopAppBarDefaults.topAppBarColors(containerColor = navigationContainerColor)
 
     SideEffect {
         systemUiController.setNavigationBarColor(navigationContainerColor.copy(alpha = 0.13f))
@@ -103,13 +101,11 @@ fun ChatView(
 
     Box(modifier = Modifier.fillMaxSize()) {
         Surface(
-            color = MaterialTheme.colorScheme.surface,
+            color = backgroundColor,
             modifier = Modifier.fillMaxSize()
         ) {
             Scaffold(
-                modifier = Modifier
-                    .imePadding()
-                    .nestedScroll(scrollState.nestedScrollConnection),
+                modifier = Modifier.imePadding(),
                 containerColor = Color.Transparent,
                 contentWindowInsets = WindowInsets.systemBars.add(WindowInsets.navigationBars),
                 topBar = {
@@ -123,7 +119,6 @@ fun ChatView(
                         },
                         actions = { ChatTopActions() },
                         colors = topAppBarColors,
-                        scrollBehavior = scrollState
                     )
                 },
                 bottomBar = {

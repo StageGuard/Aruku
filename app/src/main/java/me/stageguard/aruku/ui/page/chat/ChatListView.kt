@@ -115,7 +115,7 @@ fun ChatListView(
                                 messages = element.visibleMessages,
                                 audioStatus = audio?.run { audioStatus[identity] },
                                 modifier = Modifier.padding(
-                                    horizontal = 10.dp,
+                                    horizontal = 12.dp,
                                     vertical = if (nextSentByCurrent || lastSentByCurrent) 2.dp else 5.dp
                                 ),
                                 onClickAvatar = { }
@@ -162,7 +162,7 @@ private fun Message(
     val density = LocalDensity.current
     val isPrimary = LocalPrimaryMessage.current
 
-    val avatarSize = 45.dp
+    val avatarSize = 38.dp
     val avatarMargin = 6.dp
     val messageContentSideMargin = 45.dp
     val roundCornerSize = 16.dp
@@ -170,6 +170,9 @@ private fun Message(
     val avatarWidth = remember(density, showAvatar) {
         if (showAvatar || occupyAvatarSpace) with(density) { (avatarSize + avatarMargin).roundToPx() } else 0
     }
+
+    val bubbleBackgroundColor = MaterialTheme.colorScheme.run { if (isPrimary) secondary else secondaryContainer }
+    val textContentColor = MaterialTheme.colorScheme.run { if (isPrimary) onSecondary else onSecondaryContainer }
 
     BoxWithConstraints(
         modifier = Modifier.fillMaxWidth()
@@ -238,12 +241,12 @@ private fun Message(
             )
             if (showSender) Text(
                 text = senderName,
-                style = MaterialTheme.typography.bodyMedium
-                    .copy(fontWeight = FontWeight.SemiBold),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.layoutId("senderName")
             )
             Surface(
-                color = MaterialTheme.colorScheme.run { if (isPrimary) primary else surfaceVariant },
+                color = bubbleBackgroundColor,
                 shape = RoundedCornerShape(
                     if (startCorner) roundCornerSize else if (topCorner) roundCornerSize else 4.dp,
                     if (endCorner) roundCornerSize else if (topCorner) roundCornerSize else 4.dp,
@@ -261,7 +264,8 @@ private fun Message(
             ) {
                 RichMessage(
                     context = context,
-                    list = messages,
+                    message = messages,
+                    textContentColor = textContentColor,
                     audioStatus = audioStatus,
                     time = time,
                     modifier = Modifier.widthIn(
@@ -288,7 +292,8 @@ private fun Message(
 @Composable
 private fun RichMessage(
     context: Context,
-    list: List<VisibleChatMessage>,
+    message: List<VisibleChatMessage>,
+    textContentColor: Color,
     audioStatus: ChatAudioStatus?,
     time: String,
     contentPadding: Dp,
@@ -317,17 +322,17 @@ private fun RichMessage(
 
     Box() {
         FlowRow(
-            mainAxisAlignment = if (list.size == 1) MainAxisAlignment.Center else MainAxisAlignment.Start,
+            mainAxisAlignment = if (message.size == 1) MainAxisAlignment.Center else MainAxisAlignment.Start,
             modifier = modifier
                 .padding(contentPadding)
                 .padding(2.dp)
         ) {
-            list.forEach { msg ->
+            message.forEach { msg ->
                 when (msg) {
-                    is VisibleChatMessage.PlainText -> PlainText(msg)
+                    is VisibleChatMessage.PlainText -> PlainText(msg, textColor = textContentColor)
                     is VisibleChatMessage.Image -> Image(msg, context) { }
                     is VisibleChatMessage.At -> At(msg) { }
-                    is VisibleChatMessage.AtAll -> AtAll(msg)
+                    is VisibleChatMessage.AtAll -> AtAll(msg) { }
                     is VisibleChatMessage.Face -> Face(msg, context)
                     is VisibleChatMessage.FlashImage -> FlashImage(msg, context) { }
                     is VisibleChatMessage.Audio -> {

@@ -1,18 +1,15 @@
 package me.stageguard.aruku.ui.page.home
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarColors
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
@@ -30,11 +27,8 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import me.stageguard.aruku.ui.theme.ArukuTheme
@@ -53,23 +47,11 @@ fun HomeTopAppBar(
 //    val avatarProgressIndicator by remember { derivedStateOf { state.value is AccountState.Login } }
 //    val activeAccountOnline by remember { derivedStateOf { state.value is AccountState.Online } }
 //    val context = LocalContext.current
-    TopAppBar(
+    CenterAlignedTopAppBar(
         modifier = modifier,
         colors = barColors,
         scrollBehavior = scrollBehavior,
-        title = {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = title,
-                    modifier = Modifier.padding(start = 6.dp, top = 6.dp),
-                    style = TextStyle(fontSize = 32.sp, fontWeight = FontWeight.Bold)
-                )
-
-            }
-        },
+        title = { Text(text = title) },
         actions = {
             IconButton(
                 onClick = onAvatarClick,
@@ -77,7 +59,9 @@ fun HomeTopAppBar(
                     containerColor = MaterialTheme.colorScheme.primaryContainer
                 ),
                 modifier = Modifier
-                    .padding(end = 10.dp, top = 6.dp)
+                    .padding(end = 12.dp)
+                    .size(48.dp)
+                    .padding(4.dp)
                     .graphicsLayer {
                         compositingStrategy = CompositingStrategy.Offscreen
                     }

@@ -68,6 +68,7 @@ import me.stageguard.aruku.ui.common.FastScrollToTopFab
 import me.stageguard.aruku.ui.common.WhitePage
 import me.stageguard.aruku.ui.page.home.HomeSearchBar
 import me.stageguard.aruku.ui.theme.ArukuTheme
+import me.stageguard.aruku.ui.theme.surface2
 import me.stageguard.aruku.util.stringResC
 import me.stageguard.aruku.util.toFormattedDateTime
 import net.mamoe.mirai.utils.Either
@@ -179,9 +180,8 @@ fun ContactMessageItem(
                 .padding(horizontal = 16.dp, vertical = 5.dp)
                 .clip(RoundedCornerShape(8.dp))
                 .clickable { currentOnClickItem() },
-            color = MaterialTheme.colorScheme.surface,
+            color = MaterialTheme.colorScheme.surface2,
             shape = RoundedCornerShape(8.dp),
-            tonalElevation = 3.dp,
         ) {
             Row(
                 modifier = Modifier.fillMaxSize(),
@@ -190,7 +190,7 @@ fun ContactMessageItem(
                 Card(
                     modifier = Modifier
                         .padding(12.dp)
-                        .size(40.dp),
+                        .size(44.dp),
                     shape = CircleShape,
                     elevation = CardDefaults.cardElevation(2.dp)
                 ) {
@@ -228,14 +228,14 @@ fun ContactMessageItem(
                                 color = MaterialTheme.colorScheme.secondary,
                                 shape = RectangleShape
                             ) else Modifier,
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold
+                        style = MaterialTheme.typography.titleSmall.copy(
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontWeight = FontWeight.SemiBold
                         ),
                         overflow = TextOverflow.Ellipsis,
                         maxLines = 1
                     )
-                    Spacer(modifier = Modifier.requiredSize(1.dp, if (data.isLeft) 10.dp else 5.dp))
+                    Spacer(modifier = Modifier.requiredSize(1.dp, if (data.isLeft) 8.dp else 4.dp))
                     Text(
                         text = data.rightOrNull?.preview ?: "",
                         modifier = if (data.isLeft) Modifier
@@ -247,9 +247,7 @@ fun ContactMessageItem(
                                 shape = RectangleShape
                             ) else Modifier,
                         style = MaterialTheme.typography.bodySmall.copy(
-                            fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            fontWeight = FontWeight.SemiBold
                         ),
                         overflow = TextOverflow.Ellipsis,
                         maxLines = 1
