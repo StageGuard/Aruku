@@ -65,7 +65,6 @@ import me.stageguard.aruku.util.weakReference
 import java.lang.ref.WeakReference
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
-import kotlin.coroutines.CoroutineContext
 
 class MainRepositoryImpl(
     private val database: ArukuDatabase,
@@ -433,13 +432,23 @@ class MainRepositoryImpl(
     override fun getMessageRecords(
         account: Long,
         contact: ContactId,
-        context: CoroutineContext,
     ): Flow<PagingData<MessageRecordEntity>> {
         return Pager(
             config = PagingConfig(pageSize = 20),
-            remoteMediator = RoamingMessageMediator(account, contact) { openRoamingQuery(account, contact) },
-            pagingSourceFactory = { database.messageRecords().getMessagesPaging(account, contact.subject, contact.type) }
+            remoteMediator = RoamingMessageMediator(account, contact, ::openRoamingQuery),
+            pagingSourceFactory = {
+                database.messageRecords().getMessagesPaging(account, contact.subject, contact.type)
+            }
         ).flow
+    }
+
+    override fun getExactMessageRecord(
+        account: Long,
+        contact: ContactId,
+        messageId: Long,
+    ): Flow<List<MessageRecordEntity>> {
+        return database.messageRecords()
+            .getExactMessage(account, contact.subject, contact.type, messageId)
     }
 
     override fun clearUnreadCount(account: Long, contact: ContactId) {

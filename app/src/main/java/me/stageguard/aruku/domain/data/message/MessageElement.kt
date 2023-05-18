@@ -17,6 +17,9 @@ import net.mamoe.mirai.utils.toUHexString
 @Parcelize
 sealed interface MessageElement : Parcelable {
     fun contentToString(): String
+
+    fun isText() = this is PlainText || this is At || this is AtAll
+    fun isImage() = this is Image || this is FlashImage || this is Face
 }
 
 fun MessageSource.calculateMessageId(): Long {
@@ -97,7 +100,7 @@ suspend fun MessageChain.toMessageElements(contact: Contact? = null): List<Messa
                 }
 
                 is net.mamoe.mirai.message.data.Image -> {
-                    add(Image(m.queryUrl(), m.imageId, m.width, m.height))
+                    add(Image(m.queryUrl(), m.imageId, m.width, m.height, m.isEmoji))
                 }
 
                 is net.mamoe.mirai.message.data.MarketFace -> add(MarketFace(m.id, m.name))

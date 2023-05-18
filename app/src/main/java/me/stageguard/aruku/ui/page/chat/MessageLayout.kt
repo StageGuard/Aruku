@@ -2,13 +2,16 @@ package me.stageguard.aruku.ui.page.chat
 
 import android.content.Context
 import android.net.Uri
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CornerSize
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -18,10 +21,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -29,10 +34,13 @@ import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.coerceIn
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import kotlinx.coroutines.Dispatchers
@@ -41,110 +49,108 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import me.stageguard.aruku.R
 import me.stageguard.aruku.ui.LocalPrimaryMessage
 import me.stageguard.aruku.util.animateFloatAsMutableState
-import me.stageguard.aruku.util.stringResC
-import okhttp3.internal.toLongOrDefault
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.random.Random
 
 @Composable
-fun PlainText(
-    element: VisibleChatMessage.PlainText,
+fun AnnotatedText(
+    texts: List<UIMessageElement.Text>,
     modifier: Modifier = Modifier,
-    textColor: Color = MaterialTheme.colorScheme.run {
+    baseTextColor: Color = MaterialTheme.colorScheme.run {
         if (LocalPrimaryMessage.current) onSecondary else onSecondaryContainer
     },
-) {
-    Text(
-        text = element.content,
-        modifier = modifier,
-        style = MaterialTheme.typography.bodyMedium,
-        lineHeight = 22.sp,
-        color = textColor,
-        onTextLayout = {
-            it
-        }
-    )
-}
-
-@Composable
-fun Image(
-    element: VisibleChatMessage.Image,
-    context: Context,
-    modifier: Modifier = Modifier,
-    onClick: (String) -> Unit,
-) {
-    AsyncImage(
-        model = ImageRequest.Builder(context)
-            .data(element.url)
-            .crossfade(true)
-            .build(),
-        "chat image ${element.url}",
-        modifier = modifier.then(Modifier.clickable { element.url?.let { onClick(it) } }),
-        contentScale = ContentScale.FillBounds
-    )
-}
-
-@Composable
-fun At(
-    element: VisibleChatMessage.At,
-    modifier: Modifier = Modifier,
-    onClick: (Long) -> Unit,
+    textStyle: TextStyle = MaterialTheme.typography.bodyLarge,
+    onTextLayout: (TextLayoutResult) -> Unit,
+    onClick: (UIMessageElement.Text) -> Unit
 ) {
     val isPrimary = LocalPrimaryMessage.current
     val currentOnClick by rememberUpdatedState(newValue = onClick)
 
     val annotatedContent = buildAnnotatedString {
-        append(element.targetName)
-        addStyle(
-            style = SpanStyle(
-                color = MaterialTheme.colorScheme.run { if (isPrimary) inversePrimary else primary },
-                fontWeight = FontWeight.Bold
-            ),
-            start = 0,
-            end = element.targetName.length
-        )
-        addStringAnnotation(
-            tag = "AT",
-            annotation = element.targetId.toString(),
-            start = 0,
-            end = element.targetName.length
-        )
+        var length = 0
+        texts.forEachIndexed { index, element ->
+            append(element.text)
+            addStyle(
+                style = SpanStyle(
+                    color = if (element !is UIMessageElement.Text.PlainText) {
+                        MaterialTheme.colorScheme.run { if (isPrimary) inversePrimary else primary }
+                    } else baseTextColor,
+                    fontWeight = if (element !is UIMessageElement.Text.PlainText) FontWeight.Bold else null
+                ),
+                start = length,
+                end = length + element.text.length
+            )
+            if(element !is UIMessageElement.Text.PlainText) {
+                addStringAnnotation(
+                    tag = "AT",
+                    annotation = index.toString(),
+                    start = 0,
+                    end = length + element.text.length
+                )
+            }
+            length += element.text.length
+        }
     }
     ClickableText(
         text = annotatedContent,
-        style = MaterialTheme.typography.bodyMedium,
+        style = textStyle,
         modifier = modifier,
+        onTextLayout = onTextLayout,
         onClick = {
             val atTargetAnnotation = annotatedContent
                 .getStringAnnotations("AT", it, it)
                 .firstOrNull()
             if (atTargetAnnotation != null) {
-                currentOnClick(atTargetAnnotation.item.toLongOrDefault(-1L))
+                val index = atTargetAnnotation.item.toIntOrNull() ?: return@ClickableText
+                texts.getOrNull(index)?.run(currentOnClick)
             }
         }
     )
 }
 
 @Composable
-fun AtAll(
-    element: VisibleChatMessage.AtAll,
+fun Image(
+    element: UIMessageElement.Image,
+    context: Context,
     modifier: Modifier = Modifier,
-    onClick: (Long) -> Unit,
+    shape: Shape? = null,
+    onClick: (String) -> Unit,
 ) {
-    At(
-        element = VisibleChatMessage.At(-1L, R.string.message_at_all.stringResC),
-        modifier = modifier,
-        onClick = onClick,
+    var width: Dp
+    var height: Dp
+    if (element.width >= element.height) {
+        width = element.width.dp.coerceIn(80.dp, 260.dp)
+        height = width * (element.height.toFloat() / element.width)
+    } else {
+        height = element.height.dp.coerceIn(80.dp, 180.dp)
+        width = height * (element.width.toFloat() / element.height)
+    }
+    if (element.isEmoticons) {
+        width *= 0.65f
+        height *= 0.65f
+    }
+
+    AsyncImage(
+        model = ImageRequest.Builder(context)
+            .data(element.url)
+            .crossfade(true)
+            .build(),
+        "chat image ${element.url}",
+        modifier = modifier
+            .clip(shape ?: RoundedCornerShape(CornerSize(4.dp)))
+            .size(width, height)
+            .animateContentSize()
+            .then(Modifier.clickable { element.url?.let { onClick(it) } }),
+        contentScale = ContentScale.FillBounds
     )
 }
 
 @Composable
 fun Face(
-    element: VisibleChatMessage.Face,
+    element: UIMessageElement.Face,
     context: Context,
     modifier: Modifier = Modifier
 ) {
@@ -166,22 +172,24 @@ fun Face(
 
 @Composable
 fun FlashImage(
-    element: VisibleChatMessage.FlashImage,
+    element: UIMessageElement.FlashImage,
     context: Context,
     modifier: Modifier = Modifier,
+    shape: Shape? = null,
     onClick: (url: String) -> Unit,
 ) { // TODO: flash image visible element, currently same as image
     Image(
-        VisibleChatMessage.Image(element.url),
+        UIMessageElement.Image(element.url, element.uuid, element.width, element.height, false),
         context,
         modifier,
-        onClick,
+        shape,
+        onClick = onClick,
     )
 }
 
 @Composable
 fun Audio(
-    element: VisibleChatMessage.Audio,
+    element: UIMessageElement.Audio,
     status: ChatAudioStatus?,
     modifier: Modifier = Modifier,
     onClick: (identity: String) -> Unit,
@@ -331,23 +339,27 @@ fun Audio(
 
 @Composable
 fun File(
-    element: VisibleChatMessage.File,
+    element: UIMessageElement.File,
     modifier: Modifier = Modifier,
     onClick: (url: String) -> Unit,
 ) { // TODO: audio visible element, currently plain text
-    PlainText(
-        VisibleChatMessage.PlainText("[File]${element.name}"),
+    AnnotatedText(
+        listOf(UIMessageElement.Text.PlainText("[File]${element.name}")),
+        onTextLayout = {},
         modifier = modifier,
+        onClick = {}
     )
 }
 
 @Composable
 fun Unsupported(
-    element: VisibleChatMessage.Unsupported,
+    element: UIMessageElement.Unsupported,
     modifier: Modifier = Modifier,
 ) {
-    PlainText(
-        VisibleChatMessage.PlainText("[Unsupported]${element.content.take(15)}"),
+    AnnotatedText(
+        listOf(UIMessageElement.Text.PlainText("[Unsupported]${element.content.take(15)}")),
+        onTextLayout = {},
         modifier = modifier,
+        onClick = {}
     )
 }

@@ -11,9 +11,10 @@ data class Image(
     val uuid: String,
     val width: Int,
     val height: Int,
+    val isEmoticons: Boolean,
 ) : MessageElement, Parcelable {
     override fun contentToString(): String {
-        return "[图片]"
+        return if (isEmoticons) "[动画表情]" else "[图片]"
     }
 }
 

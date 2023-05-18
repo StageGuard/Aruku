@@ -3,6 +3,7 @@ package me.stageguard.aruku.ui.page.chat
 import android.content.Context
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -25,20 +26,26 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.layoutId
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.constraintlayout.compose.ConstraintLayout
 import androidx.constraintlayout.compose.ConstraintSet
 import androidx.paging.compose.LazyPagingItems
@@ -89,11 +96,11 @@ fun ChatListView(
                             }
 
                         // observe audio status in composable
-                        val audio = element.visibleMessages.filterIsInstance<VisibleChatMessage.Audio>().firstOrNull()
-                        audio?.disposableObserver(
-                            onRegister = onRegisterAudioStatusListener,
-                            onUnregister = onUnRegisterAudioStatusListener
-                        )
+                        val audio = element.messages.filterIsInstance<UIMessageElement.Audio>().firstOrNull()
+                        if (audio != null) DisposableEffect(key1 = this) {
+                            onRegisterAudioStatusListener(audio.identity)
+                            onDispose { onUnRegisterAudioStatusListener(audio.identity) }
+                        }
 
                         val sentByBot = element.senderId == bot
                         CompositionLocalProvider(LocalPrimaryMessage provides sentByBot) {
@@ -112,12 +119,12 @@ fun ChatListView(
                                 startCorner = sentByBot,
                                 endCorner = !sentByBot,
                                 time = element.time,
-                                messages = element.visibleMessages,
+                                messages = element.messages,
                                 audioStatus = audio?.run { audioStatus[identity] },
-                                modifier = Modifier.padding(
-                                    horizontal = 12.dp,
-                                    vertical = if (nextSentByCurrent || lastSentByCurrent) 2.dp else 5.dp
-                                ),
+                                modifier = Modifier
+                                    .padding(horizontal = 12.dp)
+                                    .padding(bottom = if (nextSentByCurrent) 2.dp else 8.dp)
+                                ,
                                 onClickAvatar = { }
                             )
                         }
@@ -154,7 +161,7 @@ private fun Message(
     startCorner: Boolean, // start corner if true or else end corner of message content
     endCorner: Boolean,
     time: String,
-    messages: List<VisibleChatMessage>,
+    messages: List<UIMessageElement>,
     audioStatus: ChatAudioStatus?,
     modifier: Modifier = Modifier,
     onClickAvatar: (Long) -> Unit,
@@ -162,7 +169,7 @@ private fun Message(
     val density = LocalDensity.current
     val isPrimary = LocalPrimaryMessage.current
 
-    val avatarSize = 38.dp
+    val avatarSize = 40.dp
     val avatarMargin = 6.dp
     val messageContentSideMargin = 45.dp
     val roundCornerSize = 16.dp
@@ -245,14 +252,15 @@ private fun Message(
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.layoutId("senderName")
             )
+
+            val topStart = if (startCorner) roundCornerSize else if (topCorner) roundCornerSize else 4.dp
+            val topEnd = if (endCorner) roundCornerSize else if (topCorner) roundCornerSize else 4.dp
+            val bottomStart = if (endCorner) roundCornerSize else if (bottomCorner) roundCornerSize else 4.dp
+            val bottomEnd = if (startCorner) roundCornerSize else if (bottomCorner) roundCornerSize else 4.dp
+
             Surface(
                 color = bubbleBackgroundColor,
-                shape = RoundedCornerShape(
-                    if (startCorner) roundCornerSize else if (topCorner) roundCornerSize else 4.dp,
-                    if (endCorner) roundCornerSize else if (topCorner) roundCornerSize else 4.dp,
-                    if (endCorner) roundCornerSize else if (bottomCorner) roundCornerSize else 4.dp,
-                    if (startCorner) roundCornerSize else if (bottomCorner) roundCornerSize else 4.dp,
-                ),
+                shape = RoundedCornerShape(topStart, topEnd, bottomStart, bottomEnd),
                 modifier = Modifier
                     .layoutId("messageContent")
                     .layout { measurable, constraints ->
@@ -266,22 +274,22 @@ private fun Message(
                     context = context,
                     message = messages,
                     textContentColor = textContentColor,
+                    textContentStyle = MaterialTheme.typography.bodyMedium.copy(
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Medium
+                    ),
                     audioStatus = audioStatus,
                     time = time,
                     modifier = Modifier.widthIn(
-                        min = 45.dp,
                         max = with(density) { messageContentWidth.toDp() }
                     ),
-                    contentPadding = messages.run {
-                        val single = singleOrNull() ?: return@run 8.dp
-                        if (
-                            single is VisibleChatMessage.Image ||
-                            single is VisibleChatMessage.FlashImage ||
-                            single is VisibleChatMessage.Audio ||
-                            single is VisibleChatMessage.File ||
-                            single is VisibleChatMessage.Forward
-                        ) return@run 0.dp else return@run 8.dp
-                    },
+                    commonImageShape = RoundedCornerShape(2.5.dp),
+                    singleImageShape = RoundedCornerShape(
+                        topStart - 1.5.dp,
+                        topEnd - 1.5.dp,
+                        bottomStart - 1.5.dp,
+                        bottomEnd - 1.5.dp
+                    ),
                     onClickAnnotated = { }
                 )
             }
@@ -292,15 +300,22 @@ private fun Message(
 @Composable
 private fun RichMessage(
     context: Context,
-    message: List<VisibleChatMessage>,
+    message: List<UIMessageElement>,
     textContentColor: Color,
+    textContentStyle: TextStyle,
     audioStatus: ChatAudioStatus?,
     time: String,
-    contentPadding: Dp,
+    commonImageShape: Shape,
+    singleImageShape: Shape,
     modifier: Modifier = Modifier,
-    onClickAnnotated: (VisibleChatMessage) -> Unit,
+    onClickAnnotated: (UIMessageElement) -> Unit,
 ) {
     val isPrimary = LocalPrimaryMessage.current
+
+    val contentPadding = message.run {
+        val single = singleOrNull() ?: return@run 8.dp
+        if (single !is UIMessageElement.AnnotatedText) return@run 0.dp else return@run 8.dp
+    }
 
     @Composable
     fun MessageTimeIndicator(color: Color, textPadding: Dp = 0.dp, mdf: Modifier = Modifier) {
@@ -314,84 +329,139 @@ private fun RichMessage(
                 modifier = Modifier.padding(textPadding),
                 style = MaterialTheme.typography.bodySmall.copy(
                     color = MaterialTheme.colorScheme.run { if (isPrimary) inversePrimary else primary },
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold,
                 )
             )
         }
     }
 
-    Box() {
-        FlowRow(
-            mainAxisAlignment = if (message.size == 1) MainAxisAlignment.Center else MainAxisAlignment.Start,
-            modifier = modifier
-                .padding(contentPadding)
-                .padding(2.dp)
-        ) {
-            message.forEach { msg ->
-                when (msg) {
-                    is VisibleChatMessage.PlainText -> PlainText(msg, textColor = textContentColor)
-                    is VisibleChatMessage.Image -> Image(msg, context) { }
-                    is VisibleChatMessage.At -> At(msg) { }
-                    is VisibleChatMessage.AtAll -> AtAll(msg) { }
-                    is VisibleChatMessage.Face -> Face(msg, context)
-                    is VisibleChatMessage.FlashImage -> FlashImage(msg, context) { }
-                    is VisibleChatMessage.Audio -> {
-                        Audio(msg, audioStatus) { }
-                    }
+    @Composable
+    fun BoxScope.ImageMessageTimeIndicator() = MessageTimeIndicator(
+        color = Color.Black.copy(alpha = 0.3f),
+        textPadding = 2.dp,
+        mdf = Modifier
+            .align(Alignment.BottomEnd)
+            .padding(horizontal = 10.dp, vertical = 8.dp)
+    )
 
-                    is VisibleChatMessage.File -> File(msg) { }
-                    is VisibleChatMessage.Forward -> {}
-                    is VisibleChatMessage.Unsupported -> Unsupported(msg)
+    @Composable
+    fun CommonMessageTimeIndicator(mdf: Modifier = Modifier) = MessageTimeIndicator(
+        color = Color.Transparent,
+        mdf = mdf
+    )
 
-                    else -> {}
-                }
-            }
+    @Composable
+    fun UIMessageElement.toLayout(
+        singleElementModifier: Modifier? = null,
+        imageShape: Shape = commonImageShape,
+        onMeasureTextLayout: (TextLayoutResult) -> Unit = {}
+    ) {
+        when (this) {
+            is UIMessageElement.AnnotatedText -> AnnotatedText(
+                texts = textSlice,
+                baseTextColor = textContentColor,
+                textStyle = textContentStyle,
+                modifier = singleElementModifier ?: Modifier,
+                onTextLayout = onMeasureTextLayout,
+                onClick = { },
+            )
+            is UIMessageElement.Image -> Image(
+                element = this,
+                context = context,
+                shape = imageShape,
+                modifier = singleElementModifier ?: Modifier,
+                onClick = {  }
+            )
+            is UIMessageElement.Face -> Face(this, context,
+                modifier = singleElementModifier ?: Modifier)
+            is UIMessageElement.FlashImage -> FlashImage(
+                element = this,
+                context = context,
+                shape = imageShape,
+                modifier = singleElementModifier ?: Modifier,
+                onClick = {  }
+            )
+            is UIMessageElement.Audio -> Audio(this, audioStatus,
+                modifier = singleElementModifier ?: Modifier) { }
+
+            is UIMessageElement.File -> File(this,
+                modifier = singleElementModifier ?: Modifier) { }
+            is UIMessageElement.Forward -> {} //TODO
+            is UIMessageElement.Quote -> {} // TODO
+            is UIMessageElement.Unsupported -> Unsupported(this,
+                modifier = singleElementModifier ?: Modifier)
         }
-
-        /*MessageTimeIndicator(
-            color = Color.Black.copy(alpha = 0.3f),
-            textPadding = 2.dp,
-            mdf = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(horizontal = 10.dp, vertical = 8.dp)
-        )*/
     }
 
-    /*if (list.size == 1 && list.singleOrNull().run {
-            this is VisibleChatMessage.Image || this is VisibleChatMessage.FlashImage
-        }) { // only a image
-        Box(
-            modifier = modifier.then(Modifier.padding(2.dp))
-        ) {
-            when (val image = list.single()) {
-                is VisibleChatMessage.Image -> {
-                    Image(
-                        element = image,
-                        context = context,
-                        modifier = Modifier.defaultMinSize(minHeight = 54.dp),
-                        onClick = {}
-                    )
-                }
+    Box {
+        val single = message.singleOrNull()
+        when {
+            // single image
+            single != null && single.isImage() -> {
+                single.toLayout(
+                    singleElementModifier = modifier
+                        .padding(contentPadding)
+                        .padding(2.dp),
+                    imageShape = singleImageShape
+                )
+                ImageMessageTimeIndicator()
+            }
+            // single text
+            single != null && single is UIMessageElement.AnnotatedText -> {
+                val density = LocalDensity.current
+                SubcomposeLayout(modifier = modifier) { constraints ->
+                    var lastLineWidth = -1
 
-                is VisibleChatMessage.FlashImage -> {
-                    FlashImage(element = image, context = context, onClick = {})
-                }
+                    val text = subcompose(SlotId.Text) {
+                        single.toLayout(
+                            singleElementModifier = Modifier
+                                .padding(contentPadding)
+                                .padding(2.dp),
+                            onMeasureTextLayout = {
+                                val lastLine = it.lineCount - 1
+                                lastLineWidth = (it.getLineRight(lastLine) - it.getLineLeft(lastLine)).toInt()
+                            }
+                        )
+                    }.single().measure(constraints)
 
-                else -> error("UNREACHABLE")
+                    val timeIndicator = subcompose(SlotId.TimeIndicator) {
+                        CommonMessageTimeIndicator()
+                    }.single().measure(constraints)
+
+                    val maxWidth = constraints.maxWidth
+                    val textWidth = text.width
+
+                    val padding = with(density) { (contentPadding + 2.dp).roundToPx() }
+                    val dp3 = with(density) { 3.dp.roundToPx() }
+                    val dp8 = with(density) { 8.dp.roundToPx() }
+                    val firstLine = textWidth + timeIndicator.width + 2 * padding + dp8 < maxWidth
+                    val sameLine = if (firstLine) { true }
+                        else { lastLineWidth + timeIndicator.width + 2 * padding + dp8 < maxWidth }
+
+                    layout(
+                        text.width + if (firstLine) (timeIndicator.width + dp8) else 0,
+                        text.height + if (sameLine) 0 else (timeIndicator.height - dp3)
+                    ) {
+                        text.placeRelative(0, 0)
+                        timeIndicator.placeRelative(
+                            text.width - padding - if (firstLine) -dp8 else (timeIndicator.width),
+                            text.height - (padding - dp3) - if (sameLine) timeIndicator.height else 0
+                        )
+                    }
+                }
+            }
+            else -> {
+                FlowRow(
+                    mainAxisAlignment = MainAxisAlignment.Start,
+                    modifier = modifier
+                        .padding(contentPadding)
+                        .padding(2.dp)
+                ) {
+                    message.forEach { it.toLayout() }
+                }
             }
         }
-    } else {
-        Column(modifier = modifier) {
-
-            MessageTimeIndicator(
-                color = Color.Transparent,
-                mdf = Modifier
-                    .align(Alignment.End)
-                    .padding(end = 10.dp, bottom = 8.dp)
-                    .padding(start = 30.dp)
-            )
-        }
-    }*/
+    }
 }
 
 @Composable
@@ -449,20 +519,4 @@ private fun DateDivider(dayString: String, modifier: Modifier = Modifier) {
     }
 }
 
-/*
-@Preview
-@Composable
-fun ChatListPreview() {
-    ArukuTheme {
-        CompositionLocalProvider(LocalBot provides 202746796L) {
-            val listState = rememberLazyListState()
-            val randSrcId = { IntRange(0, 100000).random() }
-
-            ChatListView(
-                flow { emit(PagingData.from(list.asReversed())) }.collectAsLazyPagingItems(),
-                listState,
-                PaddingValues()
-            )
-        }
-    }
-}*/
+private enum class SlotId { Text, TimeIndicator }

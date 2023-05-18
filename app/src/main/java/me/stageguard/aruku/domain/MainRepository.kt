@@ -17,8 +17,6 @@ import me.stageguard.aruku.service.parcel.AccountProfile
 import me.stageguard.aruku.service.parcel.AccountState
 import me.stageguard.aruku.service.parcel.ContactId
 import me.stageguard.aruku.service.parcel.GroupMemberInfo
-import kotlin.coroutines.CoroutineContext
-import kotlin.coroutines.EmptyCoroutineContext
 
 interface MainRepository {
     val stateFlow: Flow<Map<Long, AccountState>>
@@ -50,8 +48,13 @@ interface MainRepository {
     fun getMessageRecords(
         account: Long,
         contact: ContactId,
-        context: CoroutineContext = EmptyCoroutineContext
     ): Flow<PagingData<MessageRecordEntity>>
+
+    fun getExactMessageRecord(
+        account: Long,
+        contact: ContactId,
+        messageId: Long,
+    ): Flow<List<MessageRecordEntity>>
 
     // other data sources
     fun clearUnreadCount(account: Long, contact: ContactId)

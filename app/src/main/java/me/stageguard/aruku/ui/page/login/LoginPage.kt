@@ -56,10 +56,14 @@ fun LoginPage(
     val currentOnLoginFailed by rememberUpdatedState(onLoginFailed)
 
     LaunchedEffect(accountsState) {
-        val loginAccountState = accountsState[loginAccount]
-        logger.i("account state: $loginAccountState")
-        when (loginAccountState) {
-            is UIAccountState.Login -> lastLoginState = loginAccountState.state
+        when (val state = accountsState[loginAccount]) {
+            is UIAccountState.Login -> lastLoginState = state.state
+            is UIAccountState.Offline -> if(state.cause != "INIT") {
+                lastLoginState = LoginState.Failed(
+                    viewModel.accountInfo.value.accountNo,
+                    "${state.cause}: ${state.message ?: "unknown cause"}"
+                )
+            }
             is UIAccountState.Online -> currentOnLoginSuccess(viewModel.accountInfo.value.accountNo)
             else -> {}
         }
@@ -93,8 +97,9 @@ fun LoginView(
     onSubmitCaptchaClick: (Long, String?) -> Unit
 ) {
     val account = rememberSaveable { mutableStateOf("") }
-    val isAccountValid = account.value.toLongOrNull()?.run { true } ?: true
+    val isAccountValid = account.value.toLongOrNull().run { if (this == null) false else (this >= 10000) }
     val password = remember { mutableStateOf("") }
+    val isPasswordValid = password.value.length in 6..16
     val passwordVisible = rememberSaveable { mutableStateOf(false) }
 
     val protocol = rememberSaveable { mutableStateOf(accountInfo.value.protocol) }
@@ -186,6 +191,7 @@ fun LoginView(
                             .padding(top = 4.dp)
                             .fillMaxWidth(),
                         singleLine = true,
+                        isError = if (password.value.isEmpty()) false else !isPasswordValid,
                         shape = RoundedCornerShape(15.dp),
                         keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Password),
                         trailingIcon = {
@@ -232,7 +238,7 @@ fun LoginView(
                             .padding(vertical = 30.dp)
                             .fillMaxWidth(),
                         shape = RoundedCornerShape(15.dp),
-                        enabled = state is LoginState.Default && isAccountValid && account.value.isNotEmpty() && internetPermission.status.isGranted,
+                        enabled = state is LoginState.Default && isAccountValid && isPasswordValid && internetPermission.status.isGranted,
                         colors = if (internetPermission.status.isGranted) ButtonDefaults.buttonColors(
                             disabledContainerColor = MaterialTheme.colorScheme.primaryContainer
                         ) else ButtonDefaults.buttonColors(

@@ -19,10 +19,10 @@ import org.koin.core.component.inject
 class RoamingMessageMediator(
     val account: Long,
     val contact: ContactId,
-    roamingQueryBridgeProvider: () -> RoamingQueryBridge?
+    roamingQueryBridgeProvider: (Long, ContactId) -> RoamingQueryBridge?
 ) : RemoteMediator<Int, MessageRecordEntity>(), KoinComponent {
     private val database: ArukuDatabase by inject()
-    private val roamingQuerySession by lazy(roamingQueryBridgeProvider)
+    private val roamingQuerySession by lazy { roamingQueryBridgeProvider(account, contact) }
     override suspend fun load(
         loadType: LoadType,
         state: PagingState<Int, MessageRecordEntity>

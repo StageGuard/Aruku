@@ -95,7 +95,6 @@ import net.mamoe.mirai.message.data.MessageChain
 import net.mamoe.mirai.message.data.OnlineAudio
 import net.mamoe.mirai.message.data.source
 import net.mamoe.mirai.message.data.sourceOrNull
-import net.mamoe.mirai.network.LoginFailedException
 import net.mamoe.mirai.utils.BotConfiguration.HeartbeatStrategy
 import net.mamoe.mirai.utils.BotConfiguration.MiraiProtocol
 import net.mamoe.mirai.utils.MiraiExperimentalApi
@@ -434,24 +433,18 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
         botJobs[account] = launch(context = CoroutineExceptionHandler { context, th ->
             botJobs.remove(account)
 
-            if (th is LoginFailedException) {
-                logger.e("login $account failed.", th)
-                stateChannel.trySend(AccountState.Offline(account, OfflineCause.LOGIN_FAILED, th.message))
-                return@CoroutineExceptionHandler
-            }
-
             val matcher = Regex("create a new bot instance", RegexOption.IGNORE_CASE)
             if (th is IllegalStateException && th.toString().contains(matcher)) {
                 logger.e("bot $account isn't recoverable.")
                 context[Job]?.cancel()
                 onlineEventSubscriber?.cancel()
                 offlineEventSubscriber?.cancel()
-                stateChannel.trySend(AccountState.Offline(account, OfflineCause.LOGIN_FAILED, th.message))
+                stateChannel.trySend(AccountState.Offline(account, OfflineCause.LOGIN_FAILED, th.unwrapMessage()))
                 return@CoroutineExceptionHandler
             }
 
             logger.e("uncaught exception while logging $account.", th)
-            stateChannel.trySend(AccountState.Offline(account, OfflineCause.LOGIN_FAILED, th.message))
+            stateChannel.trySend(AccountState.Offline(account, OfflineCause.LOGIN_FAILED, th.unwrapMessage()))
         } + SupervisorJob()) {
 
             onlineEventSubscriber = bot.eventChannel.subscribe<BotOnlineEvent> { event ->
@@ -858,5 +851,14 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
             stateChannel.send(AccountState.Logging(state.account))
             loginSolutionChannel.send(solution)
         }
+    }
+
+    private fun Throwable.unwrapMessage(): String? {
+        if (message != null) return message
+        if (cause != null) return cause!!.unwrapMessage()
+        if (suppressed.isNotEmpty()) return suppressed.asSequence()
+            .map { it.unwrapMessage() }
+            .first()
+        return null
     }
 }

@@ -1,8 +1,5 @@
 package me.stageguard.aruku.ui.page.chat
 
-import androidx.annotation.DrawableRes
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.ViewModel
@@ -10,10 +7,25 @@ import androidx.lifecycle.viewModelScope
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import androidx.paging.map
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import me.stageguard.aruku.cache.AudioCache
+import me.stageguard.aruku.database.message.MessageRecordEntity
 import me.stageguard.aruku.domain.MainRepository
-import me.stageguard.aruku.domain.data.message.*
+import me.stageguard.aruku.domain.data.message.At
+import me.stageguard.aruku.domain.data.message.AtAll
+import me.stageguard.aruku.domain.data.message.Audio
+import me.stageguard.aruku.domain.data.message.Face
+import me.stageguard.aruku.domain.data.message.File
+import me.stageguard.aruku.domain.data.message.FlashImage
+import me.stageguard.aruku.domain.data.message.Forward
+import me.stageguard.aruku.domain.data.message.Image
+import me.stageguard.aruku.domain.data.message.MessageElement
+import me.stageguard.aruku.domain.data.message.PlainText
+import me.stageguard.aruku.domain.data.message.Quote
 import me.stageguard.aruku.service.bridge.AudioStatusListener
 import me.stageguard.aruku.service.parcel.ContactType
 import me.stageguard.aruku.ui.UiState
@@ -22,66 +34,97 @@ import me.stageguard.aruku.util.toFormattedTime
 
 class ChatViewModel(
     private val repository: MainRepository,
-    private val bot: Long,
+    private val account: Long,
     private val chatNav: ChatPageNav,
 ) : ViewModel() {
     private val contact = chatNav.contact
 
+    private val _audioStates = mutableStateMapOf<String, ChatAudioStatus>()
+    private val _quoteStates = mutableStateMapOf<Long, ChatElement.Message>()
+
     @UiState
     val subjectName = flow {
-        val name = repository.getNickname(bot, contact)
+        val name = repository.getNickname(account, contact)
         if (name != null) emit(name)
     }.stateIn(viewModelScope, SharingStarted.Lazily, contact.subject.toString())
 
     @UiState
     val subjectAvatar = flow<String?> {
-        val url = repository.getAvatarUrl(bot, contact)
+        val url = repository.getAvatarUrl(account, contact)
         if (url != null) emit(url)
     }.stateIn(viewModelScope, SharingStarted.Lazily, null)
-
-    private val _audioList = mutableStateMapOf<String, ChatAudioStatus>()
     @UiState
-    val audio = snapshotFlow { _audioList.toMap() }
+    val audio = snapshotFlow { _audioStates.toMap() }
+    @UiState
+    val quote = snapshotFlow { _quoteStates.toMap() }
 
     @UiState
     val messages: Flow<PagingData<ChatElement>> =
-        repository.getMessageRecords(bot, contact).map { data ->
-            data.map { record ->
-                val memberInfo = if (record.contact.type == ContactType.GROUP) {
-                    repository.getGroupMemberInfo(bot, record.contact.subject, record.sender)
-                } else null
-
-                val visibleMessages = buildList(record.message.size) {
-                    record.message.forEach {
-                        when (it) {
-                            is PlainText -> add(VisibleChatMessage.PlainText(it.text))
-                            is Image -> add(VisibleChatMessage.Image(it.url))
-                            is FlashImage -> add(VisibleChatMessage.Image(it.url))
-                            is At -> add(VisibleChatMessage.At(it.target, it.display))
-                            is AtAll -> add(VisibleChatMessage.AtAll)
-                            is Face -> add(VisibleChatMessage.Face(it.id))
-                            is Audio -> add(VisibleChatMessage.Audio(it.fileMd5, it.fileName))
-                            is File -> add(VisibleChatMessage.File(it.name, it.size))
-                            is Forward -> add(VisibleChatMessage.PlainText(it.contentToString()))
-                            else -> add(VisibleChatMessage.Unsupported(it.contentToString()))
-                        }
-                    }
-                }
-
-                ChatElement.Message(
-                    senderId = record.sender,
-                    senderName = record.senderName,
-                    senderAvatarUrl = when (record.contact.type) {
-                        ContactType.GROUP -> memberInfo?.senderAvatarUrl
-                        ContactType.FRIEND -> repository.getAvatarUrl(bot, record.contact)
-                        ContactType.TEMP -> error("temp message is currently unsupported")
-                    },
-                    time = record.time.toFormattedTime(),
-                    messageId = record.messageId,
-                    visibleMessages = visibleMessages
-                ) as ChatElement
-            }
+        repository.getMessageRecords(account, contact).map { data ->
+            data.map { it.mapChatElement() }
         }.cachedIn(viewModelScope)
+
+    private suspend fun MessageRecordEntity.mapChatElement(excludeQuote: Boolean = false): ChatElement {
+        val memberInfo = if (contact.type == ContactType.GROUP) {
+            repository.getGroupMemberInfo(this@ChatViewModel.account, contact.subject, sender)
+        } else null
+
+        fun MutableList<UIMessageElement>.addNonTextElement(content: MessageElement) {
+            when (content) {
+                is Image -> add(UIMessageElement.Image(
+                    content.url, content.uuid, content.width, content.height, content.isEmoticons
+                ))
+                is FlashImage -> add(UIMessageElement.FlashImage(
+                    content.url, content.uuid, content.width, content.height
+                ))
+                is Face -> add(UIMessageElement.Face(content.id))
+                is Audio -> add(UIMessageElement.Audio(content.fileMd5, content.fileName))
+                is File -> add(UIMessageElement.File(content.name, content.size))
+                is Forward -> add(UIMessageElement.Unsupported(content.contentToString()))
+                is Quote -> if(!excludeQuote) add(UIMessageElement.Quote(content.messageId))
+                else -> add(UIMessageElement.Unsupported(content.contentToString()))
+            }
+        }
+
+        fun MessageElement.mapTextToUITextElement() = when(this) {
+            is PlainText -> UIMessageElement.Text.PlainText(text)
+            is At -> UIMessageElement.Text.At(target, display)
+            is AtAll -> UIMessageElement.Text.AtAll
+            else -> error("unreachable!")
+        }
+
+        val annotated = mutableListOf<UIMessageElement.Text>()
+        val uiMessageElements = buildList(message.size) {
+            message.forEach {
+                if (it.isText()) {
+                    annotated.add(it.mapTextToUITextElement())
+                } else {
+                    if (annotated.isNotEmpty()) {
+                        add(UIMessageElement.AnnotatedText(annotated.toList()))
+                        annotated.clear()
+                    }
+                    addNonTextElement(it)
+                }
+            }
+            if (annotated.isNotEmpty()) {
+                add(UIMessageElement.AnnotatedText(annotated.toList()))
+                annotated.clear()
+            }
+        }
+
+        return ChatElement.Message(
+            senderId = sender,
+            senderName = senderName,
+            senderAvatarUrl = when (contact.type) {
+                ContactType.GROUP -> memberInfo?.senderAvatarUrl
+                ContactType.FRIEND -> repository.getAvatarUrl(this@ChatViewModel.account, contact)
+                ContactType.TEMP -> error("temp message is currently unsupported")
+            },
+            time = time.toFormattedTime(),
+            messageId = messageId,
+            messages = uiMessageElements
+        )
+    }
 
     fun attachAudioStatusListener(audioFileMd5: String) {
         repository.attachAudioStatusListener(audioFileMd5, AudioStatusListener {
@@ -91,7 +134,7 @@ class ChatViewModel(
                 is AudioCache.State.Ready -> ChatAudioStatus.Ready(List(20) { Math.random() })
                 is AudioCache.State.Preparing -> ChatAudioStatus.Preparing(it.progress)
             }
-            _audioList[audioFileMd5] = status
+            _audioStates[audioFileMd5] = status
         })
     }
 
@@ -99,44 +142,6 @@ class ChatViewModel(
         repository.detachAudioStatusListener(audioFileMd5)
     }
 
-}
-
-@Composable
-fun VisibleChatMessage.Audio.disposableObserver(
-    onRegister: (identity: String) -> Unit,
-    onUnregister: (identity: String) -> Unit
-) {
-    DisposableEffect(key1 = this) {
-        onRegister(identity)
-        onDispose { onUnregister(identity) }
-    }
-}
-
-sealed interface VisibleChatMessage {
-    data class PlainText(val content: String) : VisibleChatMessage
-    data class Image(val url: String?) : VisibleChatMessage
-    data class At(val targetId: Long, val targetName: String) : VisibleChatMessage
-    object AtAll : VisibleChatMessage
-    data class Face(val id: Int) : VisibleChatMessage {
-        companion object {
-            val FACE_MAP = mapOf<Int, @receiver:DrawableRes Int>()
-        }
-    }
-
-    data class FlashImage(val url: String) : VisibleChatMessage
-    data class Audio(val identity: String, val name: String) : VisibleChatMessage
-    data class Forward(
-        val preview: List<String>,
-        val title: String,
-        val brief: String,
-        val summary: String,
-        val nodes: List<me.stageguard.aruku.domain.data.message.Forward.Node>
-    ) : VisibleChatMessage
-
-    data class File(val name: String, val size: Long) : VisibleChatMessage
-
-    // PokeMessage, VipFace, LightApp, MarketFace, SimpleServiceMessage, MusicShare, Dice, RockPaperScissors
-    data class Unsupported(val content: String) : VisibleChatMessage
 }
 
 sealed interface ChatElement {
@@ -148,7 +153,7 @@ sealed interface ChatElement {
         val senderAvatarUrl: String?,
         val time: String,
         val messageId: Long,
-        val visibleMessages: List<VisibleChatMessage>
+        val messages: List<UIMessageElement>
     ) : ChatElement {
         override val uniqueKey = messageId
     }

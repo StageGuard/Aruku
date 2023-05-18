@@ -108,7 +108,7 @@ sealed interface UIAccountState {
         }
     }
 
-    class Offline(val cause: String? = null) : UIAccountState {
+    class Offline(val cause: String? = null, val message: String? = null) : UIAccountState {
         override fun toString(): String {
             return "Offline(cause=$cause)"
         }
@@ -117,7 +117,7 @@ sealed interface UIAccountState {
 
 fun AccountState.mapUiState() = when (this) {
     is AccountState.Logging -> UIAccountState.Login(LoginState.Logging)
-    is AccountState.Offline -> UIAccountState.Offline(cause.toString())
+    is AccountState.Offline -> UIAccountState.Offline(cause.toString(), message)
     is AccountState.QRCode -> UIAccountState.Default // TODO
     is AccountState.Online -> UIAccountState.Online
     is AccountState.Captcha -> UIAccountState.Login(
