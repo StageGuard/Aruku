@@ -59,6 +59,7 @@ import com.google.accompanist.flowlayout.FlowRow
 import com.google.accompanist.flowlayout.MainAxisAlignment
 import me.stageguard.aruku.ui.LocalBot
 import me.stageguard.aruku.ui.LocalPrimaryMessage
+import kotlin.math.max
 import kotlin.math.min
 
 @Composable
@@ -314,6 +315,7 @@ private fun RichMessage(
     onClickAnnotated: (UIMessageElement) -> Unit,
 ) {
     val isPrimary = LocalPrimaryMessage.current
+    val density = LocalDensity.current
 
     val contentPadding = message.run {
         val single = singleOrNull() ?: return@run 8.dp
@@ -321,9 +323,14 @@ private fun RichMessage(
     }
 
     @Composable
-    fun MessageTimeIndicator(color: Color, textPadding: Dp = 0.dp, mdf: Modifier = Modifier) {
+    fun MessageTimeIndicator(
+        backgroundColor: Color,
+        textColor: Color,
+        textPadding: Dp = 0.dp,
+        mdf: Modifier = Modifier
+    ) {
         Surface(
-            color = color,
+            color = backgroundColor,
             shape = RoundedCornerShape(5.dp),
             modifier = mdf
         ) {
@@ -331,8 +338,8 @@ private fun RichMessage(
                 text = time,
                 modifier = Modifier.padding(textPadding),
                 style = MaterialTheme.typography.bodySmall.copy(
-                    color = MaterialTheme.colorScheme.run { if (isPrimary) inversePrimary else primary },
-                    fontWeight = FontWeight.SemiBold,
+                    color = textColor,
+                    fontWeight = FontWeight.Medium,
                 )
             )
         }
@@ -340,7 +347,8 @@ private fun RichMessage(
 
     @Composable
     fun BoxScope.ImageMessageTimeIndicator() = MessageTimeIndicator(
-        color = Color.Black.copy(alpha = 0.3f),
+        backgroundColor = Color.Black.copy(alpha = 0.5f),
+        textColor = MaterialTheme.colorScheme.surface,
         textPadding = 2.dp,
         mdf = Modifier
             .align(Alignment.BottomEnd)
@@ -349,10 +357,10 @@ private fun RichMessage(
 
     @Composable
     fun CommonMessageTimeIndicator(mdf: Modifier = Modifier) = MessageTimeIndicator(
-        color = Color.Transparent,
+        backgroundColor = Color.Transparent,
+        textColor = MaterialTheme.colorScheme.run { if (isPrimary) secondaryContainer else secondary },
         mdf = mdf
     )
-
     @Composable
     fun UIMessageElement.toLayout(
         singleElementModifier: Modifier? = null,
@@ -396,6 +404,75 @@ private fun RichMessage(
         }
     }
 
+    @Composable
+    fun TextWithAdaptedTimeIndicator(
+        annotatedText: UIMessageElement.AnnotatedText,
+        textModifier: Modifier = Modifier,
+        indicatorXOffset: Int = 0,
+        onMeasureWidth: (
+            textWidth: Int,
+            indicatorWidth: Int,
+            spacing: Int,
+            expandWidth: Boolean,
+            expandHeight: Boolean,
+        ) -> Unit = { _, _, _, _, _ -> },
+    ) {
+
+        var lastLineWidth by remember { mutableStateOf(0) }
+        var lineCount by remember { mutableStateOf(1) }
+
+        SubcomposeLayout { constraints ->
+            val text = subcompose(SlotId.Text) {
+                annotatedText.toLayout(
+                    singleElementModifier = textModifier,
+                    onMeasureTextLayout = {
+                        lineCount = it.lineCount
+                        val lastLine = it.lineCount - 1
+                        lastLineWidth = (it.getLineRight(lastLine) - it.getLineLeft(lastLine)).toInt()
+                    }
+                )
+            }.single().measure(constraints)
+
+            val timeIndicator = subcompose(SlotId.TimeIndicator) {
+                CommonMessageTimeIndicator()
+            }.single().measure(constraints)
+
+            if(lastLineWidth == 0) return@SubcomposeLayout layout(text.width, text.height) {
+                text.placeRelative(0, 0)
+            }
+
+            val padding = with(density) { (contentPadding + 2.dp).roundToPx() }
+            val spacing = with(density) { 8.dp.roundToPx() }
+            val indicatorYOffset = with(density) { 5.dp.roundToPx() }
+            val lastLineHorizontalWidth = 2 * padding + lastLineWidth + spacing + timeIndicator.width
+            val layoutHorizontalWidth = 2 * padding + text.width + spacing + timeIndicator.width
+
+            val expandWidth = (layoutHorizontalWidth <= constraints.maxWidth) ||
+                    lineCount == 1 && lastLineHorizontalWidth <= constraints.maxWidth
+            val expandHeight = lastLineHorizontalWidth > constraints.maxWidth
+
+            onMeasureWidth(
+                lastLineWidth,
+                timeIndicator.width,
+                spacing,
+                expandWidth,
+                expandHeight
+            )
+
+            layout(
+                text.width + if (expandWidth) (timeIndicator.width + spacing) else 0,
+                text.height + if (expandHeight) timeIndicator.height else 0
+            ) {
+                text.placeRelative(0, 0)
+                timeIndicator.placeRelative(
+                    text.width - padding + indicatorXOffset + if (expandWidth) spacing else -timeIndicator.width,
+                    text.height - padding + indicatorYOffset + if (expandHeight) 0 else -timeIndicator.height
+                )
+            }
+        }
+    }
+
+
     Box(modifier = modifier) {
         val single = message.singleOrNull()
         when {
@@ -410,59 +487,86 @@ private fun RichMessage(
             }
             // single text
             single != null && single is UIMessageElement.AnnotatedText -> {
-                val density = LocalDensity.current
-
-                var lastLineWidth by remember { mutableStateOf(0) }
-                var lineCount by remember { mutableStateOf(1) }
-
-                SubcomposeLayout { constraints ->
-                    val text = subcompose(SlotId.Text) {
-                        single.toLayout(
-                            singleElementModifier = Modifier.padding(contentPadding + 2.dp),
-                            onMeasureTextLayout = {
-                                lineCount = it.lineCount
-                                val lastLine = it.lineCount - 1
-                                lastLineWidth = (it.getLineRight(lastLine) - it.getLineLeft(lastLine)).toInt()
-                            }
-                        )
-                    }.single().measure(constraints)
-
-                    val timeIndicator = subcompose(SlotId.TimeIndicator) {
-                        CommonMessageTimeIndicator()
-                    }.single().measure(constraints)
-
-                    if(lastLineWidth == 0) return@SubcomposeLayout layout(text.width, text.height) {
-                        text.placeRelative(0, 0)
-                    }
-
-                    val padding = with(density) { (contentPadding + 2.dp).roundToPx() }
-                    val spacing = with(density) { 8.dp.roundToPx() }
-                    val indicatorYOffset = with(density) { 5.dp.roundToPx() }
-                    val horizontalWidth = 2 * padding + lastLineWidth + spacing + timeIndicator.width
-
-                    val expandWidth = lineCount == 1 && horizontalWidth <= constraints.maxWidth
-                    val expandHeight = horizontalWidth > constraints.maxWidth
-
-                    layout(
-                        text.width + if (expandWidth) (timeIndicator.width + spacing) else 0,
-                        text.height + if (expandHeight) timeIndicator.height else 0
-                    ) {
-                        text.placeRelative(0, 0)
-                        timeIndicator.placeRelative(
-                            text.width - padding + if (expandWidth) spacing else -timeIndicator.width,
-                            text.height - padding + indicatorYOffset + if (expandHeight) 0 else -timeIndicator.height
-                        )
-                    }
-                }
+                TextWithAdaptedTimeIndicator(
+                    annotatedText = single,
+                    textModifier = Modifier.padding(contentPadding + 2.dp)
+                )
             }
+            // two or more message elements
             else -> {
-                FlowRow(
-                    mainAxisAlignment = MainAxisAlignment.Start,
-                    modifier = modifier
-                        .padding(contentPadding)
-                        .padding(2.dp)
-                ) {
-                    message.forEach { it.toLayout() }
+                println("other message: $message")
+                val last = message.lastOrNull() ?: return@Box
+                if (last is UIMessageElement.AnnotatedText) {
+                    val remain = message.dropLast(1)
+                    var indicatorXOffset by remember { mutableStateOf(0) }
+
+                    SubcomposeLayout { constraints ->
+                        val others = if (remain.isNotEmpty()) subcompose(SlotId.Other) {
+                            val singleElementModifier = Modifier
+                                .padding(horizontal = contentPadding + 2.dp)
+                                .padding(top = contentPadding + 2.dp)
+                            if (remain.size == 1) {
+                                remain.single().toLayout(singleElementModifier)
+                            } else {
+                                FlowRow(
+                                    mainAxisAlignment = MainAxisAlignment.Start,
+                                    modifier = singleElementModifier
+                                ) { remain.forEach { it.toLayout() } }
+                            }
+                        }.singleOrNull()?.measure(constraints) else null
+
+                        val text = subcompose(SlotId.TextWithIndicator) {
+                            TextWithAdaptedTimeIndicator(
+                                annotatedText = last,
+                                textModifier = Modifier.padding(contentPadding + 2.dp),
+                                indicatorXOffset = indicatorXOffset,
+                                onMeasureWidth = {
+                                        textWidth: Int,
+                                        indicatorWidth: Int,
+                                        spacing: Int,
+                                        expandWidth: Boolean,
+                                        expandHeight: Boolean ->
+
+                                    val padding = with(density) { (contentPadding + 2.dp).roundToPx() }
+                                    val annotatedTextWidth = if(expandHeight) {
+                                        2 * padding + textWidth
+                                    } else {
+                                        2 * padding + textWidth + spacing + indicatorWidth
+                                    }
+
+                                    if (others == null || annotatedTextWidth > others.width) {
+                                        indicatorXOffset = 0
+                                        return@TextWithAdaptedTimeIndicator
+                                    }
+
+                                    indicatorXOffset = others.width - annotatedTextWidth -
+                                            if (expandHeight) 0 else if (expandWidth) 0 else indicatorWidth
+                                }
+                            )
+                        }.single().measure(constraints)
+
+                        layout(
+                            width = max(others?.width ?: 0, text.width),
+                            height = (others?.height ?: 0) + text.height
+                        ) {
+                            others?.placeRelative(0, 0)
+                            text.placeRelative(0, others?.height ?: 0)
+                        }
+                    }
+                } else {
+                    FlowRow(
+                        mainAxisAlignment = MainAxisAlignment.Start,
+                        modifier = Modifier
+                            .padding(horizontal = contentPadding + 2.dp)
+                            .padding(top = contentPadding + 2.dp)
+                    ) {
+                        message.forEach { it.toLayout() }
+                        CommonMessageTimeIndicator(
+                            mdf = Modifier
+                                .fillMaxWidth()
+                                .align(Alignment.BottomEnd)
+                        )
+                    }
                 }
             }
         }
@@ -524,4 +628,4 @@ private fun DateDivider(dayString: String, modifier: Modifier = Modifier) {
     }
 }
 
-private enum class SlotId { Text, TimeIndicator }
+private enum class SlotId { Text, TimeIndicator, Other, TextWithIndicator }

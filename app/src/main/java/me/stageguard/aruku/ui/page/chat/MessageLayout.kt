@@ -78,7 +78,7 @@ fun AnnotatedText(
                     color = if (element !is UIMessageElement.Text.PlainText) {
                         MaterialTheme.colorScheme.run { if (isPrimary) inversePrimary else primary }
                     } else baseTextColor,
-                    fontWeight = if (element !is UIMessageElement.Text.PlainText) FontWeight.Bold else null
+                    fontWeight = if (element !is UIMessageElement.Text.PlainText) FontWeight.SemiBold else null
                 ),
                 start = length,
                 end = length + element.text.length
