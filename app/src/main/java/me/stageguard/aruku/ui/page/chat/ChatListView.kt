@@ -28,7 +28,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -393,15 +396,14 @@ private fun RichMessage(
         }
     }
 
-    Box {
+    Box(modifier = modifier) {
         val single = message.singleOrNull()
         when {
             // single image
             single != null && single.isImage() -> {
                 single.toLayout(
-                    singleElementModifier = modifier
-                        .padding(contentPadding)
-                        .padding(2.dp),
+                    singleElementModifier = Modifier
+                        .padding(contentPadding + 2.dp),
                     imageShape = singleImageShape
                 )
                 ImageMessageTimeIndicator()
@@ -409,15 +411,16 @@ private fun RichMessage(
             // single text
             single != null && single is UIMessageElement.AnnotatedText -> {
                 val density = LocalDensity.current
-                SubcomposeLayout(modifier = modifier) { constraints ->
-                    var lastLineWidth = -1
 
+                var lastLineWidth by remember { mutableStateOf(0) }
+                var lineCount by remember { mutableStateOf(1) }
+
+                SubcomposeLayout { constraints ->
                     val text = subcompose(SlotId.Text) {
                         single.toLayout(
-                            singleElementModifier = Modifier
-                                .padding(contentPadding)
-                                .padding(2.dp),
+                            singleElementModifier = Modifier.padding(contentPadding + 2.dp),
                             onMeasureTextLayout = {
+                                lineCount = it.lineCount
                                 val lastLine = it.lineCount - 1
                                 lastLineWidth = (it.getLineRight(lastLine) - it.getLineLeft(lastLine)).toInt()
                             }
@@ -428,24 +431,26 @@ private fun RichMessage(
                         CommonMessageTimeIndicator()
                     }.single().measure(constraints)
 
-                    val maxWidth = constraints.maxWidth
-                    val textWidth = text.width
+                    if(lastLineWidth == 0) return@SubcomposeLayout layout(text.width, text.height) {
+                        text.placeRelative(0, 0)
+                    }
 
                     val padding = with(density) { (contentPadding + 2.dp).roundToPx() }
-                    val dp3 = with(density) { 3.dp.roundToPx() }
-                    val dp8 = with(density) { 8.dp.roundToPx() }
-                    val firstLine = textWidth + timeIndicator.width + 2 * padding + dp8 < maxWidth
-                    val sameLine = if (firstLine) { true }
-                        else { lastLineWidth + timeIndicator.width + 2 * padding + dp8 < maxWidth }
+                    val spacing = with(density) { 8.dp.roundToPx() }
+                    val indicatorYOffset = with(density) { 5.dp.roundToPx() }
+                    val horizontalWidth = 2 * padding + lastLineWidth + spacing + timeIndicator.width
+
+                    val expandWidth = lineCount == 1 && horizontalWidth <= constraints.maxWidth
+                    val expandHeight = horizontalWidth > constraints.maxWidth
 
                     layout(
-                        text.width + if (firstLine) (timeIndicator.width + dp8) else 0,
-                        text.height + if (sameLine) 0 else (timeIndicator.height - dp3)
+                        text.width + if (expandWidth) (timeIndicator.width + spacing) else 0,
+                        text.height + if (expandHeight) timeIndicator.height else 0
                     ) {
                         text.placeRelative(0, 0)
                         timeIndicator.placeRelative(
-                            text.width - padding - if (firstLine) -dp8 else (timeIndicator.width),
-                            text.height - (padding - dp3) - if (sameLine) timeIndicator.height else 0
+                            text.width - padding + if (expandWidth) spacing else -timeIndicator.width,
+                            text.height - padding + indicatorYOffset + if (expandHeight) 0 else -timeIndicator.height
                         )
                     }
                 }
