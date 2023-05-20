@@ -65,15 +65,18 @@ fun ChatPage(contact: ChatPageNav) {
 
     val messages = viewModel.messages.collectAsLazyPagingItems()
     val audioStatus by viewModel.audio.collectAsState(initial = mapOf())
+    val quoteStatus by viewModel.quote.collectAsState(initial = mapOf())
 
     ChatView(
         subjectName = subjectName,
         subjectAvatar = subjectAvatar,
         messages = messages,
         audioStatus = audioStatus,
+        quoteStatus = quoteStatus,
         listState = listState,
         onRegisterAudioStatusListener = { viewModel.attachAudioStatusListener(it) },
-        onUnRegisterAudioStatusListener = { viewModel.detachAudioStatusListener(it) }
+        onUnRegisterAudioStatusListener = { viewModel.detachAudioStatusListener(it) },
+        onQueryQuoteMessage = { viewModel.querySingleMessage(it) }
     )
 }
 
@@ -84,9 +87,11 @@ fun ChatView(
     subjectAvatar: String?,
     messages: LazyPagingItems<ChatElement>,
     audioStatus: Map<String, ChatAudioStatus>,
+    quoteStatus: Map<Long, ChatQuoteMessageStatus>,
     listState: LazyListState,
     onRegisterAudioStatusListener: (fileMd5: String) -> Unit,
     onUnRegisterAudioStatusListener: (fileMd5: String) -> Unit,
+    onQueryQuoteMessage: (messageId: Long) -> Unit,
 ) {
     val systemUiController = LocalSystemUiController.current
 
@@ -135,10 +140,12 @@ fun ChatView(
                 ChatListView(
                     chatList = messages,
                     audioStatus = audioStatus,
+                    quoteStatus = quoteStatus,
                     lazyListState = listState,
                     paddingValues = paddingValues,
                     onRegisterAudioStatusListener = onRegisterAudioStatusListener,
-                    onUnRegisterAudioStatusListener = onUnRegisterAudioStatusListener
+                    onUnRegisterAudioStatusListener = onUnRegisterAudioStatusListener,
+                    onQueryQuoteMessage = onQueryQuoteMessage
                 )
             }
         }
@@ -272,7 +279,7 @@ fun ChatViewPreview() {
                     time = "11:45",
                     messageId = randSrcId(),
                     messages = listOf(
-                        UIMessageElement.Quote(randSrcId()),
+                        UIMessageElement.Quote(1234L),
                         UIMessageElement.AnnotatedText(buildList {
                             add(UIMessageElement.Text.PlainText("quote message with plain tail"))
                         })
@@ -286,7 +293,7 @@ fun ChatViewPreview() {
                     time = "11:45",
                     messageId = randSrcId(),
                     messages = listOf(
-                        UIMessageElement.Quote(randSrcId()),
+                        UIMessageElement.Quote(12345L),
                         UIMessageElement.AnnotatedText(buildList {
                             add(UIMessageElement.Text.PlainText("1"))
                         })
@@ -464,6 +471,35 @@ fun ChatViewPreview() {
                     "audio4" to ChatAudioStatus.Ready(List(20) { Math.random() }),
                 )
             }
+            val map2 = remember {
+                mutableStateMapOf(
+                    123L to ChatQuoteMessageStatus.Error("my error"),
+                    1234L to ChatQuoteMessageStatus.Querying,
+                    12345L to ChatQuoteMessageStatus.Ready(ChatElement.Message(
+                        senderId = 1355416608L,
+                        senderName = "StageGuard",
+                        senderAvatarUrl = "https://stageguard.top/img/avatar.png",
+                        time = "11:45",
+                        messageId = randSrcId(),
+                        messages = listOf(
+                            UIMessageElement.AnnotatedText(buildList {
+                                add(UIMessageElement.Text.At(123, "某人"))
+                                add(UIMessageElement.Text.PlainText("今天你的群老婆是"))
+                            }),
+                            UIMessageElement.Image(
+                                url = "https://gchat.qpic.cn/gchatpic_new/1178264292/4119460545-2779732610-372F20E31A4F7DBED8A95DC45A6D65D4/0?term=255&is_origin=1",
+                                width = 640,
+                                height = 640,
+                                uuid = "789",
+                                isEmoticons = false,
+                            ),
+                            UIMessageElement.AnnotatedText(buildList {
+                                add(UIMessageElement.Text.PlainText("游荡的牧师 | lhe_wp(3356639033)哒"))
+                            })
+                        ),
+                    )),
+                )
+            }
 
             LaunchedEffect(key1 = Unit, block = {
                 map["audio2"] = ChatAudioStatus.Preparing(0.0)
@@ -483,8 +519,9 @@ fun ChatViewPreview() {
                     emit(PagingData.from(textList.asReversed() as List<ChatElement>))
                 }.collectAsLazyPagingItems(),
                 audioStatus = map,
+                quoteStatus = map2,
                 listState = state,
-                {}, {}
+                {}, {}, {}
             )
         }
     }

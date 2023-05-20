@@ -7,10 +7,12 @@ import androidx.paging.ExperimentalPagingApi
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.channels.onFailure
 import kotlinx.coroutines.channels.trySendBlocking
@@ -24,6 +26,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import me.stageguard.aruku.database.ArukuDatabase
 import me.stageguard.aruku.database.LoadState
 import me.stageguard.aruku.database.account.AccountEntity
@@ -49,6 +52,7 @@ import me.stageguard.aruku.service.bridge.LoginSolverBridge
 import me.stageguard.aruku.service.bridge.MessageSubscriber
 import me.stageguard.aruku.service.bridge.RoamingQueryBridge
 import me.stageguard.aruku.service.bridge.ServiceBridge
+import me.stageguard.aruku.service.bridge.suspendIO
 import me.stageguard.aruku.service.parcel.AccountInfo
 import me.stageguard.aruku.service.parcel.AccountInfoImpl
 import me.stageguard.aruku.service.parcel.AccountLoginData
@@ -458,6 +462,51 @@ class MainRepositoryImpl(
         preview.forEach {
             dao.update(it.apply { it.unreadCount = 0 })
         }
+    }
+
+    override fun querySingleMessage(
+        account: Long,
+        contact: ContactId,
+        messageId: Long
+    ): Flow<LoadState<MessageRecordEntity>> = flow {
+        emit(LoadState.Loading())
+        val dbSourceDeferred = CompletableDeferred<MessageRecordEntity>()
+
+        // load from database
+        val job = launch {
+            database.suspendIO {
+                messageRecords().getExactMessage(account, contact.subject, contact.type, messageId)
+            }.collect { cache -> dbSourceDeferred.complete(cache.first()) }
+        }
+
+        runCatching {
+            withTimeout(100) { emit(LoadState.Ok(dbSourceDeferred.await())) }
+        }.onFailure { th ->
+            if (th !is TimeoutCancellationException) {
+                logger.w("error while awaiting query single message from db source.", th)
+                emit(LoadState.Error(th))
+                return@onFailure
+            }
+
+            val roaming = openRoamingQuery(account, contact)
+            if (roaming == null) {
+                logger.w("error while creating roaming query session to query single message.", th)
+                emit(LoadState.Error(th))
+                return@onFailure
+            }
+
+            val remoteSource = roaming.suspendIO { getMessagesBefore(messageId, 1, false) }
+            if (remoteSource.isNullOrEmpty()) {
+                emit(LoadState.Error(IllegalStateException("remote query single message is null.")))
+                return@onFailure
+            }
+
+            val entity = remoteSource.first().toEntity()
+            database.suspendIO { messageRecords().upsert(entity) }
+            emit(LoadState.Ok(entity))
+        }
+
+        job.cancel()
     }
 
     private fun assertServiceConnected() {

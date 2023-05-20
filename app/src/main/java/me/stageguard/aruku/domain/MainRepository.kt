@@ -58,5 +58,11 @@ interface MainRepository {
 
     // other data sources
     fun clearUnreadCount(account: Long, contact: ContactId)
+
+    fun querySingleMessage(
+        account: Long,
+        contact: ContactId,
+        messageId: Long
+    ): Flow<LoadState<MessageRecordEntity>>
 }
 

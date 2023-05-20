@@ -12,7 +12,9 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import me.stageguard.aruku.cache.AudioCache
+import me.stageguard.aruku.database.LoadState
 import me.stageguard.aruku.database.message.MessageRecordEntity
 import me.stageguard.aruku.domain.MainRepository
 import me.stageguard.aruku.domain.data.message.At
@@ -39,8 +41,8 @@ class ChatViewModel(
 ) : ViewModel() {
     private val contact = chatNav.contact
 
-    private val _audioStates = mutableStateMapOf<String, ChatAudioStatus>()
-    private val _quoteStates = mutableStateMapOf<Long, ChatElement.Message>()
+    private val _audioStatus = mutableStateMapOf<String, ChatAudioStatus>()
+    private val _queryStatus = mutableStateMapOf<Long, ChatQuoteMessageStatus>()
 
     @UiState
     val subjectName = flow {
@@ -54,9 +56,9 @@ class ChatViewModel(
         if (url != null) emit(url)
     }.stateIn(viewModelScope, SharingStarted.Lazily, null)
     @UiState
-    val audio = snapshotFlow { _audioStates.toMap() }
+    val audio = snapshotFlow { _audioStatus.toMap() }
     @UiState
-    val quote = snapshotFlow { _quoteStates.toMap() }
+    val quote = snapshotFlow { _queryStatus.toMap() }
 
     @UiState
     val messages: Flow<PagingData<ChatElement>> =
@@ -126,6 +128,26 @@ class ChatViewModel(
         )
     }
 
+    fun querySingleMessage(messageId: Long) {
+        if (_queryStatus[messageId] != null) return
+        _queryStatus[messageId] = ChatQuoteMessageStatus.Querying
+
+        val queryFlow = repository.querySingleMessage(account, contact, messageId)
+        viewModelScope.launch {
+            queryFlow.collect {
+                println("collected: $it")
+                val status = when(it) {
+                    is LoadState.Loading -> ChatQuoteMessageStatus.Querying
+                    is LoadState.Ok -> ChatQuoteMessageStatus.Ready(
+                        it.data.mapChatElement(true) as ChatElement.Message
+                    )
+                    is LoadState.Error -> ChatQuoteMessageStatus.Error(it.throwable.message)
+                }
+                _queryStatus[messageId] = status
+            }
+        }
+    }
+
     fun attachAudioStatusListener(audioFileMd5: String) {
         repository.attachAudioStatusListener(audioFileMd5, AudioStatusListener {
             val status = when(it) {
@@ -134,7 +156,7 @@ class ChatViewModel(
                 is AudioCache.State.Ready -> ChatAudioStatus.Ready(List(20) { Math.random() })
                 is AudioCache.State.Preparing -> ChatAudioStatus.Preparing(it.progress)
             }
-            _audioStates[audioFileMd5] = status
+            _audioStatus[audioFileMd5] = status
         })
     }
 
@@ -175,4 +197,13 @@ sealed interface ChatAudioStatus {
     class Preparing(val progress: Double) : ChatAudioStatus
     object NotFound : ChatAudioStatus
     class Error(val msg: String?) : ChatAudioStatus
+}
+
+sealed interface ChatQuoteMessageStatus {
+    object Querying : ChatQuoteMessageStatus
+
+    class Error(val msg: String?) : ChatQuoteMessageStatus
+
+    class Ready(val msg: ChatElement.Message) : ChatQuoteMessageStatus
+
 }

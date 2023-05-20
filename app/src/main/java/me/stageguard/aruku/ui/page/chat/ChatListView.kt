@@ -69,11 +69,13 @@ import kotlin.math.min
 fun ChatListView(
     chatList: LazyPagingItems<ChatElement>,
     audioStatus: Map<String, ChatAudioStatus>,
+    quoteStatus: Map<Long, ChatQuoteMessageStatus>,
     lazyListState: LazyListState,
     paddingValues: PaddingValues,
     modifier: Modifier = Modifier,
     onRegisterAudioStatusListener: (fileMd5: String) -> Unit,
     onUnRegisterAudioStatusListener: (fileMd5: String) -> Unit,
+    onQueryQuoteMessage: (messageId: Long) -> Unit,
 ) {
     val bot = LocalBot.current
     val context = LocalContext.current
@@ -108,6 +110,9 @@ fun ChatListView(
                             onRegisterAudioStatusListener(audio.identity)
                             onDispose { onUnRegisterAudioStatusListener(audio.identity) }
                         }
+                        // query quote message
+                        val quote = element.messages.filterIsInstance<UIMessageElement.Quote>().firstOrNull()
+                        if (quote != null) onQueryQuoteMessage(quote.messageId)
 
                         val sentByBot = element.senderId == bot
                         CompositionLocalProvider(LocalPrimaryMessage provides sentByBot) {
@@ -128,6 +133,7 @@ fun ChatListView(
                                 time = element.time,
                                 messages = element.messages,
                                 audioStatus = audio?.run { audioStatus[identity] },
+                                quoteStatus = quote?.run { quoteStatus[messageId] },
                                 modifier = Modifier
                                     .padding(horizontal = 12.dp)
                                     .padding(bottom = if (nextSentByCurrent) 2.dp else 8.dp)
@@ -170,6 +176,7 @@ private fun Message(
     time: String,
     messages: List<UIMessageElement>,
     audioStatus: ChatAudioStatus?,
+    quoteStatus: ChatQuoteMessageStatus?,
     modifier: Modifier = Modifier,
     onClickAvatar: (Long) -> Unit,
 ) {
@@ -286,6 +293,7 @@ private fun Message(
                         fontWeight = FontWeight.Medium
                     ),
                     audioStatus = audioStatus,
+                    quoteStatus = quoteStatus,
                     time = time,
                     modifier = Modifier.widthIn(
                         max = with(density) { messageContentWidth.toDp() }
@@ -311,6 +319,7 @@ private fun RichMessage(
     textContentColor: Color,
     textContentStyle: TextStyle,
     audioStatus: ChatAudioStatus?,
+    quoteStatus: ChatQuoteMessageStatus?,
     time: String,
     commonImageShape: CornerBasedShape,
     singleImageShape: CornerBasedShape,
@@ -395,11 +404,15 @@ private fun RichMessage(
                 modifier = singleElementModifier ?: Modifier,
                 onClick = {  }
             )
-            is UIMessageElement.Audio -> Audio(this, audioStatus,
-                modifier = singleElementModifier ?: Modifier) { }
-
-            is UIMessageElement.File -> File(this,
-                modifier = singleElementModifier ?: Modifier) { }
+            is UIMessageElement.Audio -> Audio(
+                this,
+                status = audioStatus,
+                modifier = singleElementModifier ?: Modifier
+            ) { }
+            is UIMessageElement.File -> File(
+                this,
+                modifier = singleElementModifier ?: Modifier
+            ) { }
             is UIMessageElement.Forward -> {} //TODO
             is UIMessageElement.Quote -> Quote(
                 element = this,
@@ -407,7 +420,7 @@ private fun RichMessage(
                     bottomStart = commonImageShape.bottomStart,
                     bottomEnd = commonImageShape.bottomEnd
                 ),
-                state = Unit, // TODO
+                status = quoteStatus, // TODO
                 padding = 8.dp,
                 backgroundColor = MaterialTheme.colorScheme.surface2,
                 modifier = singleElementModifier ?: Modifier
@@ -505,7 +518,6 @@ private fun RichMessage(
                     val remain = message.dropLast(1)
 
                     CoerceWidthLayout { remeasuredWidth: Dp? ->
-                        println(remeasuredWidth)
                         val singleElementModifier = Modifier
                             .run { if (remeasuredWidth != null) width(remeasuredWidth) else this }
                             .padding(horizontal = contentPadding + 2.dp)
