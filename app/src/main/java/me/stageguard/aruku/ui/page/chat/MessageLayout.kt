@@ -6,12 +6,15 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -32,15 +35,19 @@ import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.layoutId
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.coerceIn
 import androidx.compose.ui.unit.dp
+import androidx.constraintlayout.compose.ConstraintLayout
+import androidx.constraintlayout.compose.ConstraintSet
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import kotlinx.coroutines.Dispatchers
@@ -349,6 +356,72 @@ fun File(
         modifier = modifier,
         onClick = {}
     )
+}
+
+@Composable
+fun Quote(
+    element: UIMessageElement.Quote,
+    shape: Shape,
+    state: Unit, // TODO
+    modifier: Modifier = Modifier,
+    padding: Dp = 4.dp,
+    backgroundColor: Color = MaterialTheme.colorScheme.surface,
+    bodyTextColor: Color = MaterialTheme.colorScheme.onSurface,
+    bodyTextStyle: TextStyle = MaterialTheme.typography.bodySmall,
+) {
+    Surface(
+        shape = shape,
+        color = backgroundColor,
+        modifier = modifier
+    ) {
+        BoxWithConstraints {
+            val constrainSet = ConstraintSet {
+                val senderName = createRefFor("senderName")
+                val time = createRefFor("time")
+                val content = createRefFor("content")
+                
+                constrain(senderName) {
+                    top.linkTo(parent.top, padding)
+                    start.linkTo(parent.start, padding)
+                }
+                
+                constrain(time) {
+                    top.linkTo(parent.top, padding)
+                    start.linkTo(senderName.end, 8.dp)
+                }
+                constrain(content) {
+                    top.linkTo(senderName.bottom, 4.dp)
+                    start.linkTo(parent.start, padding)
+                    bottom.linkTo(parent.bottom, padding)
+                    end.linkTo(parent.end, padding)
+                }
+            }
+            ConstraintLayout(constraintSet = constrainSet) {
+                Text(
+                    text = "StageGuard",
+                    style = bodyTextStyle,
+                    color = bodyTextColor,
+                    modifier = Modifier.layoutId("senderName"),
+                    overflow = TextOverflow.Ellipsis,
+                    maxLines = 1,
+                )
+                Text(
+                    text = "11:45",
+                    style = bodyTextStyle,
+                    color = bodyTextColor,
+                    modifier = Modifier.layoutId("time")
+                )
+                Text(
+                    text = "quote message 123123123123",
+                    style = bodyTextStyle,
+                    color = bodyTextColor,
+                    modifier = Modifier.layoutId("content"),
+                    overflow = TextOverflow.Ellipsis,
+                    maxLines = 1,
+                )
+            }
+        }
+    }
 }
 
 @Composable

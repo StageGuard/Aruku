@@ -14,11 +14,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.CornerBasedShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Divider
 import androidx.compose.material3.MaterialTheme
@@ -59,7 +61,8 @@ import com.google.accompanist.flowlayout.FlowRow
 import com.google.accompanist.flowlayout.MainAxisAlignment
 import me.stageguard.aruku.ui.LocalBot
 import me.stageguard.aruku.ui.LocalPrimaryMessage
-import kotlin.math.max
+import me.stageguard.aruku.ui.common.CoerceWidthLayout
+import me.stageguard.aruku.ui.theme.surface2
 import kotlin.math.min
 
 @Composable
@@ -309,8 +312,8 @@ private fun RichMessage(
     textContentStyle: TextStyle,
     audioStatus: ChatAudioStatus?,
     time: String,
-    commonImageShape: Shape,
-    singleImageShape: Shape,
+    commonImageShape: CornerBasedShape,
+    singleImageShape: CornerBasedShape,
     modifier: Modifier = Modifier,
     onClickAnnotated: (UIMessageElement) -> Unit,
 ) {
@@ -398,7 +401,17 @@ private fun RichMessage(
             is UIMessageElement.File -> File(this,
                 modifier = singleElementModifier ?: Modifier) { }
             is UIMessageElement.Forward -> {} //TODO
-            is UIMessageElement.Quote -> {} // TODO
+            is UIMessageElement.Quote -> Quote(
+                element = this,
+                shape = singleImageShape.copy(
+                    bottomStart = commonImageShape.bottomStart,
+                    bottomEnd = commonImageShape.bottomEnd
+                ),
+                state = Unit, // TODO
+                padding = 8.dp,
+                backgroundColor = MaterialTheme.colorScheme.surface2,
+                modifier = singleElementModifier ?: Modifier
+            )
             is UIMessageElement.Unsupported -> Unsupported(this,
                 modifier = singleElementModifier ?: Modifier)
         }
@@ -408,14 +421,7 @@ private fun RichMessage(
     fun TextWithAdaptedTimeIndicator(
         annotatedText: UIMessageElement.AnnotatedText,
         textModifier: Modifier = Modifier,
-        indicatorXOffset: Int = 0,
-        onMeasureWidth: (
-            textWidth: Int,
-            indicatorWidth: Int,
-            spacing: Int,
-            expandWidth: Boolean,
-            expandHeight: Boolean,
-        ) -> Unit = { _, _, _, _, _ -> },
+        coerceMinWidth: Dp = 0.dp,
     ) {
 
         var lastLineWidth by remember { mutableStateOf(0) }
@@ -445,22 +451,19 @@ private fun RichMessage(
             val spacing = with(density) { 8.dp.roundToPx() }
             val indicatorYOffset = with(density) { 5.dp.roundToPx() }
             val lastLineHorizontalWidth = 2 * padding + lastLineWidth + spacing + timeIndicator.width
-            val layoutHorizontalWidth = 2 * padding + text.width + spacing + timeIndicator.width
+            // text.width already contains horizontal padding
+            val layoutHorizontalWidth = text.width + spacing + timeIndicator.width
 
             val expandWidth = (layoutHorizontalWidth <= constraints.maxWidth) ||
                     lineCount == 1 && lastLineHorizontalWidth <= constraints.maxWidth
             val expandHeight = lastLineHorizontalWidth > constraints.maxWidth
 
-            onMeasureWidth(
-                lastLineWidth,
-                timeIndicator.width,
-                spacing,
-                expandWidth,
-                expandHeight
-            )
+            val coerceMinWidthPx = with(density) { coerceMinWidth.roundToPx() }
+            val actualWidth = text.width + if (expandWidth) (timeIndicator.width + spacing) else 0
+            val indicatorXOffset = if (coerceMinWidthPx > actualWidth) coerceMinWidthPx - actualWidth else 0
 
             layout(
-                text.width + if (expandWidth) (timeIndicator.width + spacing) else 0,
+                actualWidth + indicatorXOffset,
                 text.height + if (expandHeight) timeIndicator.height else 0
             ) {
                 text.placeRelative(0, 0)
@@ -496,17 +499,62 @@ private fun RichMessage(
             else -> {
                 println("other message: $message")
                 val last = message.lastOrNull() ?: return@Box
+
+                // last message is annotated text
                 if (last is UIMessageElement.AnnotatedText) {
                     val remain = message.dropLast(1)
-                    var indicatorXOffset by remember { mutableStateOf(0) }
 
-                    SubcomposeLayout { constraints ->
+                    CoerceWidthLayout { remeasuredWidth: Dp? ->
+                        println(remeasuredWidth)
+                        val singleElementModifier = Modifier
+                            .run { if (remeasuredWidth != null) width(remeasuredWidth) else this }
+                            .padding(horizontal = contentPadding + 2.dp)
+                            .padding(top = contentPadding + 2.dp)
+
+                        if (remain.singleOrNull() != null) {
+                            remain.single().toLayout(singleElementModifier = singleElementModifier)
+                        } else {
+                            FlowRow(
+                                mainAxisAlignment = MainAxisAlignment.Start,
+                                modifier = singleElementModifier
+                            ) { remain.forEach { it.toLayout() } }
+                        }
+
+                        TextWithAdaptedTimeIndicator(
+                            annotatedText = last,
+                            textModifier = Modifier.padding(contentPadding + 2.dp),
+                            coerceMinWidth = remeasuredWidth ?: 0.dp
+                        )
+                    }
+
+                    /*SubcomposeLayout { constraints ->
                         val others = if (remain.isNotEmpty()) subcompose(SlotId.Other) {
                             val singleElementModifier = Modifier
                                 .padding(horizontal = contentPadding + 2.dp)
                                 .padding(top = contentPadding + 2.dp)
-                            if (remain.size == 1) {
-                                remain.single().toLayout(singleElementModifier)
+
+                            val first = remain.first()
+                            if (first is UIMessageElement.Quote) {
+                                // this element is Quote
+                                first.toLayout(
+                                    singleElementModifier = Modifier
+                                        .run {
+                                            if (textWidth != null && (rawQuoteWidth
+                                                    ?: 0) < textWidth!!
+                                            ) {
+                                                width(with(density) { textWidth!!.toDp() })
+                                            } else this
+                                        }
+                                        .then(singleElementModifier)
+                                )
+
+                                val commonLast = remain.drop(1)
+                                if (commonLast.isNotEmpty()) {
+                                    FlowRow(
+                                        mainAxisAlignment = MainAxisAlignment.Start,
+                                        modifier = singleElementModifier
+                                    ) { commonLast.forEach { it.toLayout() } }
+                                }
                             } else {
                                 FlowRow(
                                     mainAxisAlignment = MainAxisAlignment.Start,
@@ -514,36 +562,16 @@ private fun RichMessage(
                                 ) { remain.forEach { it.toLayout() } }
                             }
                         }.singleOrNull()?.measure(constraints) else null
+                        rawQuoteWidth = others?.width
 
                         val text = subcompose(SlotId.TextWithIndicator) {
                             TextWithAdaptedTimeIndicator(
                                 annotatedText = last,
                                 textModifier = Modifier.padding(contentPadding + 2.dp),
-                                indicatorXOffset = indicatorXOffset,
-                                onMeasureWidth = {
-                                        textWidth: Int,
-                                        indicatorWidth: Int,
-                                        spacing: Int,
-                                        expandWidth: Boolean,
-                                        expandHeight: Boolean ->
-
-                                    val padding = with(density) { (contentPadding + 2.dp).roundToPx() }
-                                    val annotatedTextWidth = if(expandHeight) {
-                                        2 * padding + textWidth
-                                    } else {
-                                        2 * padding + textWidth + spacing + indicatorWidth
-                                    }
-
-                                    if (others == null || annotatedTextWidth > others.width) {
-                                        indicatorXOffset = 0
-                                        return@TextWithAdaptedTimeIndicator
-                                    }
-
-                                    indicatorXOffset = others.width - annotatedTextWidth -
-                                            if (expandHeight) 0 else if (expandWidth) 0 else indicatorWidth
-                                }
+                                coerceMinWidth = others?.width ?: 0
                             )
                         }.single().measure(constraints)
+                        textWidth = text.width
 
                         layout(
                             width = max(others?.width ?: 0, text.width),
@@ -552,8 +580,9 @@ private fun RichMessage(
                             others?.placeRelative(0, 0)
                             text.placeRelative(0, others?.height ?: 0)
                         }
-                    }
+                    }*/
                 } else {
+                    // last is not annotated text
                     FlowRow(
                         mainAxisAlignment = MainAxisAlignment.Start,
                         modifier = Modifier

@@ -155,7 +155,7 @@ fun ChatViewPreview() {
             LocalSystemUiController provides rememberSystemUiController()
         ) {
             val state = rememberLazyListState()
-            val randSrcId = { LongRange(0, 100000).random() }
+            val randSrcId = { LongRange(0, 100000000).random() }
 
             fun text(vararg content: String) = ChatElement.Message(
                 senderId = 1425419431,
@@ -169,6 +169,130 @@ fun ChatViewPreview() {
                     )
                 ),
             )
+
+            val textList = buildList {
+                /*val sb = StringBuilder(256)
+                repeat(256) {
+                    sb.append("t")
+                    add(text(sb.toString()))
+                }
+                add(text("""
+                    Apeuriox的个人信息—osu!
+
+                    5534.44pp 表现
+                    #47880 (↓32)
+                    China #911 (↓1)
+                    6,566m Ranked谱面总分
+                    98.1% 准确率
+                    19844 游玩次数
+                    5,793,353 总命中次数
+                    412 小时 13 分钟 21 秒游玩时间
+                """.trimIndent()))
+                add(text("""
+                    CIRCLESBHU的个人信息—osu!
+
+                    5003.98pp 表现 (+.51)
+                    #66666 (↓22)
+                    China #1235
+                    8,912m Ranked谱面总分
+                    98.74% 准确率 (+)
+                    33023 游玩次数 (+100)
+                    8,090,934 总命中次数 (+32,789)
+                    609 小时 40 分钟 15 秒游玩时间 (+7,400)
+                """.trimIndent()))
+
+                add(ChatElement.Message(
+                    senderId = 1355416608L,
+                    senderName = "StageGuard",
+                    senderAvatarUrl = "https://stageguard.top/img/avatar.png",
+                    time = "11:45",
+                    messageId = randSrcId(),
+                    messages = listOf(
+                        UIMessageElement.Quote(12345),
+                        UIMessageElement.Image(
+                            url = "https://gchat.qpic.cn/gchatpic_new/3567284112/914085636-3011562048-BFF2F51051A6B01ABEEFFAFE2496824B/0?term=255&is_origin=1",
+                            width = 300,
+                            height = 300,
+                            uuid = "123",
+                            isEmoticons = false,
+                        ),
+                        UIMessageElement.AnnotatedText(buildList {
+                            add(UIMessageElement.Text.PlainText("le2z5ft2.jpg"))
+                        })
+                    ),
+                ))
+                add(ChatElement.Message(
+                    senderId = 1355416608L,
+                    senderName = "StageGuard",
+                    senderAvatarUrl = "https://stageguard.top/img/avatar.png",
+                    time = "11:45",
+                    messageId = randSrcId(),
+                    messages = listOf(
+                        UIMessageElement.Quote(12345),
+                        UIMessageElement.Image(
+                            url = "https://gchat.qpic.cn/gchatpic_new/3567284112/914085636-2962512178-41C5E2CCB02B995F4193806463CADF40/0?term=255&is_origin=1",
+                            width = 552,
+                            height = 904,
+                            uuid = "456",
+                            isEmoticons = false,
+                        ),
+                        UIMessageElement.AnnotatedText(buildList {
+                            add(UIMessageElement.Text.PlainText("le2z5ft2.jpg"))
+                        })
+                    ),
+                ))
+                add(ChatElement.Message(
+                    senderId = 1355416608L,
+                    senderName = "StageGuard",
+                    senderAvatarUrl = "https://stageguard.top/img/avatar.png",
+                    time = "11:45",
+                    messageId = randSrcId(),
+                    messages = listOf(
+                        UIMessageElement.AnnotatedText(buildList {
+                            add(UIMessageElement.Text.At(123, "某人"))
+                            add(UIMessageElement.Text.PlainText("今天你的群老婆是"))
+                        }),
+                        UIMessageElement.Image(
+                            url = "https://gchat.qpic.cn/gchatpic_new/1178264292/4119460545-2779732610-372F20E31A4F7DBED8A95DC45A6D65D4/0?term=255&is_origin=1",
+                            width = 640,
+                            height = 640,
+                            uuid = "789",
+                            isEmoticons = false,
+                        ),
+                        UIMessageElement.AnnotatedText(buildList {
+                            add(UIMessageElement.Text.PlainText("游荡的牧师 | lhe_wp(3356639033)哒"))
+                        })
+                    ),
+                ))*/
+
+                add(ChatElement.Message(
+                    senderId = 1355416608L,
+                    senderName = "StageGuard",
+                    senderAvatarUrl = "https://stageguard.top/img/avatar.png",
+                    time = "11:45",
+                    messageId = randSrcId(),
+                    messages = listOf(
+                        UIMessageElement.Quote(randSrcId()),
+                        UIMessageElement.AnnotatedText(buildList {
+                            add(UIMessageElement.Text.PlainText("quote message with plain tail"))
+                        })
+                    ),
+                ))
+
+                add(ChatElement.Message(
+                    senderId = 1355416608L,
+                    senderName = "StageGuard",
+                    senderAvatarUrl = "https://stageguard.top/img/avatar.png",
+                    time = "11:45",
+                    messageId = randSrcId(),
+                    messages = listOf(
+                        UIMessageElement.Quote(randSrcId()),
+                        UIMessageElement.AnnotatedText(buildList {
+                            add(UIMessageElement.Text.PlainText("1"))
+                        })
+                    ),
+                ))
+            }
 
             val list = listOf(
                 /*ChatElement.DateDivider("Jan 4, 2023"),
@@ -356,7 +480,7 @@ fun ChatViewPreview() {
             ChatView(subjectName = "Group1",
                 subjectAvatar = "https://q1.qlogo.cn/g?b=qq&nk=3129693328&s=0&timestamp=1673582758562",
                 messages = flow {
-                    emit(PagingData.from(list.asReversed() as List<ChatElement>))
+                    emit(PagingData.from(textList.asReversed() as List<ChatElement>))
                 }.collectAsLazyPagingItems(),
                 audioStatus = map,
                 listState = state,
