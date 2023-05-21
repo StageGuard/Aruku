@@ -473,14 +473,17 @@ class MainRepositoryImpl(
         val dbSourceDeferred = CompletableDeferred<MessageRecordEntity>()
 
         // load from database
-        val job = launch {
+        val job = launch(Dispatchers.IO) {
             database.suspendIO {
                 messageRecords().getExactMessage(account, contact.subject, contact.type, messageId)
             }.collect { cache -> dbSourceDeferred.complete(cache.first()) }
         }
 
         runCatching {
-            withTimeout(100) { emit(LoadState.Ok(dbSourceDeferred.await())) }
+            withTimeout(100) {
+                emit(LoadState.Ok(dbSourceDeferred.await()))
+                logger.i("query single message $messageId replied from database source.")
+            }
         }.onFailure { th ->
             if (th !is TimeoutCancellationException) {
                 logger.w("error while awaiting query single message from db source.", th)
@@ -504,6 +507,7 @@ class MainRepositoryImpl(
             val entity = remoteSource.first().toEntity()
             database.suspendIO { messageRecords().upsert(entity) }
             emit(LoadState.Ok(entity))
+            logger.i("query single message $messageId replied from remote source.")
         }
 
         job.cancel()

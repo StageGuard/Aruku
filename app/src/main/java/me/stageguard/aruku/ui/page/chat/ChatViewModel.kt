@@ -135,7 +135,6 @@ class ChatViewModel(
         val queryFlow = repository.querySingleMessage(account, contact, messageId)
         viewModelScope.launch {
             queryFlow.collect {
-                println("collected: $it")
                 val status = when(it) {
                     is LoadState.Loading -> ChatQuoteMessageStatus.Querying
                     is LoadState.Ok -> ChatQuoteMessageStatus.Ready(

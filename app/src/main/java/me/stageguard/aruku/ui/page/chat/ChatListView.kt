@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
@@ -373,6 +372,7 @@ private fun RichMessage(
         textColor = MaterialTheme.colorScheme.run { if (isPrimary) secondaryContainer else secondary },
         mdf = mdf
     )
+
     @Composable
     fun UIMessageElement.toLayout(
         singleElementModifier: Modifier? = null,
@@ -423,7 +423,7 @@ private fun RichMessage(
                 status = quoteStatus, // TODO
                 padding = 8.dp,
                 backgroundColor = MaterialTheme.colorScheme.surface2,
-                modifier = singleElementModifier ?: Modifier
+                modifier = singleElementModifier ?: Modifier,
             )
             is UIMessageElement.Unsupported -> Unsupported(this,
                 modifier = singleElementModifier ?: Modifier)
@@ -440,7 +440,9 @@ private fun RichMessage(
         var lastLineWidth by remember { mutableStateOf(0) }
         var lineCount by remember { mutableStateOf(1) }
 
-        SubcomposeLayout { constraints ->
+        SubcomposeLayout { it ->
+            val constraints = it.copy(minWidth = 0)
+
             val text = subcompose(SlotId.Text) {
                 annotatedText.toLayout(
                     singleElementModifier = textModifier,
@@ -488,6 +490,21 @@ private fun RichMessage(
         }
     }
 
+    @Composable
+    fun OptionalFlowRow(
+        elements: List<UIMessageElement>,
+        singleElementModifier: Modifier = Modifier
+    ) {
+        if (elements.singleOrNull() != null) {
+            elements.single().toLayout(singleElementModifier = singleElementModifier)
+        } else {
+            FlowRow(
+                mainAxisAlignment = MainAxisAlignment.Start,
+                modifier = singleElementModifier
+            ) { elements.forEach { it.toLayout() } }
+        }
+    }
+
 
     Box(modifier = modifier) {
         val single = message.singleOrNull()
@@ -510,89 +527,25 @@ private fun RichMessage(
             }
             // two or more message elements
             else -> {
-                println("other message: $message")
                 val last = message.lastOrNull() ?: return@Box
 
                 // last message is annotated text
                 if (last is UIMessageElement.AnnotatedText) {
-                    val remain = message.dropLast(1)
-
                     CoerceWidthLayout { remeasuredWidth: Dp? ->
                         val singleElementModifier = Modifier
-                            .run { if (remeasuredWidth != null) width(remeasuredWidth) else this }
                             .padding(horizontal = contentPadding + 2.dp)
                             .padding(top = contentPadding + 2.dp)
 
-                        if (remain.singleOrNull() != null) {
-                            remain.single().toLayout(singleElementModifier = singleElementModifier)
-                        } else {
-                            FlowRow(
-                                mainAxisAlignment = MainAxisAlignment.Start,
-                                modifier = singleElementModifier
-                            ) { remain.forEach { it.toLayout() } }
-                        }
-
+                        OptionalFlowRow(
+                            elements = message.dropLast(1),
+                            singleElementModifier = singleElementModifier
+                        )
                         TextWithAdaptedTimeIndicator(
                             annotatedText = last,
                             textModifier = Modifier.padding(contentPadding + 2.dp),
                             coerceMinWidth = remeasuredWidth ?: 0.dp
                         )
                     }
-
-                    /*SubcomposeLayout { constraints ->
-                        val others = if (remain.isNotEmpty()) subcompose(SlotId.Other) {
-                            val singleElementModifier = Modifier
-                                .padding(horizontal = contentPadding + 2.dp)
-                                .padding(top = contentPadding + 2.dp)
-
-                            val first = remain.first()
-                            if (first is UIMessageElement.Quote) {
-                                // this element is Quote
-                                first.toLayout(
-                                    singleElementModifier = Modifier
-                                        .run {
-                                            if (textWidth != null && (rawQuoteWidth
-                                                    ?: 0) < textWidth!!
-                                            ) {
-                                                width(with(density) { textWidth!!.toDp() })
-                                            } else this
-                                        }
-                                        .then(singleElementModifier)
-                                )
-
-                                val commonLast = remain.drop(1)
-                                if (commonLast.isNotEmpty()) {
-                                    FlowRow(
-                                        mainAxisAlignment = MainAxisAlignment.Start,
-                                        modifier = singleElementModifier
-                                    ) { commonLast.forEach { it.toLayout() } }
-                                }
-                            } else {
-                                FlowRow(
-                                    mainAxisAlignment = MainAxisAlignment.Start,
-                                    modifier = singleElementModifier
-                                ) { remain.forEach { it.toLayout() } }
-                            }
-                        }.singleOrNull()?.measure(constraints) else null
-                        rawQuoteWidth = others?.width
-
-                        val text = subcompose(SlotId.TextWithIndicator) {
-                            TextWithAdaptedTimeIndicator(
-                                annotatedText = last,
-                                textModifier = Modifier.padding(contentPadding + 2.dp),
-                                coerceMinWidth = others?.width ?: 0
-                            )
-                        }.single().measure(constraints)
-                        textWidth = text.width
-
-                        layout(
-                            width = max(others?.width ?: 0, text.width),
-                            height = (others?.height ?: 0) + text.height
-                        ) {
-                            others?.placeRelative(0, 0)
-                            text.placeRelative(0, others?.height ?: 0)
-                        }
-                    }*/
                 } else {
                     // last is not annotated text
                     FlowRow(

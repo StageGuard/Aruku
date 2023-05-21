@@ -5,12 +5,15 @@ import android.net.Uri
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.ClickableText
@@ -49,6 +52,10 @@ import androidx.compose.ui.unit.coerceIn
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.valentinilk.shimmer.Shimmer
+import com.valentinilk.shimmer.ShimmerBounds
+import com.valentinilk.shimmer.rememberShimmer
+import com.valentinilk.shimmer.shimmer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
@@ -363,46 +370,72 @@ fun Quote(
     shape: Shape,
     status: ChatQuoteMessageStatus?, // TODO
     modifier: Modifier = Modifier,
+    shimmer: Shimmer = rememberShimmer(shimmerBounds = ShimmerBounds.View),
     padding: Dp = 4.dp,
     backgroundColor: Color = MaterialTheme.colorScheme.surface,
     bodyTextColor: Color = MaterialTheme.colorScheme.onSurface,
     bodyTextStyle: TextStyle = MaterialTheme.typography.bodySmall,
 ) {
+    val density = LocalDensity.current
+
+    val loading = status is ChatQuoteMessageStatus.Querying
     val message = if (status is ChatQuoteMessageStatus.Ready) status.msg else null
+
+    val lineHeight = with(density) { bodyTextStyle.lineHeight.toDp() }
+    val textVertPadding = with(density) {
+        (bodyTextStyle.lineHeight.toDp() - bodyTextStyle.fontSize.toDp()) / 2
+    }
+
+    @Composable
+    fun Modifier.placeholder(width: Dp): Modifier {
+        return width(width)
+            .height(with(density) { bodyTextStyle.lineHeight.toDp() })
+            .padding(textVertPadding)
+            .shimmer(shimmer)
+            .background(
+                color = MaterialTheme.colorScheme.secondary,
+                shape = RoundedCornerShape(0)
+            )
+    }
 
     Surface(
         shape = shape,
         color = backgroundColor,
-        modifier = modifier
+        modifier = Modifier.animateContentSize().then(modifier)
     ) {
         Column {
             Row(
                 modifier = Modifier
                     .padding(horizontal = padding)
                     .padding(top = padding)
-                    .padding(bottom = if (message == null) padding else padding / 2)
+                    .padding(bottom = lineHeight / 4)
             ) {
                 Text(
-                    text = message?.senderName ?: "-",
-                    modifier = Modifier.padding(end = 4.dp),
+                    text = message?.senderName ?: "",
+                    modifier = Modifier
+                        .padding(end = 4.dp)
+                        .run { if (loading) placeholder(80.dp) else this },
                     style = bodyTextStyle,
                     color = bodyTextColor,
                     overflow = TextOverflow.Ellipsis,
                     maxLines = 1
                 )
                 Text(
-                    text = message?.time ?: "--:--",
+                    text = message?.time ?: "",
+                    modifier = Modifier
+                        .padding(end = 8.dp)
+                        .run { if (loading) placeholder(40.dp) else this },
                     style = bodyTextStyle,
-                    color = bodyTextColor,
-                    modifier = Modifier.padding(end = 8.dp)
+                    color = bodyTextColor
                 )
             }
-            if (message != null) Text(
-                text = message.messages.contentToString(),
+            Text(
+                text = message?.messages?.contentToString() ?: "",
                 modifier = Modifier
                     .padding(horizontal = padding)
                     .padding(bottom = padding)
-                    .padding(top = padding / 2),
+                    .padding(top = lineHeight / 4)
+                    .run { if (loading) placeholder(140.dp) else this },
                 style = bodyTextStyle,
                 color = bodyTextColor,
                 overflow = TextOverflow.Ellipsis,
