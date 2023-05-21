@@ -422,9 +422,11 @@ private fun RichMessage(
                 ),
                 status = quoteStatus, // TODO
                 padding = 8.dp,
-                backgroundColor = MaterialTheme.colorScheme.surface2,
+                backgroundColor = MaterialTheme.colorScheme.run {
+                    if (isPrimary) secondaryContainer else surface2
+                },
                 modifier = singleElementModifier ?: Modifier,
-            )
+            ) {  }
             is UIMessageElement.Unsupported -> Unsupported(this,
                 modifier = singleElementModifier ?: Modifier)
         }
@@ -495,6 +497,7 @@ private fun RichMessage(
         elements: List<UIMessageElement>,
         singleElementModifier: Modifier = Modifier
     ) {
+        if (elements.isEmpty()) return
         if (elements.singleOrNull() != null) {
             elements.single().toLayout(singleElementModifier = singleElementModifier)
         } else {
@@ -536,8 +539,14 @@ private fun RichMessage(
                             .padding(horizontal = contentPadding + 2.dp)
                             .padding(top = contentPadding + 2.dp)
 
+                        val first = message.first()
+                        // first is quote
+                        if (first is UIMessageElement.Quote) {
+                            first.toLayout(Modifier.padding(contentPadding + 2.dp))
+                        }
+
                         OptionalFlowRow(
-                            elements = message.dropLast(1),
+                            elements = message.dropLast(1).drop(1),
                             singleElementModifier = singleElementModifier
                         )
                         TextWithAdaptedTimeIndicator(
@@ -556,9 +565,7 @@ private fun RichMessage(
                     ) {
                         message.forEach { it.toLayout() }
                         CommonMessageTimeIndicator(
-                            mdf = Modifier
-                                .fillMaxWidth()
-                                .align(Alignment.BottomEnd)
+                            mdf = Modifier.align(Alignment.BottomEnd)
                         )
                     }
                 }

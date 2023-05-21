@@ -470,22 +470,33 @@ class MainRepositoryImpl(
         messageId: Long
     ): Flow<LoadState<MessageRecordEntity>> = flow {
         emit(LoadState.Loading())
-        val dbSourceDeferred = CompletableDeferred<MessageRecordEntity>()
+        val dbSourceDeferred = CompletableDeferred<LoadState<MessageRecordEntity>>()
 
         // load from database
         val job = launch(Dispatchers.IO) {
             database.suspendIO {
                 messageRecords().getExactMessage(account, contact.subject, contact.type, messageId)
-            }.collect { cache -> dbSourceDeferred.complete(cache.first()) }
+            }.catch {
+                dbSourceDeferred.complete(LoadState.Error(it))
+            }.collect { cache ->
+                val state: LoadState<MessageRecordEntity> = if (cache.isEmpty()) {
+                    LoadState.Error(EmptyMessageRecordException())
+                } else LoadState.Ok(cache.first())
+
+                dbSourceDeferred.complete(state)
+            }
         }
 
         runCatching {
             withTimeout(100) {
-                emit(LoadState.Ok(dbSourceDeferred.await()))
+                val result = dbSourceDeferred.await()
+                if (result is LoadState.Error) throw result.throwable
+
+                emit(result)
                 logger.i("query single message $messageId replied from database source.")
             }
         }.onFailure { th ->
-            if (th !is TimeoutCancellationException) {
+            if (th !is TimeoutCancellationException && th !is EmptyMessageRecordException) {
                 logger.w("error while awaiting query single message from db source.", th)
                 emit(LoadState.Error(th))
                 return@onFailure
@@ -544,4 +555,6 @@ class MainRepositoryImpl(
             }
         }
     }
+
+    private class EmptyMessageRecordException() : Exception("message record is not found from database source")
 }

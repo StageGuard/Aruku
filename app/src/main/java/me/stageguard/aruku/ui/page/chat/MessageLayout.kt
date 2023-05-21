@@ -375,6 +375,7 @@ fun Quote(
     backgroundColor: Color = MaterialTheme.colorScheme.surface,
     bodyTextColor: Color = MaterialTheme.colorScheme.onSurface,
     bodyTextStyle: TextStyle = MaterialTheme.typography.bodySmall,
+    onNavigateMessage: (messageId: Long) -> Unit
 ) {
     val density = LocalDensity.current
 
@@ -401,7 +402,10 @@ fun Quote(
     Surface(
         shape = shape,
         color = backgroundColor,
-        modifier = Modifier.animateContentSize().then(modifier)
+        modifier = Modifier
+            .animateContentSize()
+            .then(modifier)
+            .clickable { onNavigateMessage(element.messageId) }
     ) {
         Column {
             Row(
