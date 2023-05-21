@@ -47,6 +47,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -179,6 +180,8 @@ private fun Message(
     modifier: Modifier = Modifier,
     onClickAvatar: (Long) -> Unit,
 ) {
+    if (messages.isEmpty()) return // ??
+
     val density = LocalDensity.current
     val isPrimary = LocalPrimaryMessage.current
 
@@ -351,7 +354,8 @@ private fun RichMessage(
                 style = MaterialTheme.typography.bodySmall.copy(
                     color = textColor,
                     fontWeight = FontWeight.Medium,
-                )
+                ),
+                textAlign = TextAlign.End
             )
         }
     }
@@ -443,6 +447,8 @@ private fun RichMessage(
         var lineCount by remember { mutableStateOf(1) }
 
         SubcomposeLayout { it ->
+            // override constraint min width is necessary for
+            // calculating location of time indicator.
             val constraints = it.copy(minWidth = 0)
 
             val text = subcompose(SlotId.Text) {
@@ -508,8 +514,35 @@ private fun RichMessage(
         }
     }
 
+    // this composable should be used in [CoerceWidthLayout]
+    @Composable
+    fun QuoteOrNormalFlowRow(
+        elements: List<UIMessageElement>,
+        singleElementModifier: Modifier = Modifier,
+    ) {
+        val first = message.first()
+        // first is quote
+        if (first is UIMessageElement.Quote) {
+            val remain = elements.drop(1)
+            // quote
+            first.toLayout(singleElementModifier = singleElementModifier)
+            OptionalFlowRow(
+                elements = remain,
+                singleElementModifier = singleElementModifier
+            )
+        } else {
+            OptionalFlowRow(
+                elements = elements,
+                singleElementModifier = singleElementModifier
+            )
+        }
+    }
 
-    Box(modifier = modifier) {
+    /**
+     * message row starts
+     */
+
+    Box(modifier = modifier) {  // box to constrain size
         val single = message.singleOrNull()
         when {
             // single image
@@ -531,23 +564,17 @@ private fun RichMessage(
             // two or more message elements
             else -> {
                 val last = message.lastOrNull() ?: return@Box
+                val singleElementModifier = Modifier
+                    .padding(horizontal = contentPadding + 2.dp)
+                    .padding(top = contentPadding + 2.dp)
 
                 // last message is annotated text
                 if (last is UIMessageElement.AnnotatedText) {
                     CoerceWidthLayout { remeasuredWidth: Dp? ->
-                        val singleElementModifier = Modifier
-                            .padding(horizontal = contentPadding + 2.dp)
-                            .padding(top = contentPadding + 2.dp)
 
-                        val first = message.first()
-                        // first is quote
-                        if (first is UIMessageElement.Quote) {
-                            first.toLayout(Modifier.padding(contentPadding + 2.dp))
-                        }
-
-                        OptionalFlowRow(
-                            elements = message.dropLast(1).drop(1),
-                            singleElementModifier = singleElementModifier
+                        QuoteOrNormalFlowRow(
+                            elements = message.dropLast(1),
+                            singleElementModifier = singleElementModifier,
                         )
                         TextWithAdaptedTimeIndicator(
                             annotatedText = last,
@@ -557,15 +584,18 @@ private fun RichMessage(
                     }
                 } else {
                     // last is not annotated text
-                    FlowRow(
-                        mainAxisAlignment = MainAxisAlignment.Start,
-                        modifier = Modifier
-                            .padding(horizontal = contentPadding + 2.dp)
-                            .padding(top = contentPadding + 2.dp)
-                    ) {
-                        message.forEach { it.toLayout() }
+                    CoerceWidthLayout {
+                        QuoteOrNormalFlowRow(
+                            elements = message,
+                            singleElementModifier = singleElementModifier,
+                        )
                         CommonMessageTimeIndicator(
-                            mdf = Modifier.align(Alignment.BottomEnd)
+                            mdf = Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(horizontal = contentPadding + 2.dp)
+                                .padding(
+                                    vertical = contentPadding / 2,
+                                )
                         )
                     }
                 }

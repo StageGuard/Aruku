@@ -157,7 +157,7 @@ fun Image(
             .size(width, height)
             .animateContentSize()
             .then(Modifier.clickable { element.url?.let { onClick(it) } }),
-        contentScale = ContentScale.FillBounds
+        contentScale = ContentScale.Crop
     )
 }
 
@@ -405,6 +405,7 @@ fun Quote(
         modifier = Modifier
             .animateContentSize()
             .then(modifier)
+            .clip(shape)
             .clickable { onNavigateMessage(element.messageId) }
     ) {
         Column {
