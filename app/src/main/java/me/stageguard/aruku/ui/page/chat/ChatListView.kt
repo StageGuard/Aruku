@@ -499,18 +499,23 @@ private fun RichMessage(
     }
 
     @Composable
-    fun OptionalFlowRow(
+    fun MessageFlowRow(
         elements: List<UIMessageElement>,
         singleElementModifier: Modifier = Modifier
     ) {
         if (elements.isEmpty()) return
-        if (elements.singleOrNull() != null) {
-            elements.single().toLayout(singleElementModifier = singleElementModifier)
-        } else {
-            FlowRow(
-                mainAxisAlignment = MainAxisAlignment.Start,
-                modifier = singleElementModifier
-            ) { elements.forEach { it.toLayout() } }
+        SubcomposeLayout(modifier = singleElementModifier) { constraints ->
+            val placeable = subcompose(SlotId.Other) {
+                FlowRow(
+                    mainAxisAlignment = MainAxisAlignment.Start
+                ) {
+                    elements.forEach { it.toLayout() }
+                }
+            }.single().measure(constraints.copy(minWidth = 0))
+
+            layout(placeable.width, placeable.height) {
+                placeable.placeRelative(0, 0)
+            }
         }
     }
 
@@ -526,12 +531,12 @@ private fun RichMessage(
             val remain = elements.drop(1)
             // quote
             first.toLayout(singleElementModifier = singleElementModifier)
-            OptionalFlowRow(
+            MessageFlowRow(
                 elements = remain,
                 singleElementModifier = singleElementModifier
             )
         } else {
-            OptionalFlowRow(
+            MessageFlowRow(
                 elements = elements,
                 singleElementModifier = singleElementModifier
             )
@@ -571,7 +576,6 @@ private fun RichMessage(
                 // last message is annotated text
                 if (last is UIMessageElement.AnnotatedText) {
                     CoerceWidthLayout { remeasuredWidth: Dp? ->
-
                         QuoteOrNormalFlowRow(
                             elements = message.dropLast(1),
                             singleElementModifier = singleElementModifier,
@@ -593,9 +597,7 @@ private fun RichMessage(
                             mdf = Modifier
                                 .align(Alignment.BottomEnd)
                                 .padding(horizontal = contentPadding + 2.dp)
-                                .padding(
-                                    vertical = contentPadding / 2,
-                                )
+                                .padding(vertical = contentPadding / 2)
                         )
                     }
                 }

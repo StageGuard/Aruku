@@ -157,7 +157,7 @@ fun Image(
             .size(width, height)
             .animateContentSize()
             .then(Modifier.clickable { element.url?.let { onClick(it) } }),
-        contentScale = ContentScale.Crop
+        contentScale = ContentScale.Fit
     )
 }
 
