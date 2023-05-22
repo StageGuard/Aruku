@@ -20,6 +20,10 @@ sealed interface UIMessageElement {
         object AtAll : Text {
             override val text: String = R.string.message_at_all.stringRes
         }
+        class Face(val id: Int, val name: String) : Text {
+            override val text: String
+                get() = "[$name]"
+        }
     }
 
     class AnnotatedText(val textSlice: List<Text>) : UIMessageElement {
@@ -51,15 +55,6 @@ sealed interface UIMessageElement {
         }
     }
 
-    class Face(val id: Int) : BaseImage {
-        companion object {
-            val FACE_MAP = mapOf<Int, @receiver:DrawableRes Int>()
-        }
-
-        override fun contentToString(): String {
-            return "[表情]"
-        }
-    }
     class Audio(val identity: String, val name: String) : UIMessageElement {
         override fun contentToString(): String {
             return "[语音]"

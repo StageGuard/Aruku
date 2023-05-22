@@ -2,11 +2,14 @@ package me.stageguard.aruku
 
 import android.app.Application
 import android.content.Intent
+import android.os.Build
 import android.util.Log
 import coil.ImageLoader
 import coil.ImageLoaderFactory
+import coil.decode.GifDecoder
+import coil.decode.ImageDecoderDecoder
 import me.stageguard.aruku.service.ArukuMiraiService
-import me.stageguard.aruku.util.AnimatedPngDecoder
+import me.stageguard.aruku.util.FaceAPNGDecoder
 import me.stageguard.aruku.util.tag
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.koin.android.ext.koin.androidContext
@@ -48,7 +51,8 @@ class ArukuApplication : Application(), ImageLoaderFactory {
 
     override fun newImageLoader(): ImageLoader {
         return ImageLoader.Builder(this).components {
-            add(AnimatedPngDecoder.Factory())
+            add(FaceAPNGDecoder.Factory())
+            add(if (Build.VERSION.SDK_INT >= 28) ImageDecoderDecoder.Factory() else GifDecoder.Factory())
         }.build()
     }
 }

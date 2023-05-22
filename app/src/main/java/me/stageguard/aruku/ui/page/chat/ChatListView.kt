@@ -1,6 +1,5 @@
 package me.stageguard.aruku.ui.page.chat
 
-import android.content.Context
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -78,7 +77,6 @@ fun ChatListView(
     onQueryQuoteMessage: (messageId: Long) -> Unit,
 ) {
     val bot = LocalBot.current
-    val context = LocalContext.current
 
     LaunchedEffect(true) {
         lazyListState.scrollToItem(0)
@@ -117,7 +115,6 @@ fun ChatListView(
                         val sentByBot = element.senderId == bot
                         CompositionLocalProvider(LocalPrimaryMessage provides sentByBot) {
                             Message(
-                                context = context,
                                 messageId = element.messageId,
                                 senderId = element.senderId,
                                 senderName = element.senderName,
@@ -160,7 +157,6 @@ fun ChatListView(
 
 @Composable
 private fun Message(
-    context: Context,
     messageId: Long,
     senderId: Long,
     senderName: String,
@@ -182,6 +178,7 @@ private fun Message(
 ) {
     if (messages.isEmpty()) return // ??
 
+    val context = LocalContext.current
     val density = LocalDensity.current
     val isPrimary = LocalPrimaryMessage.current
 
@@ -252,7 +249,9 @@ private fun Message(
             }
 
             if(showAvatar) AsyncImage(
-                model = ImageRequest.Builder(context).data(senderAvatar).crossfade(true)
+                model = ImageRequest.Builder(context)
+                    .data(senderAvatar)
+                    .crossfade(true)
                     .build(),
                 contentDescription = "avatar of $senderId",
                 modifier = Modifier
@@ -287,7 +286,6 @@ private fun Message(
                     }
             ) {
                 RichMessage(
-                    context = context,
                     message = messages,
                     textContentColor = textContentColor,
                     textContentStyle = MaterialTheme.typography.bodyMedium.copy(
@@ -316,7 +314,6 @@ private fun Message(
 
 @Composable
 private fun RichMessage(
-    context: Context,
     message: List<UIMessageElement>,
     textContentColor: Color,
     textContentStyle: TextStyle,
@@ -394,16 +391,12 @@ private fun RichMessage(
             )
             is UIMessageElement.Image -> Image(
                 element = this,
-                context = context,
                 shape = imageShape,
                 modifier = singleElementModifier ?: Modifier,
                 onClick = {  }
             )
-            is UIMessageElement.Face -> Face(this, context,
-                modifier = singleElementModifier ?: Modifier)
             is UIMessageElement.FlashImage -> FlashImage(
                 element = this,
-                context = context,
                 shape = imageShape,
                 modifier = singleElementModifier ?: Modifier,
                 onClick = {  }

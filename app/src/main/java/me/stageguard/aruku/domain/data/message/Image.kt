@@ -25,6 +25,6 @@ data class Face(
     val name: String,
 ) : MessageElement, Parcelable {
     override fun contentToString(): String {
-        return name
+        return "[$name]"
     }
 }

@@ -17,9 +17,6 @@ import net.mamoe.mirai.utils.toUHexString
 @Parcelize
 sealed interface MessageElement : Parcelable {
     fun contentToString(): String
-
-    fun isText() = this is PlainText || this is At || this is AtAll
-    fun isImage() = this is Image || this is FlashImage || this is Face
 }
 
 fun MessageSource.calculateMessageId(): Long {
@@ -40,7 +37,7 @@ suspend fun MessageChain.toMessageElements(contact: Contact? = null): List<Messa
                     add(At(m.target, m.getDisplay(contact as? Group)))
                 }
 
-                is net.mamoe.mirai.message.data.AtAll -> AtAll
+                is net.mamoe.mirai.message.data.AtAll -> add(AtAll)
                 is net.mamoe.mirai.message.data.Audio -> {
                     m as OnlineAudio
                     add(
@@ -55,8 +52,8 @@ suspend fun MessageChain.toMessageElements(contact: Contact? = null): List<Messa
                     )
                 }
 
-                is net.mamoe.mirai.message.data.Dice -> Dice(m.value)
-                is net.mamoe.mirai.message.data.Face -> Face(m.id, m.name)
+                is net.mamoe.mirai.message.data.Dice -> add(Dice(m.value))
+                is net.mamoe.mirai.message.data.Face -> add(Face(m.id, m.name))
                 is net.mamoe.mirai.message.data.FileMessage -> {
                     if (contact !is Group) {
                         Log.i(

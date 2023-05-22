@@ -79,7 +79,6 @@ class ChatViewModel(
                 is FlashImage -> add(UIMessageElement.FlashImage(
                     content.url, content.uuid, content.width, content.height
                 ))
-                is Face -> add(UIMessageElement.Face(content.id))
                 is Audio -> add(UIMessageElement.Audio(content.fileMd5, content.fileName))
                 is File -> add(UIMessageElement.File(content.name, content.size))
                 is Forward -> add(UIMessageElement.Unsupported(content.contentToString()))
@@ -91,6 +90,7 @@ class ChatViewModel(
         fun MessageElement.mapTextToUITextElement() = when(this) {
             is PlainText -> UIMessageElement.Text.PlainText(text)
             is At -> UIMessageElement.Text.At(target, display)
+            is Face -> UIMessageElement.Text.Face(id, name)
             is AtAll -> UIMessageElement.Text.AtAll
             else -> error("unreachable!")
         }
@@ -161,6 +161,10 @@ class ChatViewModel(
 
     fun detachAudioStatusListener(audioFileMd5: String) {
         repository.detachAudioStatusListener(audioFileMd5)
+    }
+
+    private fun MessageElement.isText(): Boolean {
+        return this is PlainText || this is At || this is AtAll || this is Face
     }
 
 }

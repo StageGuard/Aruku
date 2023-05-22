@@ -167,7 +167,7 @@ fun ChatViewPreview() {
             fun text(vararg content: String) = ChatElement.Message(
                 senderId = 1425419431,
                 senderName = "ojhdt",
-                senderAvatarUrl = "https://q1.qlogo.cn/g?b=qq&nk=1425419431&s=0&timestamp=1681953695785",
+                senderAvatarUrl = null,
                 time = "12:12",
                 messageId = randSrcId(),
                 messages = listOf(
@@ -275,7 +275,7 @@ fun ChatViewPreview() {
                 add(ChatElement.Message(
                     senderId = 1355416608L,
                     senderName = "StageGuard",
-                    senderAvatarUrl = "https://stageguard.top/img/avatar.png",
+                    senderAvatarUrl = null,
                     time = "11:45",
                     messageId = 12345L,
                     messages = listOf(
@@ -283,7 +283,7 @@ fun ChatViewPreview() {
                             add(UIMessageElement.Text.At(123, "某人"))
                             add(UIMessageElement.Text.PlainText("今天你的群老婆是"))
                         }),
-                        UIMessageElement.Image(
+                        /*UIMessageElement.Image(
                             url = "https://gchat.qpic.cn/gchatpic_new/1178264292/4119460545-2779732610-372F20E31A4F7DBED8A95DC45A6D65D4/0?term=255&is_origin=1",
                             width = 640,
                             height = 640,
@@ -296,7 +296,7 @@ fun ChatViewPreview() {
                             height = 640,
                             uuid = "789",
                             isEmoticons = false,
-                        ),/*
+                        ),*//*
                             UIMessageElement.AnnotatedText(buildList {
                                 add(UIMessageElement.Text.PlainText("游荡的牧师 | lhe_wp(3356639033)哒"))
                             })*/
@@ -306,7 +306,7 @@ fun ChatViewPreview() {
                 add(ChatElement.Message(
                     senderId = 1355416608L,
                     senderName = "StageGuard",
-                    senderAvatarUrl = "https://stageguard.top/img/avatar.png",
+                    senderAvatarUrl = null,
                     time = "11:45",
                     messageId = randSrcId(),
                     messages = listOf(
@@ -320,7 +320,7 @@ fun ChatViewPreview() {
                 add(ChatElement.Message(
                     senderId = 1355416608L,
                     senderName = "StageGuard",
-                    senderAvatarUrl = "https://stageguard.top/img/avatar.png",
+                    senderAvatarUrl = null,
                     time = "11:45",
                     messageId = randSrcId(),
                     messages = listOf(
@@ -328,6 +328,19 @@ fun ChatViewPreview() {
                         UIMessageElement.AnnotatedText(buildList {
                             add(UIMessageElement.Text.PlainText("1"))
                         })
+                    ),
+                ))
+                add(ChatElement.Message(
+                    senderId = 1355416608L,
+                    senderName = "StageGuard",
+                    senderAvatarUrl = null,
+                    time = "11:45",
+                    messageId = randSrcId(),
+                    messages = listOf(
+                        UIMessageElement.AnnotatedText(listOf(
+                            UIMessageElement.Text.Face(10, "buzhidao"),
+                            UIMessageElement.Text.Face(12, "?")
+                        ))
                     ),
                 ))
             }
@@ -509,7 +522,7 @@ fun ChatViewPreview() {
                     12345L to ChatQuoteMessageStatus.Ready(ChatElement.Message(
                         senderId = 1355416608L,
                         senderName = "StageGuard",
-                        senderAvatarUrl = "https://stageguard.top/img/avatar.png",
+                        senderAvatarUrl = null,
                         time = "11:45",
                         messageId = randSrcId(),
                         messages = listOf(
@@ -517,7 +530,7 @@ fun ChatViewPreview() {
                                 add(UIMessageElement.Text.At(123, "某人"))
                                 add(UIMessageElement.Text.PlainText("今天你的群老婆是"))
                             }),
-                            UIMessageElement.Image(
+                            /*UIMessageElement.Image(
                                 url = "https://gchat.qpic.cn/gchatpic_new/1178264292/4119460545-2779732610-372F20E31A4F7DBED8A95DC45A6D65D4/0?term=255&is_origin=1",
                                 width = 640,
                                 height = 640,
@@ -530,7 +543,7 @@ fun ChatViewPreview() {
                                 height = 640,
                                 uuid = "789",
                                 isEmoticons = false,
-                            ),/*
+                            ),*//*
                             UIMessageElement.AnnotatedText(buildList {
                                 add(UIMessageElement.Text.PlainText("游荡的牧师 | lhe_wp(3356639033)哒"))
                             })*/
@@ -552,7 +565,7 @@ fun ChatViewPreview() {
             })
 
             ChatView(subjectName = "Group1",
-                subjectAvatar = "https://q1.qlogo.cn/g?b=qq&nk=3129693328&s=0&timestamp=1673582758562",
+                subjectAvatar = null,
                 messages = flow {
                     emit(PagingData.from(textList.asReversed() as List<ChatElement>))
                 }.collectAsLazyPagingItems(),

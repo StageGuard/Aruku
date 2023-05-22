@@ -1,6 +1,5 @@
 package me.stageguard.aruku.ui.page.chat
 
-import android.content.Context
 import android.net.Uri
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
@@ -16,13 +15,15 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.ClickableText
+import androidx.compose.foundation.text.InlineTextContent
+import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -40,7 +41,10 @@ import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.Placeholder
+import androidx.compose.ui.text.PlaceholderVerticalAlign
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
@@ -63,6 +67,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import me.stageguard.aruku.ui.LocalPrimaryMessage
+import me.stageguard.aruku.ui.common.ClickableText
 import me.stageguard.aruku.util.animateFloatAsMutableState
 import kotlin.math.cos
 import kotlin.math.sin
@@ -79,12 +84,45 @@ fun AnnotatedText(
     onTextLayout: (TextLayoutResult) -> Unit,
     onClick: (UIMessageElement.Text) -> Unit
 ) {
+    val context = LocalContext.current
+    val density = LocalDensity.current
     val isPrimary = LocalPrimaryMessage.current
+
     val currentOnClick by rememberUpdatedState(newValue = onClick)
+    val textSizeDp = remember(density) { with(density) { 24.dp.toSp() } }
+    val inlineFaceMap: MutableMap<String, InlineTextContent> = remember { mutableStateMapOf() }
 
     val annotatedContent = buildAnnotatedString {
         var length = 0
         texts.forEachIndexed { index, element ->
+            if (element is UIMessageElement.Text.Face) {
+                val identify by remember { mutableStateOf("[face:${element.id}]") }
+
+                appendInlineContent(identify, identify)
+                inlineFaceMap[identify] = InlineTextContent(
+                    placeholder = Placeholder(
+                        width = textSizeDp,
+                        height = textSizeDp,
+                        placeholderVerticalAlign = PlaceholderVerticalAlign.Center
+                    ),
+                    children = { id ->
+                        val faceName = id.substringAfter(':')
+                            .substringBefore(']')
+                            .padStart(3, '0')
+                        val faceAsset = "file:///android_asset/face/face_$faceName.apng"
+
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data(Uri.fromFile(java.io.File(faceAsset)))
+                                .crossfade(true)
+                                .build(),
+                            "chat face",
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                )
+                return@forEachIndexed
+            }
             append(element.text)
             addStyle(
                 style = SpanStyle(
@@ -107,10 +145,12 @@ fun AnnotatedText(
             length += element.text.length
         }
     }
+
     ClickableText(
         text = annotatedContent,
-        style = textStyle,
+        style = if (inlineFaceMap.isEmpty()) textStyle else textStyle.copy(lineHeight = textSizeDp),
         modifier = modifier,
+        inlineContent = inlineFaceMap,
         onTextLayout = onTextLayout,
         onClick = {
             val atTargetAnnotation = annotatedContent
@@ -127,11 +167,11 @@ fun AnnotatedText(
 @Composable
 fun Image(
     element: UIMessageElement.Image,
-    context: Context,
     modifier: Modifier = Modifier,
     shape: Shape? = null,
     onClick: (String) -> Unit,
 ) {
+    val context = LocalContext.current
     var width: Dp
     var height: Dp
     if (element.width >= element.height) {
@@ -162,38 +202,14 @@ fun Image(
 }
 
 @Composable
-fun Face(
-    element: UIMessageElement.Face,
-    context: Context,
-    modifier: Modifier = Modifier
-) {
-    AsyncImage(
-        model = ImageRequest.Builder(context)
-            .data(
-                Uri.parse(
-                    "file:///android_asset/face/face_${
-                        element.id.toString().padStart(3, '0')
-                    }.apng"
-                )
-            )
-            .crossfade(true)
-            .build(),
-        "chat face",
-        modifier = modifier
-    )
-}
-
-@Composable
 fun FlashImage(
     element: UIMessageElement.FlashImage,
-    context: Context,
     modifier: Modifier = Modifier,
     shape: Shape? = null,
     onClick: (url: String) -> Unit,
 ) { // TODO: flash image visible element, currently same as image
     Image(
         UIMessageElement.Image(element.url, element.uuid, element.width, element.height, false),
-        context,
         modifier,
         shape,
         onClick = onClick,
@@ -368,7 +384,7 @@ fun File(
 fun Quote(
     element: UIMessageElement.Quote,
     shape: Shape,
-    status: ChatQuoteMessageStatus?, // TODO
+    status: ChatQuoteMessageStatus?,
     modifier: Modifier = Modifier,
     shimmer: Shimmer = rememberShimmer(shimmerBounds = ShimmerBounds.View),
     padding: Dp = 4.dp,
