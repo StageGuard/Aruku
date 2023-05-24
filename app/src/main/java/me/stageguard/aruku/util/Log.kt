@@ -2,8 +2,6 @@ package me.stageguard.aruku.util
 
 import android.util.Log
 
-fun Any.tag(module: String? = null) = "[Aruku] ${module ?: this::class.java.simpleName} "
-
 class LogWrapper(private val tag: String) {
     fun d(msg: String, throwable: Throwable? = null) {
         if (throwable == null) {
@@ -39,3 +37,4 @@ class LogWrapper(private val tag: String) {
 }
 
 fun createAndroidLogger(tag: String) = LogWrapper(tag)
+fun Any.createAndroidLogger(tag: String = this::class.java.simpleName) = LogWrapper(tag)

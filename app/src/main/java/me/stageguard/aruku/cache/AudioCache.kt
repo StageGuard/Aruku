@@ -21,8 +21,8 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.parcelize.Parcelize
 import me.stageguard.aruku.domain.RetrofitDownloadService
-import me.stageguard.aruku.service.bridge.AudioUrlQueryBridge
 import me.stageguard.aruku.service.bridge.AudioStatusListener
+import me.stageguard.aruku.service.bridge.AudioUrlQueryBridge
 import me.stageguard.aruku.util.createAndroidLogger
 import me.stageguard.aruku.util.md5
 import java.io.File
@@ -37,7 +37,7 @@ class AudioCache(
     private val audioUrlQueryBridge: WeakReference<AudioUrlQueryBridge>,
     private val downloadService: RetrofitDownloadService
 ) : CoroutineScope {
-    private val logger = createAndroidLogger("AudioCache")
+    private val logger = createAndroidLogger()
 
     private val downloadJobs = ConcurrentHashMap<String, DownloadJob>() // audio md5
     private val stateListeners = ConcurrentHashMap<String, AudioStatusListener>() // audio md5

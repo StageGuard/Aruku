@@ -33,7 +33,7 @@ import org.koin.android.ext.android.inject
 
 class MainActivity : ComponentActivity() {
 
-    private val logger = createAndroidLogger("MainActivity")
+    private val logger = createAndroidLogger()
     private val serviceConnector: ServiceConnector = ServiceConnector(this)
     private val repo by inject<MainRepository>(mode = LazyThreadSafetyMode.SYNCHRONIZED)
 

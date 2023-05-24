@@ -29,7 +29,7 @@ import net.mamoe.mirai.utils.Either
 class MessageViewModel(
     private val repository: MainRepository,
 ) : ViewModel() {
-    private val logger = createAndroidLogger("MessageViewModel")
+    private val logger = createAndroidLogger()
 
     private val currentBotChannel = Channel<Long?>()
 

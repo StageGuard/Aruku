@@ -22,7 +22,7 @@ class ArukuLoginSolver(
     private val solutionConsumer: ReceiveChannel<Solution>,
     private val solutionTimeout: Long = 60 * 1000L,
 ) : LoginSolver() {
-    private val logger = createAndroidLogger("ArukuLoginSolver")
+    private val logger = createAndroidLogger()
 
     private suspend inline fun <reified T : Solution> receiveSolution(account: Long): T {
         return solutionConsumer.receiveAsFlow()

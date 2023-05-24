@@ -16,7 +16,7 @@ import me.stageguard.aruku.util.createAndroidLogger
 class ServiceConnector(
     private val context: Context
 ) : ServiceConnection, LifecycleEventObserver {
-    private val logger = createAndroidLogger("ServiceConnector")
+    private val logger = createAndroidLogger()
 
     private var _delegate: ServiceBridge? = null
     val connected: MutableLiveData<Boolean> = MutableLiveData(false)

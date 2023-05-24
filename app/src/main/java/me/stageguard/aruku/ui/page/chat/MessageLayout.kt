@@ -121,6 +121,7 @@ fun AnnotatedText(
                         )
                     }
                 )
+                length += identify.length
                 return@forEachIndexed
             }
             append(element.text)
@@ -445,6 +446,7 @@ fun Quote(
                     text = message?.time ?: "",
                     modifier = Modifier
                         .padding(end = 8.dp)
+                        .weight(1.0f, fill = false)
                         .run { if (loading) placeholder(40.dp) else this },
                     style = bodyTextStyle,
                     color = bodyTextColor

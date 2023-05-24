@@ -75,7 +75,7 @@ class MainRepositoryImpl(
     private val avatarCache: ConcurrentHashMap<Long, String>,
     private val nicknameCache: ConcurrentHashMap<Long, String>
 ) : MainRepository, LifecycleEventObserver, CoroutineScope by MainScope() {
-    private val logger = createAndroidLogger("MainRepositoryImpl")
+    private val logger = createAndroidLogger()
 
     private var connectorRef: WeakReference<ServiceConnector>? = null
     private val binder: ServiceBridge? get() = connectorRef?.get()?.binder

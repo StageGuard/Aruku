@@ -28,7 +28,7 @@ class MainViewModel(
     accountStateFlow: Flow<Map<Long, AccountState>>,
     composableLifecycleOwner: LifecycleOwner,
 ) : ViewModel() {
-    private val logger = createAndroidLogger("MainViewModel")
+    private val logger = createAndroidLogger()
 
     @UiState
     val activeAccountPref = okkv.okkv<Long>("pref_active_bot")

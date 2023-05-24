@@ -3,14 +3,13 @@ package me.stageguard.aruku
 import android.app.Application
 import android.content.Intent
 import android.os.Build
-import android.util.Log
 import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.decode.GifDecoder
 import coil.decode.ImageDecoderDecoder
 import me.stageguard.aruku.service.ArukuMiraiService
 import me.stageguard.aruku.util.FaceAPNGDecoder
-import me.stageguard.aruku.util.tag
+import me.stageguard.aruku.util.createAndroidLogger
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
@@ -20,6 +19,7 @@ import java.security.Security
 import java.util.concurrent.atomic.AtomicBoolean
 
 class ArukuApplication : Application(), ImageLoaderFactory {
+    private val logger = createAndroidLogger()
     companion object {
         val initialized = AtomicBoolean(false)
         lateinit var INSTANCE: ArukuApplication
@@ -45,7 +45,7 @@ class ArukuApplication : Application(), ImageLoaderFactory {
             Security.removeProvider(BouncyCastleProvider.PROVIDER_NAME)
             Security.addProvider(BouncyCastleProvider())
         } catch (t: Throwable) {
-            Log.w(tag(), "Cannot replace original bouncy castle provider.", t)
+            logger.w("Cannot replace original bouncy castle provider.", t)
         }
     }
 

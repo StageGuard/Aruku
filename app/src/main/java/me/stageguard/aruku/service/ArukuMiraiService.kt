@@ -63,7 +63,6 @@ import me.stageguard.aruku.service.parcel.toGroupMemberInfo
 import me.stageguard.aruku.ui.activity.MainActivity
 import me.stageguard.aruku.util.createAndroidLogger
 import me.stageguard.aruku.util.stringRes
-import me.stageguard.aruku.util.tag
 import me.stageguard.aruku.util.weakReference
 import net.mamoe.mirai.Bot
 import net.mamoe.mirai.BotFactory
@@ -111,7 +110,7 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
         const val FOREGROUND_NOTIFICATION_CHANNEL_ID = "ArukuMiraiService"
     }
 
-    private val logger = createAndroidLogger("ArukuMiraiService")
+    private val logger = createAndroidLogger()
 
     private val retrofitClient by lazy { Retrofit.Builder().baseUrl("http://localhost/").build() }
     private var audioUrlQueryBridge: AudioUrlQueryBridge? = null
@@ -683,7 +682,6 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
         account: Long,
         contact: ContactId
     ): RoamingQueryBridge? {
-        val tag = tag("RoamingQuery")
         if (contact.type != ContactType.GROUP) {
             logger.w("roaming query only support group now.")
             return null

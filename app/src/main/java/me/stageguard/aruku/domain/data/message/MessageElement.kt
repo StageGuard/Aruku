@@ -1,9 +1,8 @@
 package me.stageguard.aruku.domain.data.message
 
 import android.os.Parcelable
-import android.util.Log
 import kotlinx.parcelize.Parcelize
-import me.stageguard.aruku.util.tag
+import me.stageguard.aruku.util.createAndroidLogger
 import net.mamoe.mirai.contact.Contact
 import net.mamoe.mirai.contact.Group
 import net.mamoe.mirai.contact.file.AbsoluteFileFolder.Companion.extension
@@ -18,6 +17,8 @@ import net.mamoe.mirai.utils.toUHexString
 sealed interface MessageElement : Parcelable {
     fun contentToString(): String
 }
+
+private val logger = createAndroidLogger("MessageElement")
 
 fun MessageSource.calculateMessageId(): Long {
     val hash = arrayOf<Any>(time, fromId, targetId, *ids.toTypedArray())
@@ -56,10 +57,7 @@ suspend fun MessageChain.toMessageElements(contact: Contact? = null): List<Messa
                 is net.mamoe.mirai.message.data.Face -> add(Face(m.id, m.name))
                 is net.mamoe.mirai.message.data.FileMessage -> {
                     if (contact !is Group) {
-                        Log.i(
-                            tag("MessageElement"),
-                            "Received file message while sender is not group, which is not supported."
-                        )
+                        logger.i("Received file message while sender is not group, which is not supported.")
                     }
                     val file = if (contact is Group) m.toAbsoluteFile(contact) else null
                     add(
@@ -117,7 +115,7 @@ suspend fun MessageChain.toMessageElements(contact: Contact? = null): List<Messa
                 )
 
                 else -> {
-                    Log.i(tag("MessageElement"), "Unsupported message element: $m")
+                    logger.i("Unsupported message element: $m")
                     add(PlainText(m.contentToString()))
                 }
             }

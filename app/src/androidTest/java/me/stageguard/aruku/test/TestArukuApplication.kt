@@ -2,9 +2,8 @@ package me.stageguard.aruku.test
 
 import android.app.Application
 import android.content.Intent
-import android.util.Log
 import me.stageguard.aruku.service.ArukuMiraiService
-import me.stageguard.aruku.util.tag
+import me.stageguard.aruku.util.createAndroidLogger
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
@@ -13,6 +12,7 @@ import java.security.Security
 import java.util.concurrent.atomic.AtomicBoolean
 
 class TestArukuApplication : Application() {
+    private val logger = createAndroidLogger()
     companion object {
         val initialized = AtomicBoolean(false)
         lateinit var INSTANCE: Application
@@ -37,7 +37,7 @@ class TestArukuApplication : Application() {
             Security.removeProvider(BouncyCastleProvider.PROVIDER_NAME)
             Security.addProvider(BouncyCastleProvider())
         } catch (t: Throwable) {
-            Log.w(tag(), "Cannot replace original bouncy castle provider.", t)
+            logger.w("Cannot replace original bouncy castle provider.", t)
         }
     }
 }

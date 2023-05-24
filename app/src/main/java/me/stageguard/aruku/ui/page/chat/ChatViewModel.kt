@@ -32,6 +32,7 @@ import me.stageguard.aruku.service.bridge.AudioStatusListener
 import me.stageguard.aruku.service.parcel.ContactType
 import me.stageguard.aruku.ui.UiState
 import me.stageguard.aruku.ui.page.ChatPageNav
+import me.stageguard.aruku.util.createAndroidLogger
 import me.stageguard.aruku.util.toFormattedTime
 
 class ChatViewModel(
@@ -39,6 +40,8 @@ class ChatViewModel(
     private val account: Long,
     private val chatNav: ChatPageNav,
 ) : ViewModel() {
+    private val logger = createAndroidLogger()
+
     private val contact = chatNav.contact
 
     private val _audioStatus = mutableStateMapOf<String, ChatAudioStatus>()

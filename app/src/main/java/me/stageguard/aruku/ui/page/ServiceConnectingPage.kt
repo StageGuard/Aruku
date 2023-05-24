@@ -3,8 +3,12 @@ package me.stageguard.aruku.ui.page
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
-import android.util.Log
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -20,22 +24,22 @@ import androidx.compose.ui.unit.sp
 import me.stageguard.aruku.R
 import me.stageguard.aruku.service.ArukuMiraiService
 import me.stageguard.aruku.ui.theme.ArukuTheme
+import me.stageguard.aruku.util.createAndroidLogger
 import me.stageguard.aruku.util.stringResC
-import me.stageguard.aruku.util.tag
 import java.lang.ref.WeakReference
 
-private val TAG = Unit.tag("ServiceConnectingPage")
+private val logger = createAndroidLogger("ServiceConnectingPage")
 
 @Composable
 fun ServiceConnectingPage(connectorRef: WeakReference<ServiceConnection>) {
     val context = LocalContext.current
     SideEffect {
         val startResult = context.startService(Intent(context, ArukuMiraiService::class.java))
-        if (startResult == null) Log.e(TAG, "Cannot start ArukuMiraiService.")
+        if (startResult == null) logger.e("Cannot start ArukuMiraiService.")
         val bindResult = connectorRef.get()?.let {
             context.bindService(Intent(context, ArukuMiraiService::class.java), it, Context.BIND_ABOVE_CLIENT)
         }
-        if (bindResult != true) Log.e(TAG, "Cannot bind ArukuMiraiService.")
+        if (bindResult != true) logger.e("Cannot bind ArukuMiraiService.")
     }
     ServiceConnectingView()
 }
