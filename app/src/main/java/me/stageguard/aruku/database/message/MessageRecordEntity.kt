@@ -32,9 +32,10 @@ data class MessageRecordEntity(
     @ColumnInfo(name = "sender") val sender: Long,
     @ColumnInfo(name = "sender_name") val senderName: String,
     @PrimaryKey @ColumnInfo(name = "message_id") val messageId: Long,
+    @ColumnInfo(name = "sequence") val sequence: Long,
     @ColumnInfo(name = "time") val time: Long,
     @ColumnInfo(name = "message") val message: List<MessageElement>,
 ) : Parcelable
 
 fun Message.toEntity() =
-    MessageRecordEntity(account, contact, sender, senderName, messageId, time, message)
+    MessageRecordEntity(account, contact, sender, senderName, messageId, sequence, time, message)

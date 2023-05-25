@@ -12,8 +12,6 @@ interface RoamingQueryBridge {
     fun getLastMessageId(): Long?
 
     fun getMessagesBefore(messageId: Long, count: Int, exclude: Boolean): List<Message>?
-
-
 }
 
 suspend fun <R> RoamingQueryBridge.suspendIO(block: RoamingQueryBridge.() -> R): R {

@@ -10,6 +10,7 @@ sealed class Message(
     open val sender: Long,
     open val senderName: String,
     open val messageId: Long,
+    open val sequence: Long,
     open val message: List<MessageElement>,
     open val time: Long,
 )
@@ -21,9 +22,10 @@ class MessageImpl(
     override val sender: Long,
     override val senderName: String,
     override val messageId: Long,
+    override val sequence: Long,
     override val message: List<MessageElement>,
     override val time: Long,
-) : Message(account, contact, sender, senderName, messageId, message, time), Parcelable {
+) : Message(account, contact, sender, senderName, messageId, sequence, message, time), Parcelable {
     companion object {
         val ROAMING_INVALID = MessageImpl(
             account = -1,
@@ -32,6 +34,7 @@ class MessageImpl(
             senderName = "",
             messageId = -1,
             message = listOf(),
+            sequence = -1,
             time = -1
         )
     }

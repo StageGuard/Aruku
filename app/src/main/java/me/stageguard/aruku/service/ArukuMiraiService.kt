@@ -556,6 +556,7 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
                     sender = event.sender.id,
                     senderName = event.sender.nameCardOrNick,
                     messageId = event.message.source.calculateMessageId(),
+                    sequence = event.message.source.ids.first().toLong(),
                     message = messageElements,
                     time = event.time.toLong() * 1000 + (System.currentTimeMillis() % 1000)
                 )
@@ -570,9 +571,10 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
             }
 
             return@subscribe ListeningStatus.LISTENING
-        }.apply { invokeOnCompletion {
-            logger.i("message subscriber of bot ${bot.id} is cancelled.")
-        } }.also {
+        }.apply {
+            invokeOnCompletion {
+                logger.i("message subscriber of bot ${bot.id} is cancelled.")
+            }
             logger.i("message subscriber of bot ${bot.id} is started.")
         })
 
@@ -617,9 +619,10 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
 
             syncContactLock.unlock()
             return@subscribe ListeningStatus.LISTENING
-        }.apply { invokeOnCompletion {
-            logger.i("contact syncer subscriber of bot ${bot.id} is cancelled.")
-        } }.also {
+        }.apply {
+            invokeOnCompletion {
+                logger.i("contact syncer subscriber of bot ${bot.id} is cancelled.")
+            }
             logger.i("contact syncer subscriber of bot ${bot.id} is started.")
         })
     }
@@ -716,38 +719,32 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
                 logger.d("fetching roaming messages, account=$account, group=$group, calculatedSeq=$seq, count=$count")
 
                 return runBlocking(job) {
-                    runCatching {
-                        roamingSession
-                            .getMessagesBefore(if (exclude) seq - 1 else seq)
-                            .asFlow()
-                            .cancellable()
-                            .map { chain ->
-                                MessageImpl(
-                                    account = account,
-                                    contact = contact,
-                                    sender = chain.source.fromId,
-                                    senderName = when(contact.type) {
-                                        ContactType.GROUP -> getGroupMember(account, contact.subject, chain.source.fromId)
-                                            ?.remarkOrNameCardOrNick ?: chain.source.fromId.toString()
-                                        else -> chain.source.fromId.toString()
-                                    },
-                                    messageId = chain.source.calculateMessageId(),
-                                    time = chain.source.time.toLong() * 1000,
-                                    message = chain.toMessageElements(group)
-                                )
-                            }
-                            .catch {
-                                logger.w("roaming query cannot process current: $it")
-                                emit(MessageImpl.ROAMING_INVALID)
-                            }
-                            .take(count)
-                            .toList()
-                    }.onFailure {
-                        logger.w(
-                            "cannot query roaming message of $group, seq=$seq, count=$count",
-                            it
-                        )
-                    }.getOrNull()
+                    roamingSession
+                        .getMessagesBefore(if (exclude) seq - 1 else seq)
+                        .asFlow()
+                        .cancellable()
+                        .map<MessageChain, Message> { chain ->
+                            MessageImpl(
+                                account = account,
+                                contact = contact,
+                                sender = chain.source.fromId,
+                                senderName = when(contact.type) {
+                                    ContactType.GROUP -> getGroupMember(account, contact.subject, chain.source.fromId)
+                                        ?.remarkOrNameCardOrNick ?: chain.source.fromId.toString()
+                                    else -> chain.source.fromId.toString()
+                                },
+                                messageId = chain.source.calculateMessageId(),
+                                sequence = chain.source.ids.first().toLong(),
+                                time = chain.source.time.toLong() * 1000,
+                                message = chain.toMessageElements(group)
+                            )
+                        }
+                        .catch {
+                            logger.w("roaming query cannot process current: $it")
+                            emit(MessageImpl.ROAMING_INVALID)
+                        }
+                        .take(count)
+                        .toList()
                 }
             }
 

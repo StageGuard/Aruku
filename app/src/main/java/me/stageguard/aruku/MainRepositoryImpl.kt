@@ -40,7 +40,7 @@ import me.stageguard.aruku.database.message.MessageRecordEntity
 import me.stageguard.aruku.database.message.toEntity
 import me.stageguard.aruku.database.message.toPreviewEntity
 import me.stageguard.aruku.domain.MainRepository
-import me.stageguard.aruku.domain.RoamingMessageMediator
+import me.stageguard.aruku.domain.SequenceRoamingMessageMediator
 import me.stageguard.aruku.domain.data.message.Audio
 import me.stageguard.aruku.service.ServiceConnector
 import me.stageguard.aruku.service.bridge.AudioStatusListener
@@ -439,7 +439,7 @@ class MainRepositoryImpl(
     ): Flow<PagingData<MessageRecordEntity>> {
         return Pager(
             config = PagingConfig(pageSize = 20),
-            remoteMediator = RoamingMessageMediator(account, contact, ::openRoamingQuery),
+            remoteMediator = SequenceRoamingMessageMediator(account, contact, database, ::openRoamingQuery),
             pagingSourceFactory = {
                 database.messageRecords().getMessagesPaging(account, contact.subject, contact.type)
             }
