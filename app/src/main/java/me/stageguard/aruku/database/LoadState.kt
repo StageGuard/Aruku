@@ -7,7 +7,7 @@ import kotlin.contracts.contract
 
 sealed interface LoadState<T> {
     class Loading<T> : LoadState<T>
-    data class Ok<T>(val data: T) : LoadState<T>
+    data class Ok<T>(val value: T) : LoadState<T>
     data class Error<T>(val throwable: Throwable) : LoadState<T>
 }
 
@@ -15,7 +15,7 @@ fun <T, R> Flow<LoadState<T>>.mapOk(transform: suspend (T) -> R): Flow<LoadState
     map {
         when (it) {
             is LoadState.Loading<T> -> LoadState.Loading()
-            is LoadState.Ok<T> -> LoadState.Ok(transform(it.data))
+            is LoadState.Ok<T> -> LoadState.Ok(transform(it.value))
             is LoadState.Error -> LoadState.Error(it.throwable)
         }
     }

@@ -44,8 +44,12 @@ class ChatViewModel(
 
     private val contact = chatNav.contact
 
+    // key is audio md5
     private val _audioStatus = mutableStateMapOf<String, ChatAudioStatus>()
+    // key is message id
     private val _queryStatus = mutableStateMapOf<Long, ChatQuoteMessageStatus>()
+    // key is file message id
+    private val _fileStatus = mutableStateMapOf<Long, ChatFileStatus>()
 
     @UiState
     val subjectName = flow {
@@ -62,6 +66,8 @@ class ChatViewModel(
     val audio = snapshotFlow { _audioStatus.toMap() }
     @UiState
     val quote = snapshotFlow { _queryStatus.toMap() }
+    @UiState
+    val file = snapshotFlow { _fileStatus.toMap() }
 
     @UiState
     val messages: Flow<PagingData<ChatElement>> =
@@ -83,7 +89,9 @@ class ChatViewModel(
                     content.url, content.uuid, content.width, content.height
                 ))
                 is Audio -> add(UIMessageElement.Audio(content.fileMd5, content.fileName))
-                is File -> add(UIMessageElement.File(content.name, content.size))
+                is File -> add(UIMessageElement.File(
+                    content.id, content.name, content.extension, content.size, messageId
+                ))
                 is Forward -> add(UIMessageElement.Unsupported(content.contentToString()))
                 is Quote -> if(!excludeQuote) add(UIMessageElement.Quote(content.messageId))
                 else -> add(UIMessageElement.Unsupported(content.contentToString()))
@@ -141,13 +149,34 @@ class ChatViewModel(
                 val status = when(it) {
                     is LoadState.Loading -> ChatQuoteMessageStatus.Querying
                     is LoadState.Ok -> ChatQuoteMessageStatus.Ready(
-                        it.data.mapChatElement(true) as ChatElement.Message
+                        it.value.mapChatElement(true) as ChatElement.Message
                     )
                     is LoadState.Error -> ChatQuoteMessageStatus.Error(it.throwable.message)
                 }
                 _queryStatus[messageId] = status
             }
         }
+    }
+
+    fun queryFileStatus(fileId: String?, fileMessageId: Long) {
+        if (_fileStatus[fileMessageId] != null) return
+        _fileStatus[fileMessageId] = ChatFileStatus.Querying
+
+        val queryFlow = repository.queryFileStatus(account, contact, fileId, fileMessageId)
+        viewModelScope.launch {
+            queryFlow.collect {
+                val status = when(it) {
+                    is LoadState.Loading -> ChatFileStatus.Querying
+                    is LoadState.Ok -> {
+                        if (it.value.url == null) ChatFileStatus.Expired
+                        else ChatFileStatus.Operational(it.value.url)
+                    }
+                    is LoadState.Error -> ChatFileStatus.Error(it.throwable.message)
+                }
+                _fileStatus[fileMessageId] = status
+            }
+        }
+
     }
 
     fun attachAudioStatusListener(audioFileMd5: String) {
@@ -196,20 +225,4 @@ sealed interface ChatElement {
     data class DateDivider(val date: String) : ChatElement {
         override val uniqueKey = date + hashCode()
     }
-}
-
-sealed interface ChatAudioStatus {
-    class Ready(val waveLine: List<Double>) : ChatAudioStatus
-    class Preparing(val progress: Double) : ChatAudioStatus
-    object NotFound : ChatAudioStatus
-    class Error(val msg: String?) : ChatAudioStatus
-}
-
-sealed interface ChatQuoteMessageStatus {
-    object Querying : ChatQuoteMessageStatus
-
-    class Error(val msg: String?) : ChatQuoteMessageStatus
-
-    class Ready(val msg: ChatElement.Message) : ChatQuoteMessageStatus
-
 }

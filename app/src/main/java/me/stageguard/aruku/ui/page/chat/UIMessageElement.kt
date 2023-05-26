@@ -78,7 +78,13 @@ sealed interface UIMessageElement {
         }
     }
 
-    class File(val name: String, val size: Long) : UIMessageElement {
+    class File(
+        val id: String?,
+        val name: String,
+        val extension: String?,
+        val size: Long,
+        val correspondingMessageId: Long, // used to update db message.
+    ) : UIMessageElement {
         override fun contentToString(): String {
             return "[文件]"
         }

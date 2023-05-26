@@ -62,6 +62,7 @@ suspend fun MessageChain.toMessageElements(contact: Contact? = null): List<Messa
                     val file = if (contact is Group) m.toAbsoluteFile(contact) else null
                     add(
                         File(
+                            file?.id,
                             file?.getUrl(),
                             m.name,
                             file?.md5,

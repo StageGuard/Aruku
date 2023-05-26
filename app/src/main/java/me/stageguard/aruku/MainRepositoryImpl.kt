@@ -17,11 +17,13 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.channels.onFailure
 import kotlinx.coroutines.channels.trySendBlocking
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.cancellable
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -42,6 +44,7 @@ import me.stageguard.aruku.database.message.toPreviewEntity
 import me.stageguard.aruku.domain.MainRepository
 import me.stageguard.aruku.domain.SequenceRoamingMessageMediator
 import me.stageguard.aruku.domain.data.message.Audio
+import me.stageguard.aruku.domain.data.message.File
 import me.stageguard.aruku.service.ServiceConnector
 import me.stageguard.aruku.service.bridge.AudioStatusListener
 import me.stageguard.aruku.service.bridge.AudioUrlQueryBridge
@@ -476,7 +479,7 @@ class MainRepositoryImpl(
         val job = launch(Dispatchers.IO) {
             database.suspendIO {
                 messageRecords().getExactMessage(account, contact.subject, contact.type, messageId)
-            }.catch {
+            }.cancellable().catch {
                 dbSourceDeferred.complete(LoadState.Error(it))
             }.collect { cache ->
                 val state: LoadState<MessageRecordEntity> = if (cache.isEmpty()) {
@@ -522,6 +525,86 @@ class MainRepositoryImpl(
         }
 
         job.cancel()
+    }
+
+    override fun queryFileStatus(
+        account: Long,
+        contact: ContactId,
+        fileId: String?,
+        fileMessageId: Long,
+    ): Flow<LoadState<File>> = channelFlow {
+        send(LoadState.Loading())
+        val dbSourceDeferred = CompletableDeferred<Unit>()
+
+        getExactMessageRecord(account, contact, fileMessageId)
+            .cancellable()
+            .take(1)
+            .collect {
+                val message = it.singleOrNull() ?: return@collect
+                val fileElement = message.message.singleOrNull() ?: return@collect
+                if (fileElement !is File) return@collect
+
+                dbSourceDeferred.complete(Unit)
+                logger.i("query file status of message $fileMessageId replied from db source.")
+                send(LoadState.Ok(fileElement))
+            }
+
+        mainScope.launch(Dispatchers.IO) {
+            if(fileId == null) {
+                val roaming = openRoamingQuery(account, contact)
+                if (roaming == null) {
+                    if (!dbSourceDeferred.isCompleted)
+                        send(LoadState.Error(Throwable("cannot open roaming query session.")))
+                    return@launch
+                }
+
+                val message = roaming.getMessagesBefore(fileMessageId, 1, exclude = false)
+                if (message.isNullOrEmpty()) {
+                    if (!dbSourceDeferred.isCompleted)
+                        send(LoadState.Error(Throwable("query file message is empty.")))
+                    return@launch
+                }
+
+                val file = message.first().message.singleOrNull() as? File
+                if (file == null) {
+                    if (!dbSourceDeferred.isCompleted)
+                        send(LoadState.Error(Throwable("query file message is empty.")))
+                    return@launch
+                }
+
+                logger.i("query file status of message $fileMessageId replied from roaming message.")
+                send(LoadState.Ok(file))
+            } else {
+                val remoteFile = awaitBinder().queryFile(account, contact, fileId)
+                if (remoteFile == null) {
+                    if (!dbSourceDeferred.isCompleted)
+                        send(LoadState.Error(Throwable("query file is empty.")))
+                    return@launch
+                }
+
+                val file = File(
+                    id = remoteFile.id,
+                    url = remoteFile.url,
+                    name = remoteFile.name,
+                    md5 = remoteFile.md5,
+                    extension = remoteFile.extension,
+                    size = remoteFile.size,
+                    expiryTime = remoteFile.expiryTime,
+                )
+
+                getExactMessageRecord(account, contact, fileMessageId)
+                    .cancellable()
+                    .take(1)
+                    .collect {
+                        val message = it.singleOrNull() ?: return@collect
+                        database.messageRecords().upsert(message.copy(message = listOf(file)))
+                    }
+
+                logger.i("query file status of message $fileMessageId replied from service.")
+                send(LoadState.Ok(file))
+            }
+        }
+
     }
 
     private fun assertServiceConnected() {

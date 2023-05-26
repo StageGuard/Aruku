@@ -6,17 +6,22 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.InlineTextContent
 import androidx.compose.foundation.text.appendInlineContent
+import androidx.compose.material.icons.Icons
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -29,6 +34,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
@@ -69,6 +75,8 @@ import kotlinx.coroutines.launch
 import me.stageguard.aruku.ui.LocalPrimaryMessage
 import me.stageguard.aruku.ui.common.ClickableText
 import me.stageguard.aruku.util.animateFloatAsMutableState
+import me.stageguard.aruku.util.formatFileSize
+import me.stageguard.aruku.util.getFileIcon
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.random.Random
@@ -363,22 +371,57 @@ fun Audio(
                 )
             }
         }
-
     }
 }
 
 @Composable
 fun File(
     element: UIMessageElement.File,
+    status: ChatFileStatus?,
     modifier: Modifier = Modifier,
+    textColor: Color = MaterialTheme.colorScheme.run {
+        if (LocalPrimaryMessage.current) onSecondary else onSecondaryContainer
+    },
     onClick: (url: String) -> Unit,
 ) { // TODO: audio visible element, currently plain text
-    AnnotatedText(
-        listOf(UIMessageElement.Text.PlainText("[File]${element.name}")),
-        onTextLayout = {},
+    val extension = remember(element) {
+        element.extension ?: element.name.split('.').lastOrNull() ?: ""
+    }
+    Row(
         modifier = modifier,
-        onClick = {}
-    )
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Surface(
+            modifier = Modifier.padding(end = 12.dp),
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 1.dp,
+        ) {
+            Box(
+                modifier = Modifier.size(48.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.getFileIcon(extension),
+                    contentDescription = "$extension file.",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+        Column {
+            Text(
+                text = element.name,
+                style = MaterialTheme.typography.labelLarge,
+                color = textColor
+            )
+            Spacer(modifier = Modifier.height(3.dp))
+            Text(
+                text = element.size.formatFileSize(),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.outline
+            )
+        }
+    }
 }
 
 @Composable

@@ -7,6 +7,7 @@ import me.stageguard.aruku.database.account.AccountEntity
 import me.stageguard.aruku.database.contact.ContactEntity
 import me.stageguard.aruku.database.message.MessagePreviewEntity
 import me.stageguard.aruku.database.message.MessageRecordEntity
+import me.stageguard.aruku.domain.data.message.File
 import me.stageguard.aruku.service.ServiceConnector
 import me.stageguard.aruku.service.bridge.AudioStatusListener
 import me.stageguard.aruku.service.bridge.LoginSolverBridge
@@ -64,5 +65,12 @@ interface MainRepository {
         contact: ContactId,
         messageId: Long
     ): Flow<LoadState<MessageRecordEntity>>
+
+    fun queryFileStatus(
+        account: Long,
+        contact: ContactId,
+        fileId: String?,
+        fileMessageId: Long,
+    ): Flow<LoadState<File>>
 }
 

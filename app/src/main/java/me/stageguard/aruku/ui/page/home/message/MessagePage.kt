@@ -104,7 +104,7 @@ fun HomeMessagePage(
     var currentFirstVisibleIndex by remember { mutableStateOf(listState.firstVisibleItemIndex) }
     LaunchedEffect(messages) {
         if (messages is LoadState.Ok) {
-            val first = messages.ok().data.firstOrNull()
+            val first = messages.ok().value.firstOrNull()
             if (first != null && listState.firstVisibleItemIndex > currentFirstVisibleIndex) {
                 listState.animateScrollToItem((listState.firstVisibleItemIndex - 1).coerceAtLeast(0))
             }
@@ -123,7 +123,7 @@ fun HomeMessagePage(
                 )
             ) {
                 if (messages is LoadState.Ok) {
-                    val data = messages.ok().data
+                    val data = messages.ok().value
                     items(data, key = { it.contact }) {
                         ContactMessageItem(
                             data = Either<Shimmer, SimpleMessagePreview>(it),

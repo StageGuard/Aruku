@@ -6,6 +6,7 @@ import me.stageguard.aruku.service.parcel.AccountProfile
 import me.stageguard.aruku.service.parcel.AccountState
 import me.stageguard.aruku.service.parcel.ContactId
 import me.stageguard.aruku.service.parcel.GroupMemberInfo
+import me.stageguard.aruku.service.parcel.RemoteFile
 import remoter.annotations.ParamIn
 import remoter.annotations.Remoter
 
@@ -29,6 +30,11 @@ interface ServiceBridge {
     fun getAvatarUrl(account: Long, @ParamIn contact: ContactId): String?
     fun getNickname(account: Long, @ParamIn contact: ContactId): String?
     fun getGroupMemberInfo(account: Long, groupId: Long, memberId: Long): GroupMemberInfo?
+    fun queryFile(
+        account: Long,
+        @ParamIn contact: ContactId,
+        fileId: String, // corresponding attribute, not-null
+    ): RemoteFile?
 
     fun attachAudioQueryBridge(@ParamIn bridge: AudioUrlQueryBridge): DisposableBridge
     fun attachAudioStatusListener(audioFileMd5: String, listener: AudioStatusListener): DisposableBridge

@@ -17,6 +17,7 @@ import me.stageguard.aruku.service.bridge.RoamingQueryBridge
 import me.stageguard.aruku.service.bridge.suspendIO
 import me.stageguard.aruku.service.parcel.ContactId
 import me.stageguard.aruku.service.parcel.Message
+import me.stageguard.aruku.util.createAndroidLogger
 import kotlin.coroutines.CoroutineContext
 
 /**
@@ -32,6 +33,8 @@ class SequenceRoamingMessageMediator(
     private val database: ArukuDatabase,
     roamingQueryBridgeProvider: (Long, ContactId) -> RoamingQueryBridge?
 ) : RemoteMediator<Int, MessageRecordEntity>(), CoroutineScope {
+    private val logger = createAndroidLogger()
+
     private val roamingQuerySession by lazy { roamingQueryBridgeProvider(account, contact) }
 
     private var currLastSeq = Long.MAX_VALUE
@@ -45,15 +48,20 @@ class SequenceRoamingMessageMediator(
         state: PagingState<Int, MessageRecordEntity>
     ): MediatorResult {
         val session0 = roamingQuerySession ?: return MediatorResult.Success(true)
-        println("type: $loadType")
-        println("id seq: ${state.pages.map { it.data.map { i2 -> i2.sequence } }}")
 
         if (loadType == LoadType.REFRESH) {
+            // if cannot get last sequence, just set the last in database as the sequence.
             val lastMessageId = session0.suspendIO { getLastMessageId() }
-                .also { println("newest message id: $it") }
-                ?: return MediatorResult.Success(true)
+                .also { logger.d("load refresh roaming get last message id = $it") }
+                ?: return MediatorResult.Success(false)
+
             val remoteSource = fetchRoamingMessage(session0, lastMessageId, 20, false)
-                .also { println("remote source refresh: $it") }
+            logger.d(buildString {
+                append("load refresh roaming remote source: size = ${remoteSource.size}")
+                if (remoteSource.isNotEmpty()) {
+                    append(", seq from ${remoteSource.first().sequence} to ${remoteSource.last().sequence}")
+                }
+            })
 
             database.suspendIO { messageRecords().upsert(*remoteSource.toTypedArray()) }
             seqLock.withLock { currLastSeq = remoteSource.last().sequence }
@@ -62,17 +70,25 @@ class SequenceRoamingMessageMediator(
         }
 
         if (loadType == LoadType.APPEND) {
-            val flattenSeq = state.pages.flatten().sortedByDescending { it.sequence }
-            checkAbsentMessage(flattenSeq)
+            val pageRecords = state.pages.flatten().sortedByDescending { it.sequence }
+            if (pageRecords.isEmpty()) return MediatorResult.Success(true)
 
-            val firstMessageId = flattenSeq.lastOrNull()?.messageId
-                ?: return MediatorResult.Success(true)
+            // if cannot get last sequence, just set the last in database as the sequence.
+            if (currLastSeq == Long.MAX_VALUE) {
+                currLastSeq = pageRecords.first().messageId
+            }
+            checkAbsentMessage(pageRecords)
 
+            val firstMessageId = pageRecords.last().messageId
             val remoteSource = fetchRoamingMessage(session0, firstMessageId, 20)
-                .also { println("remote source append: $it") }
+            logger.d(buildString {
+                append("load append roaming remote source: size = ${remoteSource.size}")
+                if (remoteSource.isNotEmpty()) {
+                    append(", seq from ${remoteSource.first().sequence} to ${remoteSource.last().sequence}")
+                }
+            })
 
             database.suspendIO { messageRecords().upsert(*remoteSource.toTypedArray()) }
-
             return MediatorResult.Success(remoteSource.isEmpty())
         }
 
@@ -86,7 +102,7 @@ class SequenceRoamingMessageMediator(
         seqLock.lock()
 
         val filterIndex = sequence.asReversed().indexOfFirst { it.sequence == currLastSeq }
-        println("check1aa currLastSeq: $currLastSeq, filterIndex: $filterIndex")
+        logger.d("check absent currLastSeq: $currLastSeq, filterIndex: $filterIndex")
         if (filterIndex <= 0) {
             seqLock.unlock()
             return@launch
@@ -107,10 +123,9 @@ class SequenceRoamingMessageMediator(
         }
 
         currLastSeq = minOf(currLastSeq, sequence.last().sequence)
-        println("check1aa updated currLastSeq: ${currLastSeq}, heads: $heads")
+        logger.d("check absent updated currLastSeq: ${currLastSeq}, heads: $heads")
 
         heads.forEach { head ->
-            println("check1aa enter head: $head")
             if (head.count <= 20) {
                 val remoteSource = fetchRoamingMessage(session0, head.messageId, head.count)
                 database.suspendIO { messageRecords().upsert(*remoteSource.toTypedArray()) }
@@ -123,7 +138,12 @@ class SequenceRoamingMessageMediator(
                 val fetchSize = remain.coerceAtMost(20)
 
                 val remoteSource = fetchRoamingMessage(session0, messageId, fetchSize)
-                println("check1aa remote: $remoteSource")
+                logger.d(buildString {
+                    append("load refresh roaming remote source: size = ${remoteSource.size}")
+                    if (remoteSource.isNotEmpty()) {
+                        append(", seq from ${remoteSource.first().sequence} to ${remoteSource.last().sequence}")
+                    }
+                })
                 if (remoteSource.isEmpty()) break
 
                 database.suspendIO { messageRecords().upsert(*remoteSource.toTypedArray()) }
@@ -151,7 +171,7 @@ class SequenceRoamingMessageMediator(
 
     private inner class AbsentMessageHead(val messageId: Long, val sequence: Long, val count: Int) {
         override fun toString(): String {
-            return "AbsentMessageHead(messageId=$messageId, sequence=$sequence, count=$count)"
+            return "AbsentHead(messageId=$messageId, sequence=$sequence, count=$count)"
         }
     }
 }

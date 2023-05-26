@@ -66,6 +66,7 @@ fun ChatPage(contact: ChatPageNav) {
     val messages = viewModel.messages.collectAsLazyPagingItems()
     val audioStatus by viewModel.audio.collectAsState(initial = mapOf())
     val quoteStatus by viewModel.quote.collectAsState(initial = mapOf())
+    val fileStatus by viewModel.file.collectAsState(initial = mapOf())
 
     ChatView(
         subjectName = subjectName,
@@ -73,10 +74,14 @@ fun ChatPage(contact: ChatPageNav) {
         messages = messages,
         audioStatus = audioStatus,
         quoteStatus = quoteStatus,
+        fileStatus = fileStatus,
         listState = listState,
         onRegisterAudioStatusListener = { viewModel.attachAudioStatusListener(it) },
         onUnRegisterAudioStatusListener = { viewModel.detachAudioStatusListener(it) },
-        onQueryQuoteMessage = { viewModel.querySingleMessage(it) }
+        onQueryQuoteMessage = { viewModel.querySingleMessage(it) },
+        onQueryFileStatus = { messageId: Long, fileId: String? ->
+            viewModel.queryFileStatus(fileId, messageId)
+        }
     )
 }
 
@@ -88,10 +93,12 @@ fun ChatView(
     messages: LazyPagingItems<ChatElement>,
     audioStatus: Map<String, ChatAudioStatus>,
     quoteStatus: Map<Long, ChatQuoteMessageStatus>,
+    fileStatus: Map<Long, ChatFileStatus>,
     listState: LazyListState,
     onRegisterAudioStatusListener: (fileMd5: String) -> Unit,
     onUnRegisterAudioStatusListener: (fileMd5: String) -> Unit,
     onQueryQuoteMessage: (messageId: Long) -> Unit,
+    onQueryFileStatus: (messageId: Long, fileId: String?) -> Unit
 ) {
     val systemUiController = LocalSystemUiController.current
 
@@ -141,11 +148,13 @@ fun ChatView(
                     chatList = messages,
                     audioStatus = audioStatus,
                     quoteStatus = quoteStatus,
+                    fileStatus = fileStatus,
                     lazyListState = listState,
                     paddingValues = paddingValues,
                     onRegisterAudioStatusListener = onRegisterAudioStatusListener,
                     onUnRegisterAudioStatusListener = onUnRegisterAudioStatusListener,
-                    onQueryQuoteMessage = onQueryQuoteMessage
+                    onQueryQuoteMessage = onQueryQuoteMessage,
+                    onQueryFileStatus = onQueryFileStatus
                 )
             }
         }
@@ -272,7 +281,7 @@ fun ChatViewPreview() {
                     ),
                 ))*/
 
-                add(ChatElement.Message(
+                /*add(ChatElement.Message(
                     senderId = 1355416608L,
                     senderName = "StageGuard",
                     senderAvatarUrl = null,
@@ -283,23 +292,6 @@ fun ChatViewPreview() {
                             add(UIMessageElement.Text.At(123, "某人"))
                             add(UIMessageElement.Text.PlainText("今天你的群老婆是"))
                         }),
-                        /*UIMessageElement.Image(
-                            url = "https://gchat.qpic.cn/gchatpic_new/1178264292/4119460545-2779732610-372F20E31A4F7DBED8A95DC45A6D65D4/0?term=255&is_origin=1",
-                            width = 640,
-                            height = 640,
-                            uuid = "789",
-                            isEmoticons = false,
-                        ),
-                        UIMessageElement.Image(
-                            url = "https://gchat.qpic.cn/gchatpic_new/1178264292/4119460545-2779732610-372F20E31A4F7DBED8A95DC45A6D65D4/0?term=255&is_origin=1",
-                            width = 640,
-                            height = 640,
-                            uuid = "789",
-                            isEmoticons = false,
-                        ),*//*
-                            UIMessageElement.AnnotatedText(buildList {
-                                add(UIMessageElement.Text.PlainText("游荡的牧师 | lhe_wp(3356639033)哒"))
-                            })*/
                     ),
                 ))
 
@@ -341,6 +333,23 @@ fun ChatViewPreview() {
                             UIMessageElement.Text.Face(10, "buzhidao"),
                             UIMessageElement.Text.Face(12, "?")
                         ))
+                    ),
+                ))*/
+                val msgFileId = randSrcId()
+                add(ChatElement.Message(
+                    senderId = 132123123L,
+                    senderName = "Sender1",
+                    senderAvatarUrl = null,
+                    time = "11:45",
+                    messageId = msgFileId,
+                    messages = listOf(
+                        UIMessageElement.File(
+                            id = "fileId",
+                            "resource.zip",
+                            "zip",
+                            789234,
+                            msgFileId,
+                        )
                     ),
                 ))
             }
@@ -552,6 +561,12 @@ fun ChatViewPreview() {
                 )
             }
 
+            val map3 = remember {
+                mutableStateMapOf(
+                    12345678L to ChatFileStatus.Operational("")
+                )
+            }
+
             LaunchedEffect(key1 = Unit, block = {
                 map["audio2"] = ChatAudioStatus.Preparing(0.0)
                 var progress = 0.0
@@ -571,8 +586,9 @@ fun ChatViewPreview() {
                 }.collectAsLazyPagingItems(),
                 audioStatus = map,
                 quoteStatus = map2,
+                fileStatus = map3,
                 listState = state,
-                {}, {}, {}
+                {}, {}, {}, { _, _ -> }
             )
         }
     }

@@ -64,7 +64,7 @@ fun HomeContactPage(padding: PaddingValues) {
                 )
 
                 is LoadState.Ok<List<SimpleContactData>> -> {
-                    ContactTabContent(state.data) {
+                    ContactTabContent(state.value) {
 
                     }
                 }
@@ -87,7 +87,7 @@ fun HomeContactPage(padding: PaddingValues) {
                 )
 
                 is LoadState.Ok<List<SimpleContactData>> -> {
-                    ContactTabContent(state.data) {
+                    ContactTabContent(state.value) {
 
                     }
                 }

@@ -48,6 +48,7 @@ data class Audio(
 @Parcelize
 @Serializable
 data class File(
+    val id: String?,
     val url: String?,
     val name: String,
     val md5: ByteArray?,
@@ -65,6 +66,7 @@ data class File(
 
         other as File
 
+        if (id != other.id) return false
         if (url != other.url) return false
         if (name != other.name) return false
         if (md5 != null) {
@@ -73,13 +75,12 @@ data class File(
         } else if (other.md5 != null) return false
         if (extension != other.extension) return false
         if (size != other.size) return false
-        if (expiryTime != other.expiryTime) return false
-
-        return true
+        return expiryTime == other.expiryTime
     }
 
     override fun hashCode(): Int {
-        var result = url?.hashCode() ?: 0
+        var result = id?.hashCode() ?: 0
+        result = 31 * result + (url?.hashCode() ?: 0)
         result = 31 * result + name.hashCode()
         result = 31 * result + (md5?.contentHashCode() ?: 0)
         result = 31 * result + (extension?.hashCode() ?: 0)

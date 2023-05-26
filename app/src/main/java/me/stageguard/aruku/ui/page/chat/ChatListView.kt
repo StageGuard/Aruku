@@ -69,12 +69,14 @@ fun ChatListView(
     chatList: LazyPagingItems<ChatElement>,
     audioStatus: Map<String, ChatAudioStatus>,
     quoteStatus: Map<Long, ChatQuoteMessageStatus>,
+    fileStatus: Map<Long, ChatFileStatus>,
     lazyListState: LazyListState,
     paddingValues: PaddingValues,
     modifier: Modifier = Modifier,
     onRegisterAudioStatusListener: (fileMd5: String) -> Unit,
     onUnRegisterAudioStatusListener: (fileMd5: String) -> Unit,
     onQueryQuoteMessage: (messageId: Long) -> Unit,
+    onQueryFileStatus: (messageId: Long, fileId: String?) -> Unit
 ) {
     val bot = LocalBot.current
 
@@ -111,6 +113,9 @@ fun ChatListView(
                         // query quote message
                         val quote = element.messages.filterIsInstance<UIMessageElement.Quote>().firstOrNull()
                         if (quote != null) onQueryQuoteMessage(quote.messageId)
+                        // query file message
+                        val file = element.messages.filterIsInstance<UIMessageElement.File>().firstOrNull()
+                        if (file != null) onQueryFileStatus(file.correspondingMessageId, file.id)
 
                         val sentByBot = element.senderId == bot
                         CompositionLocalProvider(LocalPrimaryMessage provides sentByBot) {
@@ -131,6 +136,7 @@ fun ChatListView(
                                 messages = element.messages,
                                 audioStatus = audio?.run { audioStatus[identity] },
                                 quoteStatus = quote?.run { quoteStatus[messageId] },
+                                fileStatus = file?.run { fileStatus[correspondingMessageId] },
                                 modifier = Modifier
                                     .padding(horizontal = 12.dp)
                                     .padding(bottom = if (nextSentByCurrent) 2.dp else 8.dp)
@@ -173,6 +179,7 @@ private fun Message(
     messages: List<UIMessageElement>,
     audioStatus: ChatAudioStatus?,
     quoteStatus: ChatQuoteMessageStatus?,
+    fileStatus: ChatFileStatus?,
     modifier: Modifier = Modifier,
     onClickAvatar: (Long) -> Unit,
 ) {
@@ -294,6 +301,7 @@ private fun Message(
                     ),
                     audioStatus = audioStatus,
                     quoteStatus = quoteStatus,
+                    fileStatus = fileStatus,
                     time = time,
                     modifier = Modifier.widthIn(
                         max = with(density) { messageContentWidth.toDp() }
@@ -319,6 +327,7 @@ private fun RichMessage(
     textContentStyle: TextStyle,
     audioStatus: ChatAudioStatus?,
     quoteStatus: ChatQuoteMessageStatus?,
+    fileStatus: ChatFileStatus?,
     time: String,
     commonImageShape: CornerBasedShape,
     singleImageShape: CornerBasedShape,
@@ -328,10 +337,7 @@ private fun RichMessage(
     val isPrimary = LocalPrimaryMessage.current
     val density = LocalDensity.current
 
-    val contentPadding = message.run {
-        val single = singleOrNull() ?: return@run 8.dp
-        if (single !is UIMessageElement.AnnotatedText) return@run 0.dp else return@run 8.dp
-    }
+    val contentPadding = 8.dp
 
     @Composable
     fun MessageTimeIndicator(
@@ -376,8 +382,9 @@ private fun RichMessage(
 
     @Composable
     fun UIMessageElement.toLayout(
-        singleElementModifier: Modifier? = null,
+        elementModifier: Modifier? = null,
         imageShape: Shape = commonImageShape,
+        quoteBackgroundShape: Shape = imageShape,
         onMeasureTextLayout: (TextLayoutResult) -> Unit = {}
     ) {
         when (this) {
@@ -385,47 +392,45 @@ private fun RichMessage(
                 texts = textSlice,
                 baseTextColor = textContentColor,
                 textStyle = textContentStyle,
-                modifier = singleElementModifier ?: Modifier,
+                modifier = elementModifier ?: Modifier,
                 onTextLayout = onMeasureTextLayout,
                 onClick = { },
             )
             is UIMessageElement.Image -> Image(
                 element = this,
                 shape = imageShape,
-                modifier = singleElementModifier ?: Modifier,
+                modifier = elementModifier ?: Modifier,
                 onClick = {  }
             )
             is UIMessageElement.FlashImage -> FlashImage(
                 element = this,
                 shape = imageShape,
-                modifier = singleElementModifier ?: Modifier,
+                modifier = elementModifier ?: Modifier,
                 onClick = {  }
             )
             is UIMessageElement.Audio -> Audio(
-                this,
+                element = this,
                 status = audioStatus,
-                modifier = singleElementModifier ?: Modifier
+                modifier = elementModifier ?: Modifier
             ) { }
             is UIMessageElement.File -> File(
-                this,
-                modifier = singleElementModifier ?: Modifier
+                element = this,
+                status = fileStatus,
+                modifier = elementModifier ?: Modifier
             ) { }
             is UIMessageElement.Forward -> {} //TODO
             is UIMessageElement.Quote -> Quote(
                 element = this,
-                shape = singleImageShape.copy(
-                    bottomStart = commonImageShape.bottomStart,
-                    bottomEnd = commonImageShape.bottomEnd
-                ),
-                status = quoteStatus, // TODO
+                shape = quoteBackgroundShape,
+                status = quoteStatus,
                 padding = 8.dp,
                 backgroundColor = MaterialTheme.colorScheme.run {
                     if (isPrimary) secondaryContainer else surface2
                 },
-                modifier = singleElementModifier ?: Modifier,
+                modifier = elementModifier ?: Modifier,
             ) {  }
             is UIMessageElement.Unsupported -> Unsupported(this,
-                modifier = singleElementModifier ?: Modifier)
+                modifier = elementModifier ?: Modifier)
         }
     }
 
@@ -446,7 +451,7 @@ private fun RichMessage(
 
             val text = subcompose(SlotId.Text) {
                 annotatedText.toLayout(
-                    singleElementModifier = textModifier,
+                    elementModifier = textModifier,
                     onMeasureTextLayout = {
                         lineCount = it.lineCount
                         val lastLine = it.lineCount - 1
@@ -494,12 +499,17 @@ private fun RichMessage(
     @Composable
     fun MessageFlowRow(
         elements: List<UIMessageElement>,
-        singleElementModifier: Modifier = Modifier
+        elementModifier: Modifier = Modifier
     ) {
         if (elements.isEmpty()) return
-        SubcomposeLayout(modifier = singleElementModifier) { constraints ->
+        SubcomposeLayout { constraints ->
             val placeable = subcompose(SlotId.Other) {
+                if (elements.size == 1) {
+                    elements.single().toLayout(elementModifier = elementModifier)
+                    return@subcompose
+                }
                 FlowRow(
+                    modifier = elementModifier,
                     mainAxisAlignment = MainAxisAlignment.Start
                 ) {
                     elements.forEach { it.toLayout() }
@@ -516,22 +526,28 @@ private fun RichMessage(
     @Composable
     fun QuoteOrNormalFlowRow(
         elements: List<UIMessageElement>,
-        singleElementModifier: Modifier = Modifier,
+        elementModifier: Modifier = Modifier,
     ) {
         val first = message.first()
         // first is quote
         if (first is UIMessageElement.Quote) {
             val remain = elements.drop(1)
             // quote
-            first.toLayout(singleElementModifier = singleElementModifier)
+            first.toLayout(
+                elementModifier = elementModifier,
+                quoteBackgroundShape = singleImageShape.copy(
+                    bottomStart = commonImageShape.bottomStart,
+                    bottomEnd = commonImageShape.bottomEnd
+                )
+            )
             MessageFlowRow(
                 elements = remain,
-                singleElementModifier = singleElementModifier
+                elementModifier = elementModifier
             )
         } else {
             MessageFlowRow(
                 elements = elements,
-                singleElementModifier = singleElementModifier
+                elementModifier = elementModifier
             )
         }
     }
@@ -546,7 +562,7 @@ private fun RichMessage(
             // single image
             single != null && single.isImage() -> {
                 single.toLayout(
-                    singleElementModifier = Modifier
+                    elementModifier = Modifier
                         .padding(contentPadding + 2.dp),
                     imageShape = singleImageShape
                 )
@@ -562,7 +578,7 @@ private fun RichMessage(
             // two or more message elements
             else -> {
                 val last = message.lastOrNull() ?: return@Box
-                val singleElementModifier = Modifier
+                val elementModifier = Modifier
                     .padding(horizontal = contentPadding + 2.dp)
                     .padding(top = contentPadding + 2.dp)
 
@@ -571,7 +587,7 @@ private fun RichMessage(
                     CoerceWidthLayout { remeasuredWidth: Dp? ->
                         QuoteOrNormalFlowRow(
                             elements = message.dropLast(1),
-                            singleElementModifier = singleElementModifier,
+                            elementModifier = elementModifier,
                         )
                         TextWithAdaptedTimeIndicator(
                             annotatedText = last,
@@ -584,7 +600,7 @@ private fun RichMessage(
                     CoerceWidthLayout {
                         QuoteOrNormalFlowRow(
                             elements = message,
-                            singleElementModifier = singleElementModifier,
+                            elementModifier = elementModifier,
                         )
                         CommonMessageTimeIndicator(
                             mdf = Modifier

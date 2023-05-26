@@ -58,6 +58,7 @@ import me.stageguard.aruku.service.parcel.ContactType
 import me.stageguard.aruku.service.parcel.GroupMemberInfo
 import me.stageguard.aruku.service.parcel.Message
 import me.stageguard.aruku.service.parcel.MessageImpl
+import me.stageguard.aruku.service.parcel.RemoteFile
 import me.stageguard.aruku.service.parcel.toContactInfo
 import me.stageguard.aruku.service.parcel.toGroupMemberInfo
 import me.stageguard.aruku.ui.activity.MainActivity
@@ -227,6 +228,14 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
             memberId: Long
         ): GroupMemberInfo? {
             return service.getGroupMember(account, groupId, memberId)?.toGroupMemberInfo()
+        }
+
+        override fun queryFile(
+            account: Long,
+            contact: ContactId,
+            fileId: String,
+        ): RemoteFile? {
+            return service.queryFile(account, contact, fileId)
         }
 
         override fun queryAccountInfo(account: Long): AccountInfo? {
@@ -681,6 +690,38 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
         return group.getMember(memberId)
     }
 
+    private fun queryFile(
+        account: Long,
+        contact: ContactId,
+        fileId: String,
+    ): RemoteFile? {
+        val bot = Bot.getInstanceOrNull(account) ?: return null
+        val job = botJobs[account] ?: kotlin.run {
+            logger.w("file query cannot find bot job $account.")
+            return null
+        }
+        if (contact.type != ContactType.GROUP) {
+            logger.w("file query is not supported of $contact")
+            return null
+        }
+
+        return runBlocking(job) {
+            val group = bot.getGroup(contact.subject) ?: return@runBlocking null
+            val absFile = group.files.root.resolveFileById(fileId, deep = true)
+                ?: return@runBlocking null
+
+            RemoteFile(
+                absFile.id,
+                absFile.getUrl(),
+                absFile.name,
+                absFile.md5,
+                absFile.name.split('.').lastOrNull() ?: "",
+                absFile.size,
+                absFile.expiryTime
+            )
+        }
+    }
+
     private fun createRoamingQuerySession(
         account: Long,
         contact: ContactId
@@ -757,6 +798,10 @@ class ArukuMiraiService : LifecycleService(), CoroutineScope {
                             .cancellable()
                             .take(1)
                             .toList()
+
+                        if (msg.isEmpty()) {
+                            logger.w("roaming getLastMessageId of contact $contact is empty.")
+                        }
 
                         return@runCatching msg
                             .firstOrNull()
