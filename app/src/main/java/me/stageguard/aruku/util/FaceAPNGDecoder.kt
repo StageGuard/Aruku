@@ -9,6 +9,7 @@ import coil.request.Options
 import com.github.penfeizhou.animation.apng.APNGDrawable
 import com.github.penfeizhou.animation.loader.AssetStreamLoader
 import me.stageguard.aruku.ArukuApplication
+import java.io.FileNotFoundException
 
 class FaceAPNGDecoder(private val source: ImageSource) : Decoder {
 
@@ -30,6 +31,14 @@ class FaceAPNGDecoder(private val source: ImageSource) : Decoder {
         ): Decoder? {
             val rawPath = result.source.file().toString()
             if (!rawPath.matches(faceAssetMatcher)) return null
+
+            try {
+                ArukuApplication.INSTANCE.assets
+                    .openFd(rawPath.substringAfter("android_asset/"))
+                    .close()
+            } catch (e: FileNotFoundException) {
+                return null
+            }
 
             return FaceAPNGDecoder(result.source)
         }
