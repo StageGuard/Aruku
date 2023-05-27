@@ -29,9 +29,9 @@ fun Icons.Outlined.getFileIcon(extension: String) = when (extension) {
 fun Long.formatFileSize(): String {
     val format = DecimalFormat("#.##")
     return when (coerceAtLeast(0)) {
-        in 0 until 1024 -> "${this}B"
-        in 1024 until 1048576 -> "${format.format(toDouble() / 1024)}KB"
-        in 1048576 until 1073741824 -> "${format.format(toDouble() / 1048576)}MB"
-        else -> "${format.format(toDouble() / 1073741824)}GB"
+        in 0 until 1024 -> "$this B"
+        in 1024 until 1048576 -> "${format.format(toDouble() / 1024)} KB"
+        in 1048576 until 1073741824 -> "${format.format(toDouble() / 1048576)} MB"
+        else -> "${format.format(toDouble() / 1073741824)} GB"
     }
 }

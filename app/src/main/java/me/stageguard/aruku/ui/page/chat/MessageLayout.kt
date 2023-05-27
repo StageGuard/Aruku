@@ -1,5 +1,6 @@
 package me.stageguard.aruku.ui.page.chat
 
+import android.annotation.SuppressLint
 import android.net.Uri
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
@@ -60,6 +61,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.coerceIn
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.valentinilk.shimmer.Shimmer
@@ -72,8 +74,8 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import me.stageguard.aruku.ui.LocalPrimaryMessage
 import me.stageguard.aruku.ui.common.ClickableText
+import me.stageguard.aruku.ui.theme.surface2
 import me.stageguard.aruku.util.animateFloatAsMutableState
 import me.stageguard.aruku.util.formatFileSize
 import me.stageguard.aruku.util.getFileIcon
@@ -81,12 +83,83 @@ import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.random.Random
 
+@SuppressLint("ComposableNaming")
+@Composable
+fun UIMessageElement.toLayout(
+    isPrimary: Boolean,
+    modifier: Modifier = Modifier,
+    textContentColor: Color = MaterialTheme.colorScheme.run {
+        if (isPrimary) onSecondary else onSecondaryContainer
+    },
+    textStyle: TextStyle = MaterialTheme.typography.bodyMedium.copy(
+        fontSize = 15.sp,
+        fontWeight = FontWeight.Medium
+    ),
+    imageShape: Shape = RoundedCornerShape(2.5.dp),
+    quoteBackgroundShape: Shape = imageShape,
+    quoteBackgroundColor: Color = MaterialTheme.colorScheme.run {
+        if (isPrimary) secondaryContainer else surface2
+    },
+    audioStatus: ChatAudioStatus? = null,
+    quoteStatus: ChatQuoteMessageStatus? = null,
+    fileStatus: ChatFileStatus? = null,
+    onMeasureTextLayout: (TextLayoutResult) -> Unit = {}
+) {
+    when (this) {
+        is UIMessageElement.AnnotatedText -> AnnotatedText(
+            texts = textSlice,
+            baseTextColor = textContentColor,
+            textStyle = textStyle,
+            isPrimary = isPrimary,
+            modifier = modifier,
+            onTextLayout = onMeasureTextLayout,
+            onClick = { },
+        )
+        is UIMessageElement.Image -> Image(
+            element = this,
+            shape = imageShape,
+            modifier = modifier,
+            onClick = {  }
+        )
+        is UIMessageElement.FlashImage -> FlashImage(
+            element = this,
+            shape = imageShape,
+            modifier = modifier,
+            onClick = {  }
+        )
+        is UIMessageElement.Audio -> Audio(
+            element = this,
+            status = audioStatus,
+            isPrimary = isPrimary,
+            modifier = modifier
+        ) { }
+        is UIMessageElement.File -> File(
+            element = this,
+            status = fileStatus,
+            isPrimary = isPrimary,
+            modifier = modifier
+        ) { }
+        is UIMessageElement.Forward -> {} //TODO
+        is UIMessageElement.Quote -> Quote(
+            element = this,
+            shape = quoteBackgroundShape,
+            status = quoteStatus,
+            padding = 8.dp,
+            bodyTextColor = textContentColor,
+            backgroundColor = quoteBackgroundColor,
+            modifier = modifier,
+        ) {  }
+        is UIMessageElement.Unsupported -> Unsupported(this, modifier = modifier)
+    }
+}
+
 @Composable
 fun AnnotatedText(
     texts: List<UIMessageElement.Text>,
+    isPrimary: Boolean,
     modifier: Modifier = Modifier,
     baseTextColor: Color = MaterialTheme.colorScheme.run {
-        if (LocalPrimaryMessage.current) onSecondary else onSecondaryContainer
+        if (isPrimary) onSecondary else onSecondaryContainer
     },
     textStyle: TextStyle = MaterialTheme.typography.bodyLarge,
     onTextLayout: (TextLayoutResult) -> Unit,
@@ -94,7 +167,6 @@ fun AnnotatedText(
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
-    val isPrimary = LocalPrimaryMessage.current
 
     val currentOnClick by rememberUpdatedState(newValue = onClick)
     val textSizeDp = remember(density) { with(density) { 24.dp.toSp() } }
@@ -229,11 +301,11 @@ fun FlashImage(
 fun Audio(
     element: UIMessageElement.Audio,
     status: ChatAudioStatus?,
+    isPrimary: Boolean,
     modifier: Modifier = Modifier,
     onClick: (identity: String) -> Unit,
 ) {
     val density = LocalDensity.current
-    val isPrimary = LocalPrimaryMessage.current
 
     val width = with(density) { 150.dp.roundToPx().toFloat() }
     val height = with(density) { 50.dp.roundToPx().toFloat() }
@@ -378,9 +450,10 @@ fun Audio(
 fun File(
     element: UIMessageElement.File,
     status: ChatFileStatus?,
+    isPrimary: Boolean,
     modifier: Modifier = Modifier,
     textColor: Color = MaterialTheme.colorScheme.run {
-        if (LocalPrimaryMessage.current) onSecondary else onSecondaryContainer
+        if (isPrimary) onSecondary else onSecondaryContainer
     },
     onClick: (url: String) -> Unit,
 ) { // TODO: audio visible element, currently plain text
@@ -403,7 +476,7 @@ fun File(
             ) {
                 Icon(
                     imageVector = Icons.Outlined.getFileIcon(extension),
-                    contentDescription = "$extension file.",
+                    contentDescription = "$extension file",
                     tint = MaterialTheme.colorScheme.primary
                 )
             }
@@ -421,6 +494,7 @@ fun File(
                 color = MaterialTheme.colorScheme.outline
             )
         }
+        Spacer(modifier = Modifier.width(8.dp))
     }
 }
 
@@ -521,6 +595,7 @@ fun Unsupported(
         listOf(UIMessageElement.Text.PlainText("[Unsupported]${element.content.take(15)}")),
         onTextLayout = {},
         modifier = modifier,
+        isPrimary = true,
         onClick = {}
     )
 }

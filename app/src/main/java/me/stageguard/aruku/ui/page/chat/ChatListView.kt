@@ -1,6 +1,7 @@
 package me.stageguard.aruku.ui.page.chat
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -36,14 +37,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.layoutId
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -381,66 +380,11 @@ private fun RichMessage(
     )
 
     @Composable
-    fun UIMessageElement.toLayout(
-        elementModifier: Modifier? = null,
-        imageShape: Shape = commonImageShape,
-        quoteBackgroundShape: Shape = imageShape,
-        onMeasureTextLayout: (TextLayoutResult) -> Unit = {}
-    ) {
-        when (this) {
-            is UIMessageElement.AnnotatedText -> AnnotatedText(
-                texts = textSlice,
-                baseTextColor = textContentColor,
-                textStyle = textContentStyle,
-                modifier = elementModifier ?: Modifier,
-                onTextLayout = onMeasureTextLayout,
-                onClick = { },
-            )
-            is UIMessageElement.Image -> Image(
-                element = this,
-                shape = imageShape,
-                modifier = elementModifier ?: Modifier,
-                onClick = {  }
-            )
-            is UIMessageElement.FlashImage -> FlashImage(
-                element = this,
-                shape = imageShape,
-                modifier = elementModifier ?: Modifier,
-                onClick = {  }
-            )
-            is UIMessageElement.Audio -> Audio(
-                element = this,
-                status = audioStatus,
-                modifier = elementModifier ?: Modifier
-            ) { }
-            is UIMessageElement.File -> File(
-                element = this,
-                status = fileStatus,
-                modifier = elementModifier ?: Modifier
-            ) { }
-            is UIMessageElement.Forward -> {} //TODO
-            is UIMessageElement.Quote -> Quote(
-                element = this,
-                shape = quoteBackgroundShape,
-                status = quoteStatus,
-                padding = 8.dp,
-                backgroundColor = MaterialTheme.colorScheme.run {
-                    if (isPrimary) secondaryContainer else surface2
-                },
-                modifier = elementModifier ?: Modifier,
-            ) {  }
-            is UIMessageElement.Unsupported -> Unsupported(this,
-                modifier = elementModifier ?: Modifier)
-        }
-    }
-
-    @Composable
     fun TextWithAdaptedTimeIndicator(
         annotatedText: UIMessageElement.AnnotatedText,
         textModifier: Modifier = Modifier,
         coerceMinWidth: Dp = 0.dp,
     ) {
-
         var lastLineWidth by remember { mutableStateOf(0) }
         var lineCount by remember { mutableStateOf(1) }
 
@@ -451,7 +395,10 @@ private fun RichMessage(
 
             val text = subcompose(SlotId.Text) {
                 annotatedText.toLayout(
-                    elementModifier = textModifier,
+                    isPrimary = isPrimary,
+                    modifier = textModifier,
+                    textContentColor = textContentColor,
+                    textStyle = textContentStyle,
                     onMeasureTextLayout = {
                         lineCount = it.lineCount
                         val lastLine = it.lineCount - 1
@@ -505,14 +452,33 @@ private fun RichMessage(
         SubcomposeLayout { constraints ->
             val placeable = subcompose(SlotId.Other) {
                 if (elements.size == 1) {
-                    elements.single().toLayout(elementModifier = elementModifier)
+                    elements.single().toLayout(
+                        isPrimary = isPrimary,
+                        modifier = elementModifier,
+                        imageShape = commonImageShape,
+                        textContentColor = textContentColor,
+                        textStyle = textContentStyle,
+                        audioStatus = audioStatus,
+                        quoteStatus = quoteStatus,
+                        fileStatus = fileStatus
+                    )
                     return@subcompose
                 }
                 FlowRow(
                     modifier = elementModifier,
                     mainAxisAlignment = MainAxisAlignment.Start
                 ) {
-                    elements.forEach { it.toLayout() }
+                    elements.forEach {
+                        it.toLayout(
+                            isPrimary = isPrimary,
+                            imageShape = commonImageShape,
+                            textContentColor = textContentColor,
+                            textStyle = textContentStyle,
+                            audioStatus = audioStatus,
+                            quoteStatus = quoteStatus,
+                            fileStatus = fileStatus
+                        )
+                    }
                 }
             }.single().measure(constraints.copy(minWidth = 0))
 
@@ -534,11 +500,19 @@ private fun RichMessage(
             val remain = elements.drop(1)
             // quote
             first.toLayout(
-                elementModifier = elementModifier,
+                isPrimary = isPrimary,
+                modifier = elementModifier,
+                textContentColor = textContentColor,
                 quoteBackgroundShape = singleImageShape.copy(
                     bottomStart = commonImageShape.bottomStart,
                     bottomEnd = commonImageShape.bottomEnd
-                )
+                ),
+                quoteBackgroundColor = MaterialTheme.colorScheme.run {
+                    if (isPrimary) onSecondaryContainer.copy(
+                        alpha = if (isSystemInDarkTheme()) 1.0f else 0.5f
+                    ) else surface2
+                },
+                quoteStatus = quoteStatus,
             )
             MessageFlowRow(
                 elements = remain,
@@ -562,8 +536,8 @@ private fun RichMessage(
             // single image
             single != null && single.isImage() -> {
                 single.toLayout(
-                    elementModifier = Modifier
-                        .padding(contentPadding + 2.dp),
+                    isPrimary = isPrimary,
+                    modifier = Modifier.padding(2.dp),
                     imageShape = singleImageShape
                 )
                 ImageMessageTimeIndicator()
