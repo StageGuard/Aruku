@@ -18,7 +18,7 @@ import me.stageguard.aruku.service.parcel.Message
 data class MessagePreviewEntity(
     @ColumnInfo(name = "account_id") val account: Long,
     @Embedded val contact: ContactId,
-    @ColumnInfo(name = "time") var time: Long,
+    @ColumnInfo(name = "time") var timeMillis: Long,
     @ColumnInfo(name = "preview") var previewContent: String,
     @ColumnInfo(name = "unread_count") var unreadCount: Int,
     // message id is calculated by account, contact and other properties

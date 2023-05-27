@@ -36,7 +36,7 @@ fun Long.toFormattedTime(): String = patternHHmm.format(
 
 @Composable
 fun Long.toFormattedDateTime() = buildString {
-    val time = LocalDateTime.ofEpochSecond(this@toFormattedDateTime, 0, zoneOffset)
+    val time = LocalDateTime.ofEpochSecond(this@toFormattedDateTime / 1000, 0, zoneOffset)
     val current = LocalDateTime.now()
 
     if (current.dayOfYear == time.dayOfYear && time.year == current.year) {

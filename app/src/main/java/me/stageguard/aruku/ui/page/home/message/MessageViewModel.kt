@@ -58,7 +58,7 @@ class MessageViewModel(
                                 name = repository.getNickname(b, it.contact)
                                     ?: it.contact.subject.toString(),
                                 preview = it.previewContent,
-                                time = it.time,
+                                timeMillis = it.timeMillis,
                                 unreadCount = it.unreadCount,
                                 messageId = it.messageId,
                             )
@@ -85,7 +85,7 @@ data class SimpleMessagePreview(
     val avatarData: Any?,
     val name: String,
     val preview: String,
-    val time: Long,
+    val timeMillis: Long,
     val unreadCount: Int,
     val messageId: Long,
 )

@@ -259,7 +259,7 @@ fun ContactMessageItem(
                     verticalArrangement = Arrangement.Top
                 ) {
                     Text(
-                        text = data.rightOrNull?.time?.toFormattedDateTime() ?: "",
+                        text = data.rightOrNull?.timeMillis?.toFormattedDateTime() ?: "",
                         modifier = Modifier.let {
                             if (data.isLeft) {
                                 it
