@@ -9,10 +9,8 @@ import coil.request.Options
 import com.github.penfeizhou.animation.apng.APNGDrawable
 import com.github.penfeizhou.animation.loader.AssetStreamLoader
 import me.stageguard.aruku.ArukuApplication
-import java.io.FileNotFoundException
 
 class FaceAPNGDecoder(private val source: ImageSource) : Decoder {
-
     override suspend fun decode(): DecodeResult {
         val assetPath = source.file().toString().substringAfter("android_asset/")
         val assetLoader = AssetStreamLoader(ArukuApplication.INSTANCE, assetPath)
@@ -24,6 +22,9 @@ class FaceAPNGDecoder(private val source: ImageSource) : Decoder {
     }
 
     class Factory : Decoder.Factory {
+        private val faceList by lazy { ArukuApplication.INSTANCE.assets.list("face/") }
+        private val existTable: MutableMap<String, Boolean> = hashMapOf()
+
         override fun create(
             result: SourceResult,
             options: Options,
@@ -31,16 +32,19 @@ class FaceAPNGDecoder(private val source: ImageSource) : Decoder {
         ): Decoder? {
             val rawPath = result.source.file().toString()
             if (!rawPath.matches(faceAssetMatcher)) return null
+            val list = faceList ?: return null
 
-            try {
-                ArukuApplication.INSTANCE.assets
-                    .openFd(rawPath.substringAfter("android_asset/"))
-                    .close()
-            } catch (e: FileNotFoundException) {
-                return null
-            }
+            val faceFileName = rawPath.substringAfter("face/")
 
-            return FaceAPNGDecoder(result.source)
+            // fast path
+            val exist = existTable[faceFileName]
+            if (exist == true) return FaceAPNGDecoder(result.source)
+            if (exist == false) return null
+
+            // slow path
+            val contains = list.contains(faceFileName)
+            existTable[faceFileName] = contains
+            return if (contains) FaceAPNGDecoder(result.source) else null
         }
 
         companion object {
