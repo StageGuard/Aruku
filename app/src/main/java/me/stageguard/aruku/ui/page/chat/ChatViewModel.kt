@@ -7,12 +7,14 @@ import androidx.lifecycle.viewModelScope
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import androidx.paging.map
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.cancellable
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
 import me.stageguard.aruku.cache.AudioCache
 import me.stageguard.aruku.database.LoadState
 import me.stageguard.aruku.database.message.MessageRecordEntity
@@ -47,7 +49,7 @@ class ChatViewModel(
     // key is audio md5
     private val _audioStatus = mutableStateMapOf<String, ChatAudioStatus>()
     // key is message id
-    private val _queryStatus = mutableStateMapOf<Long, ChatQuoteMessageStatus>()
+    private val _quoteStatus = mutableStateMapOf<Long, ChatQuoteMessageStatus>()
     // key is file message id
     private val _fileStatus = mutableStateMapOf<Long, ChatFileStatus>()
 
@@ -65,7 +67,7 @@ class ChatViewModel(
     @UiState
     val audio = snapshotFlow { _audioStatus.toMap() }
     @UiState
-    val quote = snapshotFlow { _queryStatus.toMap() }
+    val quote = snapshotFlow { _quoteStatus.toMap() }
     @UiState
     val file = snapshotFlow { _fileStatus.toMap() }
 
@@ -139,33 +141,41 @@ class ChatViewModel(
         )
     }
 
-    fun querySingleMessage(messageId: Long) {
-        if (_queryStatus[messageId] != null) return
-        _queryStatus[messageId] = ChatQuoteMessageStatus.Querying
+    /**
+     * start query quote status.
+     * This method is called in composable disposable effect scope.
+     */
+    suspend fun querySingleMessage(messageId: Long) {
+        if (_quoteStatus[messageId] != null) return
+        _quoteStatus.putIfAbsent(messageId, ChatQuoteMessageStatus.Querying)
 
-        val queryFlow = repository.querySingleMessage(account, contact, messageId)
-        viewModelScope.launch {
-            queryFlow.collect {
-                val status = when(it) {
+        repository.querySingleMessage(account, contact, messageId)
+            .cancellable()
+            .flowOn(Dispatchers.Main)
+            .collect {
+                _quoteStatus[messageId] = when(it) {
                     is LoadState.Loading -> ChatQuoteMessageStatus.Querying
                     is LoadState.Ok -> ChatQuoteMessageStatus.Ready(
                         it.value.mapChatElement(true) as ChatElement.Message
                     )
                     is LoadState.Error -> ChatQuoteMessageStatus.Error(it.throwable.message)
                 }
-                _queryStatus[messageId] = status
             }
-        }
     }
 
-    fun queryFileStatus(fileId: String?, fileMessageId: Long) {
+    /**
+     * start query file status.
+     * This method is called in composable disposable effect scope.
+     */
+    suspend fun queryFileStatus(fileId: String?, fileMessageId: Long) {
         if (_fileStatus[fileMessageId] != null) return
-        _fileStatus[fileMessageId] = ChatFileStatus.Querying
+        _fileStatus.putIfAbsent(fileMessageId, ChatFileStatus.Querying)
 
-        val queryFlow = repository.queryFileStatus(account, contact, fileId, fileMessageId)
-        viewModelScope.launch {
-            queryFlow.collect {
-                val status = when(it) {
+        repository.queryFileStatus(account, contact, fileId, fileMessageId)
+            .cancellable()
+            .flowOn(Dispatchers.Main)
+            .collect {
+                _fileStatus[fileMessageId] = when(it) {
                     is LoadState.Loading -> ChatFileStatus.Querying
                     is LoadState.Ok -> {
                         if (it.value.url == null) ChatFileStatus.Expired
@@ -173,10 +183,7 @@ class ChatViewModel(
                     }
                     is LoadState.Error -> ChatFileStatus.Error(it.throwable.message)
                 }
-                _fileStatus[fileMessageId] = status
-            }
-        }
-
+         }
     }
 
     fun attachAudioStatusListener(audioFileMd5: String) {

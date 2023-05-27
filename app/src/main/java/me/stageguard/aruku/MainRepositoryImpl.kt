@@ -9,10 +9,12 @@ import androidx.paging.PagingConfig
 import androidx.paging.PagingData
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.channels.onFailure
 import kotlinx.coroutines.channels.trySendBlocking
@@ -23,6 +25,7 @@ import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -471,12 +474,10 @@ class MainRepositoryImpl(
         account: Long,
         contact: ContactId,
         messageId: Long
-    ): Flow<LoadState<MessageRecordEntity>> = flow {
-        emit(LoadState.Loading())
+    ): Flow<LoadState<MessageRecordEntity>> {
         val dbSourceDeferred = CompletableDeferred<LoadState<MessageRecordEntity>>()
-
         // load from database
-        val job = launch(Dispatchers.IO) {
+        val dbSourceJob = launch(context = Dispatchers.IO, start = CoroutineStart.LAZY) {
             database.suspendIO {
                 messageRecords().getExactMessage(account, contact.subject, contact.type, messageId)
             }.cancellable().catch {
@@ -490,41 +491,50 @@ class MainRepositoryImpl(
             }
         }
 
-        runCatching {
-            withTimeout(100) {
-                val result = dbSourceDeferred.await()
-                if (result is LoadState.Error) throw result.throwable
+        return flow {
+            emit(LoadState.Loading())
+            dbSourceJob.start()
 
-                emit(result)
-                logger.i("query single message $messageId replied from database source.")
-            }
-        }.onFailure { th ->
-            if (th !is TimeoutCancellationException && th !is EmptyMessageRecordException) {
-                logger.w("error while awaiting query single message from db source.", th)
-                emit(LoadState.Error(th))
-                return@onFailure
-            }
+            runCatching {
+                withTimeout(100) {
+                    val result = dbSourceDeferred.await()
+                    if (result is LoadState.Error) throw result.throwable
 
-            val roaming = openRoamingQuery(account, contact)
-            if (roaming == null) {
-                logger.w("error while creating roaming query session to query single message.", th)
-                emit(LoadState.Error(th))
-                return@onFailure
-            }
+                    emit(result)
+                    logger.i("query single message $messageId replied from database source.")
+                }
+            }.onFailure { th ->
+                if (th !is TimeoutCancellationException && th !is EmptyMessageRecordException) {
+                    logger.w("error while awaiting query single message from db source.", th)
+                    emit(LoadState.Error(th))
+                    return@onFailure
+                }
 
-            val remoteSource = roaming.suspendIO { getMessagesBefore(messageId, 1, false) }
-            if (remoteSource.isNullOrEmpty()) {
-                emit(LoadState.Error(IllegalStateException("remote query single message is null.")))
-                return@onFailure
-            }
+                val roaming = openRoamingQuery(account, contact)
+                if (roaming == null) {
+                    logger.w(
+                        "error while creating roaming query session to query single message.",
+                        th
+                    )
+                    emit(LoadState.Error(th))
+                    return@onFailure
+                }
 
-            val entity = remoteSource.first().toEntity()
-            database.suspendIO { messageRecords().upsert(entity) }
-            emit(LoadState.Ok(entity))
-            logger.i("query single message $messageId replied from remote source.")
+                val remoteSource = roaming.suspendIO { getMessagesBefore(messageId, 1, false) }
+                if (remoteSource.isNullOrEmpty()) {
+                    emit(LoadState.Error(IllegalStateException("remote query single message is null.")))
+                    return@onFailure
+                }
+
+                val entity = remoteSource.first().toEntity()
+                database.suspendIO { messageRecords().upsert(entity) }
+                emit(LoadState.Ok(entity))
+                logger.i("query single message $messageId replied from remote source.")
+            }
+            dbSourceJob.cancel()
+        }.onCompletion {
+            dbSourceJob.cancelAndJoin()
         }
-
-        job.cancel()
     }
 
     override fun queryFileStatus(
@@ -549,7 +559,7 @@ class MainRepositoryImpl(
                 send(LoadState.Ok(fileElement))
             }
 
-        mainScope.launch(Dispatchers.IO) {
+        launch(Dispatchers.IO) {
             if(fileId == null) {
                 val roaming = openRoamingQuery(account, contact)
                 if (roaming == null) {

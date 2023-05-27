@@ -97,8 +97,8 @@ fun ChatView(
     listState: LazyListState,
     onRegisterAudioStatusListener: (fileMd5: String) -> Unit,
     onUnRegisterAudioStatusListener: (fileMd5: String) -> Unit,
-    onQueryQuoteMessage: (messageId: Long) -> Unit,
-    onQueryFileStatus: (messageId: Long, fileId: String?) -> Unit
+    onQueryQuoteMessage: suspend (messageId: Long) -> Unit,
+    onQueryFileStatus: suspend (messageId: Long, fileId: String?) -> Unit,
 ) {
     val systemUiController = LocalSystemUiController.current
 
@@ -154,7 +154,7 @@ fun ChatView(
                     onRegisterAudioStatusListener = onRegisterAudioStatusListener,
                     onUnRegisterAudioStatusListener = onUnRegisterAudioStatusListener,
                     onQueryQuoteMessage = onQueryQuoteMessage,
-                    onQueryFileStatus = onQueryFileStatus
+                    onQueryFileStatus = onQueryFileStatus,
                 )
             }
         }

@@ -27,7 +27,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -57,6 +56,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.google.accompanist.flowlayout.FlowRow
 import com.google.accompanist.flowlayout.MainAxisAlignment
+import kotlinx.coroutines.launch
 import me.stageguard.aruku.ui.LocalBot
 import me.stageguard.aruku.ui.LocalPrimaryMessage
 import me.stageguard.aruku.ui.common.CoerceWidthLayout
@@ -74,13 +74,29 @@ fun ChatListView(
     modifier: Modifier = Modifier,
     onRegisterAudioStatusListener: (fileMd5: String) -> Unit,
     onUnRegisterAudioStatusListener: (fileMd5: String) -> Unit,
-    onQueryQuoteMessage: (messageId: Long) -> Unit,
-    onQueryFileStatus: (messageId: Long, fileId: String?) -> Unit
+    onQueryQuoteMessage: suspend (messageId: Long) -> Unit,
+    onQueryFileStatus: suspend (messageId: Long, fileId: String?) -> Unit,
 ) {
     val bot = LocalBot.current
 
-    LaunchedEffect(true) {
-        lazyListState.scrollToItem(0)
+    LaunchedEffect(chatList.itemSnapshotList) {
+        chatList.itemSnapshotList.forEach { element ->
+            if (element == null) return@forEach
+            if (element !is ChatElement.Message) return@forEach
+
+            // observe audio status in composable
+            val audio = element.messages.filterIsInstance<UIMessageElement.Audio>().firstOrNull()
+            if (audio != null) launch { onRegisterAudioStatusListener(audio.identity) }
+                .invokeOnCompletion { onUnRegisterAudioStatusListener(audio.identity) }
+
+            // query quote message
+            val quote = element.messages.filterIsInstance<UIMessageElement.Quote>().firstOrNull()
+            if (quote != null) launch { onQueryQuoteMessage(quote.messageId) }
+
+            // query file message
+            val file = element.messages.filterIsInstance<UIMessageElement.File>().firstOrNull()
+            if (file != null) launch { onQueryFileStatus(file.correspondingMessageId, file.id) }
+        }
     }
 
     Box(modifier = modifier) {
@@ -97,26 +113,16 @@ fun ChatListView(
                             if (index + 1 >= chatList.itemCount) false else chatList[index + 1].run {
                                 this is ChatElement.Message && this.senderId == element.senderId
                             }
-
                         val nextSentByCurrent =
                             if (index == 0) false else chatList[index - 1].run {
                                 this is ChatElement.Message && this.senderId == element.senderId
                             }
-
-                        // observe audio status in composable
-                        val audio = element.messages.filterIsInstance<UIMessageElement.Audio>().firstOrNull()
-                        if (audio != null) DisposableEffect(key1 = this) {
-                            onRegisterAudioStatusListener(audio.identity)
-                            onDispose { onUnRegisterAudioStatusListener(audio.identity) }
-                        }
-                        // query quote message
-                        val quote = element.messages.filterIsInstance<UIMessageElement.Quote>().firstOrNull()
-                        if (quote != null) onQueryQuoteMessage(quote.messageId)
-                        // query file message
-                        val file = element.messages.filterIsInstance<UIMessageElement.File>().firstOrNull()
-                        if (file != null) onQueryFileStatus(file.correspondingMessageId, file.id)
-
                         val sentByBot = element.senderId == bot
+
+                        val audio = element.messages.filterIsInstance<UIMessageElement.Audio>().firstOrNull()
+                        val quote = element.messages.filterIsInstance<UIMessageElement.Quote>().firstOrNull()
+                        val file = element.messages.filterIsInstance<UIMessageElement.File>().firstOrNull()
+
                         CompositionLocalProvider(LocalPrimaryMessage provides sentByBot) {
                             Message(
                                 messageId = element.messageId,
