@@ -16,25 +16,24 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import me.stageguard.aruku.cache.AudioCache
+import me.stageguard.aruku.common.createAndroidLogger
+import me.stageguard.aruku.common.message.At
+import me.stageguard.aruku.common.message.AtAll
+import me.stageguard.aruku.common.message.Audio
+import me.stageguard.aruku.common.message.Face
+import me.stageguard.aruku.common.message.File
+import me.stageguard.aruku.common.message.FlashImage
+import me.stageguard.aruku.common.message.Forward
+import me.stageguard.aruku.common.message.Image
+import me.stageguard.aruku.common.message.MessageElement
+import me.stageguard.aruku.common.message.PlainText
+import me.stageguard.aruku.common.message.Quote
+import me.stageguard.aruku.common.service.parcel.ContactType
 import me.stageguard.aruku.database.LoadState
 import me.stageguard.aruku.database.message.MessageRecordEntity
 import me.stageguard.aruku.domain.MainRepository
-import me.stageguard.aruku.domain.data.message.At
-import me.stageguard.aruku.domain.data.message.AtAll
-import me.stageguard.aruku.domain.data.message.Audio
-import me.stageguard.aruku.domain.data.message.Face
-import me.stageguard.aruku.domain.data.message.File
-import me.stageguard.aruku.domain.data.message.FlashImage
-import me.stageguard.aruku.domain.data.message.Forward
-import me.stageguard.aruku.domain.data.message.Image
-import me.stageguard.aruku.domain.data.message.MessageElement
-import me.stageguard.aruku.domain.data.message.PlainText
-import me.stageguard.aruku.domain.data.message.Quote
-import me.stageguard.aruku.service.bridge.AudioStatusListener
-import me.stageguard.aruku.service.parcel.ContactType
 import me.stageguard.aruku.ui.UiState
 import me.stageguard.aruku.ui.page.ChatPageNav
-import me.stageguard.aruku.util.createAndroidLogger
 import me.stageguard.aruku.util.toFormattedTime
 
 class ChatViewModel(
@@ -179,27 +178,28 @@ class ChatViewModel(
                     is LoadState.Loading -> ChatFileStatus.Querying
                     is LoadState.Ok -> {
                         if (it.value.url == null) ChatFileStatus.Expired
-                        else ChatFileStatus.Operational(it.value.url)
+                        else ChatFileStatus.Operational(it.value.url!!)
                     }
                     is LoadState.Error -> ChatFileStatus.Error(it.throwable.message)
                 }
          }
     }
 
-    fun attachAudioStatusListener(audioFileMd5: String) {
-        repository.attachAudioStatusListener(audioFileMd5, AudioStatusListener {
-            val status = when(it) {
-                is AudioCache.State.Error -> ChatAudioStatus.Error(it.msg ?: "unknown error")
-                is AudioCache.State.NotFound -> ChatAudioStatus.NotFound
-                is AudioCache.State.Ready -> ChatAudioStatus.Ready(List(20) { Math.random() })
-                is AudioCache.State.Preparing -> ChatAudioStatus.Preparing(it.progress)
-            }
-            _audioStatus[audioFileMd5] = status
-        })
-    }
+    suspend fun queryAudioStatus(audioFileMd5: String) {
+        _audioStatus.putIfAbsent(audioFileMd5, ChatAudioStatus.Preparing(0.0))
 
-    fun detachAudioStatusListener(audioFileMd5: String) {
-        repository.detachAudioStatusListener(audioFileMd5)
+        repository.queryAudioStatus(audioFileMd5)
+            .cancellable()
+            .flowOn(Dispatchers.Main)
+            .collect {
+                val status = when (it) {
+                    is AudioCache.State.Error -> ChatAudioStatus.Error(it.msg ?: "unknown error")
+                    is AudioCache.State.NotFound -> ChatAudioStatus.NotFound
+                    is AudioCache.State.Ready -> ChatAudioStatus.Ready(List(20) { Math.random() })
+                    is AudioCache.State.Preparing -> ChatAudioStatus.Preparing(it.progress)
+                }
+                _audioStatus[audioFileMd5] = status
+            }
     }
 
     private fun MessageElement.isText(): Boolean {
@@ -227,9 +227,5 @@ sealed interface ChatElement {
         val annotated: List<Pair<IntRange, () -> Unit>>
     ) : ChatElement {
         override val uniqueKey = content + hashCode()
-    }
-
-    data class DateDivider(val date: String) : ChatElement {
-        override val uniqueKey = date + hashCode()
     }
 }

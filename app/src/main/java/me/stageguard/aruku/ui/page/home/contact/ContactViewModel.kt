@@ -12,8 +12,6 @@ import kotlinx.coroutines.launch
 import me.stageguard.aruku.database.LoadState
 import me.stageguard.aruku.database.mapOk
 import me.stageguard.aruku.domain.MainRepository
-import me.stageguard.aruku.service.parcel.ContactId
-import me.stageguard.aruku.service.parcel.ContactType
 import me.stageguard.aruku.ui.UiState
 
 /**
@@ -31,11 +29,17 @@ class ContactViewModel(
         repository.getGroups(bot).mapOk { data ->
             data.map {
                 SimpleContactData(
-                    ContactId(ContactType.GROUP, it.contact.subject),
+                    me.stageguard.aruku.common.service.parcel.ContactId(
+                        me.stageguard.aruku.common.service.parcel.ContactType.GROUP,
+                        it.contact.subject
+                    ),
                     it.name,
                     repository.getAvatarUrl(
                         bot,
-                        ContactId(ContactType.GROUP, it.contact.subject)
+                        me.stageguard.aruku.common.service.parcel.ContactId(
+                            me.stageguard.aruku.common.service.parcel.ContactType.GROUP,
+                            it.contact.subject
+                        )
                     )
                 )
             }
@@ -46,11 +50,17 @@ class ContactViewModel(
         repository.getFriends(bot).mapOk { data ->
             data.map {
                 SimpleContactData(
-                    ContactId(ContactType.FRIEND, it.contact.subject),
+                    me.stageguard.aruku.common.service.parcel.ContactId(
+                        me.stageguard.aruku.common.service.parcel.ContactType.FRIEND,
+                        it.contact.subject
+                    ),
                     it.name,
                     repository.getAvatarUrl(
                         bot,
-                        ContactId(ContactType.FRIEND, it.contact.subject)
+                        me.stageguard.aruku.common.service.parcel.ContactId(
+                            me.stageguard.aruku.common.service.parcel.ContactType.FRIEND,
+                            it.contact.subject
+                        )
                     )
                 )
             }
@@ -66,7 +76,7 @@ class ContactViewModel(
 data class ContactTab(@StringRes val title: Int, val content: @Composable () -> Unit)
 
 data class SimpleContactData(
-    val contact: ContactId,
+    val contact: me.stageguard.aruku.common.service.parcel.ContactId,
     val name: String,
     val avatarData: Any?,
 )

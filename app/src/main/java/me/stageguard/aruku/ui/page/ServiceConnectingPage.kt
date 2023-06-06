@@ -22,9 +22,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import me.stageguard.aruku.R
-import me.stageguard.aruku.service.ArukuMiraiService
+import me.stageguard.aruku.common.createAndroidLogger
+import me.stageguard.aruku.service.ArukuService
 import me.stageguard.aruku.ui.theme.ArukuTheme
-import me.stageguard.aruku.util.createAndroidLogger
 import me.stageguard.aruku.util.stringResC
 import java.lang.ref.WeakReference
 
@@ -34,10 +34,10 @@ private val logger = createAndroidLogger("ServiceConnectingPage")
 fun ServiceConnectingPage(connectorRef: WeakReference<ServiceConnection>) {
     val context = LocalContext.current
     SideEffect {
-        val startResult = context.startService(Intent(context, ArukuMiraiService::class.java))
+        val startResult = context.startService(Intent(context, ArukuService::class.java))
         if (startResult == null) logger.e("Cannot start ArukuMiraiService.")
         val bindResult = connectorRef.get()?.let {
-            context.bindService(Intent(context, ArukuMiraiService::class.java), it, Context.BIND_ABOVE_CLIENT)
+            context.bindService(Intent(context, ArukuService::class.java), it, Context.BIND_ABOVE_CLIENT)
         }
         if (bindResult != true) logger.e("Cannot bind ArukuMiraiService.")
     }

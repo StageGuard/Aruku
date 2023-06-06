@@ -5,9 +5,9 @@ import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.Index
 import kotlinx.serialization.Serializable
-import me.stageguard.aruku.domain.data.message.contentToString
-import me.stageguard.aruku.service.parcel.ContactId
-import me.stageguard.aruku.service.parcel.Message
+import me.stageguard.aruku.common.message.contentToString
+import me.stageguard.aruku.common.service.parcel.ContactId
+import me.stageguard.aruku.common.service.parcel.Message
 
 @Serializable
 @Entity(

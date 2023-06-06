@@ -22,8 +22,8 @@ import com.google.accompanist.pager.*
 import kotlinx.coroutines.launch
 import me.stageguard.aruku.R
 import me.stageguard.aruku.database.LoadState
-import me.stageguard.aruku.service.parcel.ContactId
-import me.stageguard.aruku.service.parcel.ContactType
+import me.stageguard.aruku.common.service.parcel.ContactId
+import me.stageguard.aruku.common.service.parcel.ContactType
 import me.stageguard.aruku.ui.LocalBot
 import me.stageguard.aruku.ui.common.WhitePage
 import me.stageguard.aruku.ui.common.pagerTabIndicatorOffsetMD3
@@ -134,7 +134,7 @@ fun ContactTabs(tabs: List<ContactTab>, pagerState: PagerState, modifier: Modifi
 fun ContactTabContent(
     data: List<SimpleContactData>,
     modifier: Modifier = Modifier,
-    onContactClick: (ContactId) -> Unit
+    onContactClick: (me.stageguard.aruku.common.service.parcel.ContactId) -> Unit
 ) {
     LazyColumn(
         modifier = modifier,
@@ -227,17 +227,26 @@ fun ContactTabContentPreview() {
         ContactTabContent(
             data = listOf(
                 SimpleContactData(
-                    ContactId(ContactType.GROUP, 1234556L),
+                    me.stageguard.aruku.common.service.parcel.ContactId(
+                        me.stageguard.aruku.common.service.parcel.ContactType.GROUP,
+                        1234556L
+                    ),
                     "group 1",
                     R.mipmap.ic_launcher
                 ),
                 SimpleContactData(
-                    ContactId(ContactType.GROUP, 114514L),
+                    me.stageguard.aruku.common.service.parcel.ContactId(
+                        me.stageguard.aruku.common.service.parcel.ContactType.GROUP,
+                        114514L
+                    ),
                     "group 2",
                     R.mipmap.load_loading
                 ),
                 SimpleContactData(
-                    ContactId(ContactType.FRIEND, 1919810L),
+                    me.stageguard.aruku.common.service.parcel.ContactId(
+                        me.stageguard.aruku.common.service.parcel.ContactType.FRIEND,
+                        1919810L
+                    ),
                     "friend 1",
                     R.mipmap.load_empty
                 )

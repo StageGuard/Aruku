@@ -9,9 +9,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.MutableLiveData
-import me.stageguard.aruku.service.bridge.ServiceBridge
-import me.stageguard.aruku.service.bridge.ServiceBridge_Proxy
-import me.stageguard.aruku.util.createAndroidLogger
+import me.stageguard.aruku.common.createAndroidLogger
+import me.stageguard.aruku.common.service.bridge.ServiceBridge
+import me.stageguard.aruku.common.service.bridge.ServiceBridge_Proxy
 
 class ServiceConnector(
     private val context: Context
@@ -43,7 +43,7 @@ class ServiceConnector(
         when (event) {
             Lifecycle.Event.ON_CREATE -> {
                 val bindResult = context.bindService(
-                    Intent(context, ArukuMiraiService::class.java), this, Context.BIND_ABOVE_CLIENT
+                    Intent(context, ArukuService::class.java), this, Context.BIND_ABOVE_CLIENT
                 )
                 if (!bindResult) logger.e("Cannot bind ArukuMiraiService.")
             }

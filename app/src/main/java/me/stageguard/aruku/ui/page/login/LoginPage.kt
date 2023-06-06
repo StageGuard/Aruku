@@ -25,22 +25,20 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.accompanist.permissions.*
 import me.stageguard.aruku.R
-import me.stageguard.aruku.service.parcel.AccountLoginData
+import me.stageguard.aruku.common.createAndroidLogger
+import me.stageguard.aruku.common.service.parcel.AccountLoginData
 import me.stageguard.aruku.ui.LocalAccountsState
 import me.stageguard.aruku.ui.common.SingleItemLazyColumn
 import me.stageguard.aruku.ui.page.UIAccountState
 import me.stageguard.aruku.ui.theme.ArukuTheme
-import me.stageguard.aruku.util.createAndroidLogger
 import me.stageguard.aruku.util.stringResC
-import net.mamoe.mirai.utils.BotConfiguration
-import net.mamoe.mirai.utils.secondsToMillis
 import org.koin.androidx.compose.koinViewModel
 
 private val logger = createAndroidLogger("LoginPage")
 
 @Composable
 fun LoginPage(
-    doLogin: (AccountLoginData) -> Unit,
+    doLogin: (me.stageguard.aruku.common.service.parcel.AccountLoginData) -> Unit,
     submitCaptcha: (String?) -> Unit,
 
     onLoginFailed: (Long) -> Unit,
@@ -71,6 +69,8 @@ fun LoginPage(
 
     LoginView(
         accountInfo = viewModel.accountInfo,
+        protocolList = viewModel.protocols,
+        hbList = viewModel.heartbeatStrategies,
         state = lastLoginState,
         onLoginClick = {
             doLogin(viewModel.accountInfo.value)
@@ -80,7 +80,7 @@ fun LoginPage(
             lastLoginState = LoginState.Default
             currentOnLoginFailed(it)
         },
-        onSubmitCaptchaClick = { acc, result ->
+        onSubmitCaptchaClick = { _, result ->
             lastLoginState = LoginState.Logging
             submitCaptcha(result)
         }
@@ -91,6 +91,8 @@ fun LoginPage(
 @Composable
 fun LoginView(
     accountInfo: MutableState<AccountLoginData>,
+    protocolList: List<String>,
+    hbList: List<String>,
     state: LoginState,
     onLoginClick: (Long) -> Unit,
     onLoginFailedClick: (Long) -> Unit,
@@ -210,6 +212,8 @@ fun LoginView(
                     )
                     AdvancedOptions(
                         state is LoginState.Default,
+                        protocolList,
+                        hbList,
                         protocol,
                         heartbeatStrategy,
                         heartbeatPeriodMillis,
@@ -304,15 +308,16 @@ fun LoginViewPreview() {
             AccountLoginData(
                 accountNo = 0L,
                 passwordMd5 = "",
-                protocol = BotConfiguration.MiraiProtocol.ANDROID_PHONE.toString(),
-                heartbeatStrategy = BotConfiguration.HeartbeatStrategy.STAT_HB.toString(),
-                heartbeatPeriodMillis = 60.secondsToMillis,
-                heartbeatTimeoutMillis = 5.secondsToMillis,
-                statHeartbeatPeriodMillis = 300.secondsToMillis,
+                protocol = "ANDROID_PHONE",
+                heartbeatStrategy = "STAT_HB",
+                heartbeatPeriodMillis = 60 * 1000,
+                heartbeatTimeoutMillis = 5 * 1000,
+                statHeartbeatPeriodMillis = 300 * 1000,
                 autoReconnect = true,
                 reconnectionRetryTimes = 5
             )
         ),
+            listOf(), listOf(),
             loginState,
             onLoginClick = {},
             onLoginFailedClick = {},

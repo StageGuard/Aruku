@@ -52,10 +52,12 @@ fun ChatTitleBar(
                         .crossfade(true)
                         .build(),
                     contentDescription = "subject avatar",
-                    modifier = Modifier.fillMaxSize().background(
-                        color = MaterialTheme.colorScheme.secondary,
-                        shape = CircleShape
-                    ),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            color = MaterialTheme.colorScheme.secondary,
+                            shape = CircleShape
+                        ),
                     contentScale = ContentScale.Crop
                 )
             }

@@ -10,14 +10,14 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import me.stageguard.aruku.common.createAndroidLogger
+import me.stageguard.aruku.common.service.bridge.RoamingQueryBridge
+import me.stageguard.aruku.common.service.bridge.suspendIO
+import me.stageguard.aruku.common.service.parcel.ContactId
+import me.stageguard.aruku.common.service.parcel.Message
 import me.stageguard.aruku.database.ArukuDatabase
 import me.stageguard.aruku.database.message.MessageRecordEntity
 import me.stageguard.aruku.database.message.toEntity
-import me.stageguard.aruku.service.bridge.RoamingQueryBridge
-import me.stageguard.aruku.service.bridge.suspendIO
-import me.stageguard.aruku.service.parcel.ContactId
-import me.stageguard.aruku.service.parcel.Message
-import me.stageguard.aruku.util.createAndroidLogger
 import kotlin.coroutines.CoroutineContext
 
 /**

@@ -5,8 +5,6 @@ import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.Index
 import kotlinx.serialization.Serializable
-import me.stageguard.aruku.service.parcel.ContactId
-import me.stageguard.aruku.service.parcel.ContactInfo
 
 @Serializable
 @Entity(
@@ -16,10 +14,10 @@ import me.stageguard.aruku.service.parcel.ContactInfo
 )
 data class ContactEntity(
     @ColumnInfo(name = "account_id") val account: Long,
-    @Embedded val contact: ContactId,
+    @Embedded val contact: me.stageguard.aruku.common.service.parcel.ContactId,
     @ColumnInfo(name = "name") var name: String,
     @ColumnInfo(name = "avatar_url", defaultValue = "") var avatarUrl: String,
 )
 
-fun ContactInfo.toEntity(account: Long) =
+fun me.stageguard.aruku.common.service.parcel.ContactInfo.toEntity(account: Long) =
     ContactEntity(account, id, name ?: "", avatarUrl ?: "")

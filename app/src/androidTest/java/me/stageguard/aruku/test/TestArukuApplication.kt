@@ -2,7 +2,7 @@ package me.stageguard.aruku.test
 
 import android.app.Application
 import android.content.Intent
-import me.stageguard.aruku.service.ArukuMiraiService
+import me.stageguard.aruku.service.ArukuService
 import me.stageguard.aruku.util.createAndroidLogger
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.koin.android.ext.koin.androidContext
@@ -28,7 +28,7 @@ class TestArukuApplication : Application() {
 //            modules(testBotFactoryModule)
         }
 
-        startService(Intent(this, ArukuMiraiService::class.java))
+        startService(Intent(this, ArukuService::class.java))
         super.onCreate()
     }
 

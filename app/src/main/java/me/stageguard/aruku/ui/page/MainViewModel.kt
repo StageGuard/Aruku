@@ -13,14 +13,13 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.runBlocking
+import me.stageguard.aruku.common.createAndroidLogger
+import me.stageguard.aruku.common.service.parcel.AccountLoginData
+import me.stageguard.aruku.common.service.parcel.AccountState
 import me.stageguard.aruku.domain.MainRepository
-import me.stageguard.aruku.service.bridge.LoginSolverBridge
-import me.stageguard.aruku.service.parcel.AccountLoginData
-import me.stageguard.aruku.service.parcel.AccountState
 import me.stageguard.aruku.ui.UiState
 import me.stageguard.aruku.ui.page.login.CaptchaType
 import me.stageguard.aruku.ui.page.login.LoginState
-import me.stageguard.aruku.util.createAndroidLogger
 
 class MainViewModel(
     private val repository: MainRepository,
@@ -49,7 +48,8 @@ class MainViewModel(
             }.stateIn(viewModelScope, SharingStarted.Lazily, mapOf())
 
     init {
-        repository.attachLoginSolver(object : LoginSolverBridge {
+        repository.attachLoginSolver(object :
+            me.stageguard.aruku.common.service.bridge.LoginSolverBridge {
             override fun onSolvePicCaptcha(bot: Long, data: ByteArray?): String? {
                 return runBlocking(viewModelScope.coroutineContext) { captchaChannel.receive() }
             }

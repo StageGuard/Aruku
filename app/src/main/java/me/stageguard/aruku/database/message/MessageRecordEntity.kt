@@ -8,9 +8,9 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 import kotlinx.parcelize.Parcelize
 import kotlinx.serialization.Serializable
-import me.stageguard.aruku.domain.data.message.MessageElement
-import me.stageguard.aruku.service.parcel.ContactId
-import me.stageguard.aruku.service.parcel.Message
+import me.stageguard.aruku.common.message.MessageElement
+import me.stageguard.aruku.common.service.parcel.ContactId
+import me.stageguard.aruku.common.service.parcel.Message
 
 @Parcelize
 @Serializable

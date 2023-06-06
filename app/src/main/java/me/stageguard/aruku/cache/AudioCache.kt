@@ -1,8 +1,5 @@
 package me.stageguard.aruku.cache
 
-import android.os.Parcelable
-import kotlinx.atomicfu.AtomicRef
-import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
@@ -10,44 +7,40 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.channels.BufferOverflow
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.channels.ReceiveChannel
-import kotlinx.coroutines.flow.cancellable
-import kotlinx.coroutines.flow.consumeAsFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
-import kotlinx.parcelize.Parcelize
+import me.stageguard.aruku.common.createAndroidLogger
+import me.stageguard.aruku.database.ArukuDatabase
 import me.stageguard.aruku.domain.RetrofitDownloadService
-import me.stageguard.aruku.service.bridge.AudioStatusListener
-import me.stageguard.aruku.service.bridge.AudioUrlQueryBridge
-import me.stageguard.aruku.util.createAndroidLogger
 import me.stageguard.aruku.util.md5
 import java.io.File
 import java.io.FileNotFoundException
-import java.lang.ref.WeakReference
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.CoroutineContext
 
 class AudioCache(
     context: CoroutineContext,
     private val cacheFolder: File,
-    private val audioUrlQueryBridge: WeakReference<AudioUrlQueryBridge>,
+    private val database: ArukuDatabase,
     private val downloadService: RetrofitDownloadService
 ) : CoroutineScope {
     private val logger = createAndroidLogger()
 
     private val downloadJobs = ConcurrentHashMap<String, DownloadJob>() // audio md5
-    private val stateListeners = ConcurrentHashMap<String, AudioStatusListener>() // audio md5
+    private val stateListeners = ConcurrentHashMap<String, (State) -> Unit>() // audio md5
     private val listenerJobs = HashMap<String, Job>()
 
     override val coroutineContext: CoroutineContext = context + SupervisorJob()
 
     // only runs in main dispatcher
     @OptIn(ExperimentalCoroutinesApi::class)
-    fun attachListener(fileMd5: String, listener: AudioStatusListener) {
+    fun attachListener(fileMd5: String, listener: (State) -> Unit) {
         stateListeners[fileMd5] = listener
 
         val existing = listenerJobs[fileMd5]
@@ -56,17 +49,18 @@ class AudioCache(
             listenerJobs.remove(fileMd5, existing)
         }
 
-        val job = launch(start = CoroutineStart.LAZY) {
+        val job = launch(context = Dispatchers.IO, start = CoroutineStart.LAZY) {
             runCatching {
                 if (resolveCacheFile(fileMd5).md5.uppercase().contentEquals(fileMd5)) {
-                    stateListeners[fileMd5]?.onState(State.Ready)
+                    stateListeners[fileMd5]?.invoke(State.Ready)
                     return@launch
                 }
             }.onFailure {
                 if (it is FileNotFoundException && downloadJobs[fileMd5] == null) {
-                    val bridge = audioUrlQueryBridge.get() ?: return@onFailure
                     logger.i("observing audio $fileMd5 which is not cached, starting caching job.")
-                    val url = bridge.query(fileMd5)
+                    val url = database.suspendIO {
+                        audioUrls().getAudioUrl(fileMd5).toList().singleOrNull()?.url
+                    }
                     if(url != null) appendDownloadJob(fileMd5, url)
                     return@onFailure
                 }
@@ -75,7 +69,7 @@ class AudioCache(
             }
 
             while (isActive) { // cancel listener job when listener is detached.
-                stateListeners[fileMd5]?.onState(State.Preparing(0.0))
+                stateListeners[fileMd5]?.invoke(State.Preparing(0.0))
 
                 val currDownloadJob = withContext(Dispatchers.IO) {
                     suspendCancellableCoroutine {
@@ -87,12 +81,8 @@ class AudioCache(
 
                 val currListener = stateListeners[fileMd5]
                 if (currListener != null) {
-                    currListener.onState(currDownloadJob.state.value)
-                    currDownloadJob.stateChannel
-                        .consumeAsFlow()
-                        .cancellable().
-                        collect { currListener.onState(it) }
-
+                    currListener(currDownloadJob.state.value)
+                    currDownloadJob.state.collect { currListener(it) }
                 }
             }
         }
@@ -110,7 +100,6 @@ class AudioCache(
 
         val downloadJob = downloadJobs[fileMd5]
         if (downloadJob != null) {
-            downloadJob.stateChannel.cancel()
             downloadJobs.remove(fileMd5, downloadJob)
         }
 
@@ -127,25 +116,19 @@ class AudioCache(
             cacheFile.delete()
         }
 
-        val channel = Channel<State>(1, BufferOverflow.DROP_OLDEST)
-        val atomState = atomic<State>(State.NotFound)
-
-        suspend fun set(resolve: State) {
-            channel.send(resolve)
-            atomState.value = resolve
-        }
+        val stateFlow: MutableStateFlow<State> = MutableStateFlow(State.NotFound)
 
         val job = launch(Dispatchers.IO, start = CoroutineStart.LAZY) {
             if (!cacheFile.exists() || !cacheFile.md5.uppercase().contentEquals(fileMd5)) {
                 cacheFile.parentFile?.mkdirs()
                 cacheFile.createNewFile()
-                set(State.Preparing(0.0))
+                stateFlow.update { State.Preparing(0.0) }
             }
 
             logger.i("caching audio $fileMd5.")
             val resp = downloadService.download(url)
             val body = resp.body() ?: kotlin.run {
-                set(State.Error("body is null"))
+                stateFlow.update { State.Error("body is null") }
                 return@launch
             }
 
@@ -161,20 +144,19 @@ class AudioCache(
                         bytes = byteStream.read(buffer)
 
                         val progress = progressBytes / totalBytes.toDouble()
-                        set(State.Preparing(progress))
+                        stateFlow.update { State.Preparing(progress) }
                     }
                 }
             }
-            set(State.Ready)
+            stateFlow.update { State.Ready }
         }
 
-        downloadJobs[fileMd5] = DownloadJob(job, atomState, channel)
+        downloadJobs[fileMd5] = DownloadJob(job, stateFlow.asStateFlow())
         job.invokeOnCompletion {
             if (it != null) {
                 resolveCacheFile(fileMd5).delete()
                 val errorState = State.Error(it.message)
-                channel.trySend(errorState)
-                atomState.value = errorState
+                stateFlow.update { errorState }
             }
             logger.i("cache audio $fileMd5 complete.")
         }
@@ -187,19 +169,18 @@ class AudioCache(
 
 
     sealed interface State {
-        @Parcelize
-        object Ready : State, Parcelable
-        @Parcelize
-        class Preparing(val progress: Double) : State, Parcelable
-        @Parcelize
-        object NotFound : State, Parcelable
-        @Parcelize
-        class Error(val msg: String? = null) : State, Parcelable
+
+        object Ready : State
+
+        class Preparing(val progress: Double) : State
+
+        object NotFound : State
+
+        class Error(val msg: String? = null) : State
     }
 
     private class DownloadJob(
         val job: Job,
-        val state: AtomicRef<State>,
-        val stateChannel: ReceiveChannel<State>
+        val state: StateFlow<State>,
     )
 }

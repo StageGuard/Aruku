@@ -4,8 +4,8 @@ import androidx.paging.PagingSource
 import androidx.room.Dao
 import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
+import me.stageguard.aruku.common.service.parcel.ContactType
 import me.stageguard.aruku.database.BaseDao
-import me.stageguard.aruku.service.parcel.ContactType
 
 @Dao
 abstract class MessageRecordDao : BaseDao<MessageRecordEntity> {

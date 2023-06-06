@@ -6,12 +6,12 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.telephony.TelephonyManager
 import androidx.core.content.ContextCompat
-import net.mamoe.mirai.utils.getRandomIntString
-import net.mamoe.mirai.utils.getRandomString
 import java.io.BufferedReader
 import java.io.InputStream
 import java.io.InputStreamReader
 import kotlin.random.Random
+
+
 
 private val DEFAULT_DEVICE_ID by lazy { "86${getRandomIntString(12, Random)}".let { it + luhn(it) } }
 

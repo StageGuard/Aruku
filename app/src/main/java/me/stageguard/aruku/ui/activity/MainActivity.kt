@@ -18,6 +18,7 @@ import com.google.accompanist.systemuicontroller.rememberSystemUiController
 import kotlinx.coroutines.InternalCoroutinesApi
 import kotlinx.coroutines.flow.cancellable
 import me.stageguard.aruku.MainRepositoryImpl
+import me.stageguard.aruku.common.createAndroidLogger
 import me.stageguard.aruku.domain.MainRepository
 import me.stageguard.aruku.service.ServiceConnector
 import me.stageguard.aruku.ui.LocalStringLocale
@@ -27,7 +28,6 @@ import me.stageguard.aruku.ui.page.MainPage
 import me.stageguard.aruku.ui.page.ServiceConnectingPage
 import me.stageguard.aruku.ui.theme.ArukuTheme
 import me.stageguard.aruku.util.StringLocale
-import me.stageguard.aruku.util.createAndroidLogger
 import me.stageguard.aruku.util.weakReference
 import org.koin.android.ext.android.inject
 

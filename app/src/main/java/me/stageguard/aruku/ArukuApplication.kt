@@ -7,15 +7,13 @@ import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.decode.GifDecoder
 import coil.decode.ImageDecoderDecoder
-import me.stageguard.aruku.service.ArukuMiraiService
+import me.stageguard.aruku.common.createAndroidLogger
+import me.stageguard.aruku.service.ArukuService
 import me.stageguard.aruku.util.FaceAPNGDecoder
-import me.stageguard.aruku.util.createAndroidLogger
-import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
 import org.koin.core.context.startKoin
 import org.koin.core.logger.Level
-import java.security.Security
 import java.util.concurrent.atomic.AtomicBoolean
 
 class ArukuApplication : Application(), ImageLoaderFactory {
@@ -37,16 +35,7 @@ class ArukuApplication : Application(), ImageLoaderFactory {
         initialized.compareAndSet(false, true)
         INSTANCE = this
 
-        startService(Intent(this, ArukuMiraiService::class.java))
-    }
-
-    init {
-        try {
-            Security.removeProvider(BouncyCastleProvider.PROVIDER_NAME)
-            Security.addProvider(BouncyCastleProvider())
-        } catch (t: Throwable) {
-            logger.w("Cannot replace original bouncy castle provider.", t)
-        }
+        startService(Intent(this, ArukuService::class.java))
     }
 
     override fun newImageLoader(): ImageLoader {

@@ -3,11 +3,9 @@ package me.stageguard.aruku.ui.page.login
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
+import me.stageguard.aruku.common.service.parcel.AccountLoginData
 import me.stageguard.aruku.domain.MainRepository
-import me.stageguard.aruku.service.parcel.AccountLoginData
 import me.stageguard.aruku.ui.UiState
-import net.mamoe.mirai.utils.BotConfiguration
-import net.mamoe.mirai.utils.secondsToMillis
 
 class LoginViewModel(
     private val repository: MainRepository
@@ -18,16 +16,19 @@ class LoginViewModel(
             AccountLoginData(
                 accountNo = 0L,
                 passwordMd5 = "",
-                protocol = BotConfiguration.MiraiProtocol.ANDROID_PHONE.toString(),
-                heartbeatStrategy = BotConfiguration.HeartbeatStrategy.STAT_HB.toString(),
-                heartbeatPeriodMillis = 60.secondsToMillis,
-                heartbeatTimeoutMillis = 5.secondsToMillis,
-                statHeartbeatPeriodMillis = 300.secondsToMillis,
+                protocol = "ANDROID_PHONE",
+                heartbeatStrategy = "STAT_HB",
+                heartbeatPeriodMillis = 60 * 1000,
+                heartbeatTimeoutMillis = 5 * 1000,
+                statHeartbeatPeriodMillis = 300 * 1000,
                 autoReconnect = true,
                 reconnectionRetryTimes = 5
             )
         )
     }
+
+    val protocols = listOf("ANDROID_PHONE", "ANDROID_PAD", "ANDROID_WATCH", "IPAD", "MACOS")
+    val heartbeatStrategies = listOf("STAT_HB", "REGISTER", "NONE")
 }
 
 sealed interface LoginState {

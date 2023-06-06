@@ -8,7 +8,22 @@ import kotlinx.serialization.encodeToHexString
 import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.polymorphic
 import kotlinx.serialization.protobuf.ProtoBuf
-import me.stageguard.aruku.domain.data.message.*
+import me.stageguard.aruku.common.message.At
+import me.stageguard.aruku.common.message.AtAll
+import me.stageguard.aruku.common.message.Audio
+import me.stageguard.aruku.common.message.Dice
+import me.stageguard.aruku.common.message.Face
+import me.stageguard.aruku.common.message.File
+import me.stageguard.aruku.common.message.FlashImage
+import me.stageguard.aruku.common.message.Forward
+import me.stageguard.aruku.common.message.Image
+import me.stageguard.aruku.common.message.MarketFace
+import me.stageguard.aruku.common.message.MessageElement
+import me.stageguard.aruku.common.message.PlainText
+import me.stageguard.aruku.common.message.Poke
+import me.stageguard.aruku.common.message.Quote
+import me.stageguard.aruku.common.message.RPS
+import me.stageguard.aruku.common.message.VipFace
 
 @ProvidedTypeConverter
 @OptIn(ExperimentalSerializationApi::class)

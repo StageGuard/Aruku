@@ -14,13 +14,13 @@ import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.consumeAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import me.stageguard.aruku.common.createAndroidLogger
+import me.stageguard.aruku.common.service.parcel.ContactId
 import me.stageguard.aruku.database.LoadState
 import me.stageguard.aruku.database.mapOk
 import me.stageguard.aruku.domain.MainRepository
-import me.stageguard.aruku.service.parcel.ContactId
 import me.stageguard.aruku.ui.UiState
-import me.stageguard.aruku.util.createAndroidLogger
-import net.mamoe.mirai.utils.Either
+import me.stageguard.aruku.util.Either
 
 /**
  * Created by LoliBall on 2022/12/31 12:13.

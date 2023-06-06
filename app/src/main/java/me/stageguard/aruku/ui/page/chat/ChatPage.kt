@@ -1,21 +1,17 @@
 package me.stageguard.aruku.ui.page.chat
 
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.add
-import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.exclude
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
+import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -26,8 +22,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.rememberNavController
@@ -76,8 +72,7 @@ fun ChatPage(contact: ChatPageNav) {
         quoteStatus = quoteStatus,
         fileStatus = fileStatus,
         listState = listState,
-        onRegisterAudioStatusListener = { viewModel.attachAudioStatusListener(it) },
-        onUnRegisterAudioStatusListener = { viewModel.detachAudioStatusListener(it) },
+        onQueryAudioStatus = { viewModel.queryAudioStatus(it) },
         onQueryQuoteMessage = { viewModel.querySingleMessage(it) },
         onQueryFileStatus = { messageId: Long, fileId: String? ->
             viewModel.queryFileStatus(fileId, messageId)
@@ -85,7 +80,11 @@ fun ChatPage(contact: ChatPageNav) {
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(
+    ExperimentalMaterial3Api::class,
+    ExperimentalComposeUiApi::class,
+    ExperimentalLayoutApi::class
+)
 @Composable
 fun ChatView(
     subjectName: String,
@@ -95,8 +94,7 @@ fun ChatView(
     quoteStatus: Map<Long, ChatQuoteMessageStatus>,
     fileStatus: Map<Long, ChatFileStatus>,
     listState: LazyListState,
-    onRegisterAudioStatusListener: (fileMd5: String) -> Unit,
-    onUnRegisterAudioStatusListener: (fileMd5: String) -> Unit,
+    onQueryAudioStatus: suspend (audioFileMd5: String) -> Unit,
     onQueryQuoteMessage: suspend (messageId: Long) -> Unit,
     onQueryFileStatus: suspend (messageId: Long, fileId: String?) -> Unit,
 ) {
@@ -111,53 +109,39 @@ fun ChatView(
         systemUiController.setStatusBarColor(backgroundColor.copy(alpha = 0.13f))
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        Surface(
-            color = backgroundColor,
-            modifier = Modifier.fillMaxSize()
-        ) {
-            Scaffold(
-                modifier = Modifier.imePadding(),
-                containerColor = Color.Transparent,
-                contentWindowInsets = WindowInsets.systemBars.add(WindowInsets.navigationBars),
-                topBar = {
-                    TopAppBar(
-                        navigationIcon = { ArrowBack() },
-                        title = {
-                            ChatTitleBar(
-                                name = subjectName,
-                                avatarData = subjectAvatar,
-                            )
-                        },
-                        actions = { ChatTopActions() },
-                        colors = topAppBarColors,
+    Scaffold(
+        modifier = Modifier.windowInsetsPadding(WindowInsets.ime),
+        containerColor = backgroundColor,
+        contentWindowInsets = ScaffoldDefaults
+            .contentWindowInsets
+            .exclude(WindowInsets.navigationBars)
+            .exclude(WindowInsets.ime),
+        topBar = {
+            TopAppBar(
+                navigationIcon = { ArrowBack() },
+                title = {
+                    ChatTitleBar(
+                        name = subjectName,
+                        avatarData = subjectAvatar,
                     )
                 },
-                bottomBar = {
-                    val systemNavPadding = WindowInsets.navigationBars.asPaddingValues()
-                    BottomAppBar(
-                        windowInsets = WindowInsets.navigationBars,
-                        containerColor = navigationContainerColor,
-                        modifier = Modifier.height(systemNavPadding.calculateBottomPadding() + 60.dp)
-                    ) {
-                        ChatBar()
-                    }
-                }
-            ) { paddingValues ->
-                ChatListView(
-                    chatList = messages,
-                    audioStatus = audioStatus,
-                    quoteStatus = quoteStatus,
-                    fileStatus = fileStatus,
-                    lazyListState = listState,
-                    paddingValues = paddingValues,
-                    onRegisterAudioStatusListener = onRegisterAudioStatusListener,
-                    onUnRegisterAudioStatusListener = onUnRegisterAudioStatusListener,
-                    onQueryQuoteMessage = onQueryQuoteMessage,
-                    onQueryFileStatus = onQueryFileStatus,
-                )
-            }
-        }
+                actions = { ChatTopActions() },
+                colors = topAppBarColors,
+            )
+        },
+        bottomBar = { ChatBar(height = 60.dp,) }
+    ) { paddingValues ->
+        ChatListView(
+            chatList = messages,
+            audioStatus = audioStatus,
+            quoteStatus = quoteStatus,
+            fileStatus = fileStatus,
+            lazyListState = listState,
+            paddingValues = paddingValues,
+            onQueryAudioStatus = onQueryAudioStatus,
+            onQueryQuoteMessage = onQueryQuoteMessage,
+            onQueryFileStatus = onQueryFileStatus,
+        )
     }
 }
 
@@ -588,7 +572,7 @@ fun ChatViewPreview() {
                 quoteStatus = map2,
                 fileStatus = map3,
                 listState = state,
-                {}, {}, {}, { _, _ -> }
+                {}, {}, { _, _ -> }
             )
         }
     }

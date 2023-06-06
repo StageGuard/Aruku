@@ -55,7 +55,7 @@ sealed interface UIMessageElement {
         }
     }
 
-    class Audio(val identity: String, val name: String) : UIMessageElement {
+    class Audio(val fileMd5: String, val name: String) : UIMessageElement {
         override fun contentToString(): String {
             return "[语音]"
         }
@@ -65,7 +65,7 @@ sealed interface UIMessageElement {
         val title: String,
         val brief: String,
         val summary: String,
-        val nodes: List<me.stageguard.aruku.domain.data.message.Forward.Node>
+        val nodes: List<me.stageguard.aruku.common.message.Forward.Node>
     ) : UIMessageElement {
         override fun contentToString(): String {
             return "[转发消息]"

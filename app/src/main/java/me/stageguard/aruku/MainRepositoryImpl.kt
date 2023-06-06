@@ -1,5 +1,6 @@
 package me.stageguard.aruku
 
+import android.content.Context
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
@@ -28,10 +29,33 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import me.stageguard.aruku.cache.AudioCache
+import me.stageguard.aruku.common.createAndroidLogger
+import me.stageguard.aruku.common.message.Audio
+import me.stageguard.aruku.common.message.File
+import me.stageguard.aruku.common.service.bridge.BotStateObserver
+import me.stageguard.aruku.common.service.bridge.ContactSyncBridge
+import me.stageguard.aruku.common.service.bridge.DisposableBridge
+import me.stageguard.aruku.common.service.bridge.LoginSolverBridge
+import me.stageguard.aruku.common.service.bridge.MessageSubscriber
+import me.stageguard.aruku.common.service.bridge.RoamingQueryBridge
+import me.stageguard.aruku.common.service.bridge.ServiceBridge
+import me.stageguard.aruku.common.service.bridge.suspendIO
+import me.stageguard.aruku.common.service.parcel.AccountInfo
+import me.stageguard.aruku.common.service.parcel.AccountInfoImpl
+import me.stageguard.aruku.common.service.parcel.AccountLoginData
+import me.stageguard.aruku.common.service.parcel.AccountProfile
+import me.stageguard.aruku.common.service.parcel.AccountState
+import me.stageguard.aruku.common.service.parcel.AccountState.OfflineCause
+import me.stageguard.aruku.common.service.parcel.ContactId
+import me.stageguard.aruku.common.service.parcel.ContactInfo
+import me.stageguard.aruku.common.service.parcel.ContactSyncOp
+import me.stageguard.aruku.common.service.parcel.ContactType
+import me.stageguard.aruku.common.service.parcel.GroupMemberInfo
+import me.stageguard.aruku.common.service.parcel.Message
 import me.stageguard.aruku.database.ArukuDatabase
 import me.stageguard.aruku.database.LoadState
 import me.stageguard.aruku.database.account.AccountEntity
@@ -45,47 +69,26 @@ import me.stageguard.aruku.database.message.MessageRecordEntity
 import me.stageguard.aruku.database.message.toEntity
 import me.stageguard.aruku.database.message.toPreviewEntity
 import me.stageguard.aruku.domain.MainRepository
+import me.stageguard.aruku.domain.RetrofitDownloadService
 import me.stageguard.aruku.domain.SequenceRoamingMessageMediator
-import me.stageguard.aruku.domain.data.message.Audio
-import me.stageguard.aruku.domain.data.message.File
 import me.stageguard.aruku.service.ServiceConnector
-import me.stageguard.aruku.service.bridge.AudioStatusListener
-import me.stageguard.aruku.service.bridge.AudioUrlQueryBridge
-import me.stageguard.aruku.service.bridge.BotStateObserver
-import me.stageguard.aruku.service.bridge.ContactSyncBridge
-import me.stageguard.aruku.service.bridge.DisposableBridge
-import me.stageguard.aruku.service.bridge.LoginSolverBridge
-import me.stageguard.aruku.service.bridge.MessageSubscriber
-import me.stageguard.aruku.service.bridge.RoamingQueryBridge
-import me.stageguard.aruku.service.bridge.ServiceBridge
-import me.stageguard.aruku.service.bridge.suspendIO
-import me.stageguard.aruku.service.parcel.AccountInfo
-import me.stageguard.aruku.service.parcel.AccountInfoImpl
-import me.stageguard.aruku.service.parcel.AccountLoginData
-import me.stageguard.aruku.service.parcel.AccountProfile
-import me.stageguard.aruku.service.parcel.AccountState
-import me.stageguard.aruku.service.parcel.ContactId
-import me.stageguard.aruku.service.parcel.ContactInfo
-import me.stageguard.aruku.service.parcel.ContactSyncOp
-import me.stageguard.aruku.service.parcel.ContactType
-import me.stageguard.aruku.service.parcel.GroupMemberInfo
-import me.stageguard.aruku.service.parcel.Message
-import me.stageguard.aruku.util.createAndroidLogger
 import me.stageguard.aruku.util.weakReference
+import retrofit2.Retrofit
 import java.lang.ref.WeakReference
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 
 class MainRepositoryImpl(
+    private val context: Context,
     private val database: ArukuDatabase,
-    private val avatarCache: ConcurrentHashMap<Long, String>,
-    private val nicknameCache: ConcurrentHashMap<Long, String>
+    private val retrofit: Retrofit,
 ) : MainRepository, LifecycleEventObserver, CoroutineScope by MainScope() {
     private val logger = createAndroidLogger()
 
     private var connectorRef: WeakReference<ServiceConnector>? = null
     private val binder: ServiceBridge? get() = connectorRef?.get()?.binder
     private val mainScope = this
+
     @OptIn(ExperimentalCoroutinesApi::class)
     private val binderAwaitContext = Dispatchers.IO.limitedParallelism(1)
 
@@ -108,7 +111,14 @@ class MainRepositoryImpl(
      */
     private val singletonBridgeDisposables: ConcurrentLinkedQueue<DisposableBridge> = ConcurrentLinkedQueue()
 
-    private val audioStatusListeners: ConcurrentHashMap<String, DisposableBridge> = ConcurrentHashMap()
+    private val avatarCache = ConcurrentHashMap<Long, String>()
+    private val nicknameCache = ConcurrentHashMap<Long, String>()
+    private val audioCache: AudioCache = AudioCache(
+        context = coroutineContext,
+        cacheFolder = context.externalCacheDir!!.resolve("audio_cache"),
+        database = database,
+        downloadService = retrofit.create(RetrofitDownloadService::class.java),
+    )
 
     override val stateFlow: Flow<Map<Long, AccountState>>
         get() = channelFlow {
@@ -119,7 +129,7 @@ class MainRepositoryImpl(
             send(binder0.getLastBotState())
             // observe state changes
             val disposable = binder0.attachBotStateObserver(BotStateObserver { state ->
-                if (state is AccountState.Offline && state.cause == AccountState.OfflineCause.REMOVE_BOT) {
+                if (state is AccountState.Offline && state.cause == OfflineCause.REMOVE_BOT) {
                     states.remove(state.account)
                     return@BotStateObserver
                 }
@@ -178,13 +188,6 @@ class MainRepositoryImpl(
             }
         }).also { singletonBridgeDisposables.offer(it) }
 
-        binder0.attachAudioQueryBridge(object : AudioUrlQueryBridge {
-            // TODO: don't runBlocking
-            override fun query(fileMd5: String): String? = runBlocking {
-                database.audioUrls().getAudioUrl(fileMd5).singleOrNull()?.url
-            }
-        }).also { singletonBridgeDisposables.offer(it) }
-
         binder0.subscribeMessages(object : MessageSubscriber {
             override fun onMessage(message: Message) {
                 with(mainScope) { database.launchIO {
@@ -223,8 +226,6 @@ class MainRepositoryImpl(
             logger.i("all singleton bridge is disposed.")
         }
     }
-
-
 
     private suspend fun processMessage(message: Message) {
         val audio = message.message.find { it is Audio } as? Audio
@@ -363,25 +364,6 @@ class MainRepositoryImpl(
         }
     }
 
-    override fun attachAudioStatusListener(audioFileMd5: String, listener: AudioStatusListener) {
-        assertServiceConnected()
-        val disposable = binder?.attachAudioStatusListener(audioFileMd5, listener)
-        if (disposable != null) {
-            audioStatusListeners[audioFileMd5] = disposable
-            logger.i("audio listener for $audioFileMd5 is attached.")
-        }
-    }
-
-    override fun detachAudioStatusListener(audioFileMd5: String) {
-        assertServiceConnected()
-        val disposable = audioStatusListeners[audioFileMd5]
-        if (disposable != null) {
-            disposable.dispose()
-            audioStatusListeners.remove(audioFileMd5, disposable)
-            logger.i("audio listener for $audioFileMd5 is disposed.")
-        }
-    }
-
     override suspend fun getAccount(account: Long): AccountEntity? {
         return database.suspendIO {
             val result = database.accounts()[account]
@@ -470,6 +452,23 @@ class MainRepositoryImpl(
         }
     }
 
+    /**
+     * audio status is live status.
+     */
+    override fun queryAudioStatus(audioFileMd5: String): Flow<AudioCache.State> = channelFlow {
+        val deferred = CompletableDeferred<Unit>()
+
+        send(AudioCache.State.Preparing(0.0))
+        audioCache.attachListener(audioFileMd5) { trySend(it) }
+
+        invokeOnClose {
+            audioCache.detachListener(audioFileMd5)
+            deferred.complete(Unit)
+        }
+
+        deferred.await()
+    }
+
     override fun querySingleMessage(
         account: Long,
         contact: ContactId,
@@ -555,7 +554,7 @@ class MainRepositoryImpl(
                 if (fileElement !is File) return@collect
 
                 dbSourceDeferred.complete(Unit)
-                logger.i("query file status of message $fileMessageId replied from db source.")
+                logger.i("query file status of message $fileMessageId replied from database source.")
                 send(LoadState.Ok(fileElement))
             }
 
@@ -630,16 +629,13 @@ class MainRepositoryImpl(
 
     /**
      * await binder will block whole thread
-     * just select a thread from io thread pool ^_^
      */
     private suspend fun awaitBinder(): ServiceBridge {
         return withContext(binderAwaitContext) {
             suspendCancellableCoroutine { cont ->
                 var binder0 = binder
-                while (cont.isActive && binder0 == null) {
-                    binder0 = binder
+                while (cont.isActive && binder0 == null) binder0 = binder
 
-                }
                 if (binder0 != null) {
                     cont.resumeWith(Result.success(binder0))
                 } else {

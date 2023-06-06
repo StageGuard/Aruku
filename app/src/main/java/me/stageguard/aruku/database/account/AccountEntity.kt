@@ -3,7 +3,6 @@ package me.stageguard.aruku.database.account
 import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
-import me.stageguard.aruku.service.parcel.AccountLoginData
 
 @Entity(tableName = "account")
 data class AccountEntity(
@@ -21,7 +20,7 @@ data class AccountEntity(
     @ColumnInfo(name = "is_offline_manually") var isOfflineManually: Boolean,
 )
 
-fun AccountEntity.toLoginData() = AccountLoginData(
+fun AccountEntity.toLoginData() = me.stageguard.aruku.common.service.parcel.AccountLoginData(
     accountNo = this@AccountEntity.accountNo,
     passwordMd5 = this@AccountEntity.passwordMd5,
     protocol = this@AccountEntity.loginProtocol,
@@ -33,7 +32,7 @@ fun AccountEntity.toLoginData() = AccountLoginData(
     reconnectionRetryTimes = this@AccountEntity.reconnectionRetryTimes,
 )
 
-fun AccountLoginData.toEntity() = AccountEntity(
+fun me.stageguard.aruku.common.service.parcel.AccountLoginData.toEntity() = AccountEntity(
     accountNo = this@AccountLoginData.accountNo,
     nickname = "",
     avatarUrl = "",

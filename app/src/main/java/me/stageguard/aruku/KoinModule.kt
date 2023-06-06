@@ -13,15 +13,11 @@ import me.stageguard.aruku.ui.page.home.HomeViewModel
 import me.stageguard.aruku.ui.page.home.contact.ContactViewModel
 import me.stageguard.aruku.ui.page.home.message.MessageViewModel
 import me.stageguard.aruku.ui.page.login.LoginViewModel
-import net.mamoe.mirai.BotFactory
 import org.koin.androidx.viewmodel.dsl.viewModel
-import org.koin.core.qualifier.qualifier
 import org.koin.dsl.module
-import java.util.concurrent.ConcurrentHashMap
+import retrofit2.Retrofit
 
 val applicationModule = module {
-    single<BotFactory> { BotFactory }
-
     // database and preference
     single {
         Room.databaseBuilder(get(), ArukuDatabase::class.java, "aruku-db")
@@ -38,20 +34,18 @@ val applicationModule = module {
             .default()
     }
 
-    // cache
-    single(qualifier = qualifier("avatar_cache")) {
-        ConcurrentHashMap<Long, String>()
-    }
-    single(qualifier = qualifier("nickname_cache")) {
-        ConcurrentHashMap<Long, String>()
+    single {
+        Retrofit.Builder()
+            .baseUrl("http://localhost/")
+            .build()
     }
 
     // repo
     single<MainRepository>(createdAtStart = false) {
         MainRepositoryImpl(
+            context = get(),
             database = get(),
-            avatarCache = get(qualifier = qualifier("avatar_cache")),
-            nicknameCache = get(qualifier = qualifier("nickname_cache")),
+            retrofit = get(),
         )
     }
 

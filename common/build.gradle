@@ -1,0 +1,62 @@
+plugins {
+    id 'com.android.library'
+    id 'org.jetbrains.kotlin.android'
+    id 'org.jetbrains.kotlin.kapt'
+    id 'org.jetbrains.kotlin.plugin.serialization'
+    id 'kotlin-parcelize'
+    id 'maven-publish'
+}
+
+android {
+    namespace 'me.stageguard.aruku.common'
+    compileSdk 33
+
+    defaultConfig {
+        minSdk 26
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        consumerProguardFiles "consumer-rules.pro"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
+    kotlinOptions {
+        jvmTarget = "11"
+        freeCompilerArgs += ["-Xjvm-default=all", "-opt-in=kotlin.RequiresOptIn"]
+    }
+}
+
+publishing {
+    publications {
+        maven(MavenPublication) {
+            groupId = 'me.stageguard.aruku'
+            artifactId = 'common'
+            version = aruku_common_version
+
+            afterEvaluate {
+                from components.release
+            }
+        }
+    }
+}
+
+dependencies {
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.1"
+    implementation "org.jetbrains.kotlin:kotlin-serialization:$kotlin_version"
+    implementation "org.jetbrains.kotlinx:kotlinx-serialization-json:$kotlinx_serialization_version"
+
+    implementation "com.josesamuel:remoter-annotations:$remoter_version"
+    implementation "org.parceler:parceler-api:$parceler_version"
+    kapt "com.josesamuel:remoter:$remoter_version"
+    kapt "org.parceler:parceler:$parceler_version"
+
+    testImplementation 'junit:junit:4.13.2'
+}

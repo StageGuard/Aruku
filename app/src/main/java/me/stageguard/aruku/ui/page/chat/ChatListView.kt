@@ -7,11 +7,8 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -21,7 +18,6 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.CornerBasedShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Divider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -72,8 +68,7 @@ fun ChatListView(
     lazyListState: LazyListState,
     paddingValues: PaddingValues,
     modifier: Modifier = Modifier,
-    onRegisterAudioStatusListener: (fileMd5: String) -> Unit,
-    onUnRegisterAudioStatusListener: (fileMd5: String) -> Unit,
+    onQueryAudioStatus: suspend (audioFileMd5: String) -> Unit,
     onQueryQuoteMessage: suspend (messageId: Long) -> Unit,
     onQueryFileStatus: suspend (messageId: Long, fileId: String?) -> Unit,
 ) {
@@ -86,8 +81,7 @@ fun ChatListView(
 
             // observe audio status in composable
             val audio = element.messages.filterIsInstance<UIMessageElement.Audio>().firstOrNull()
-            if (audio != null) launch { onRegisterAudioStatusListener(audio.identity) }
-                .invokeOnCompletion { onUnRegisterAudioStatusListener(audio.identity) }
+            if (audio != null) launch { onQueryAudioStatus(audio.fileMd5) }
 
             // query quote message
             val quote = element.messages.filterIsInstance<UIMessageElement.Quote>().firstOrNull()
@@ -106,7 +100,7 @@ fun ChatListView(
             reverseLayout = true,
             modifier = Modifier.fillMaxSize()
         ) {
-            itemsIndexed(chatList, { _, element -> element.uniqueKey }) { index, element ->
+            itemsIndexed(chatList, { _, e -> e.uniqueKey }) { index, element ->
                 when (element) {
                     is ChatElement.Message -> {
                         val lastSentByCurrent =
@@ -139,7 +133,7 @@ fun ChatListView(
                                 endCorner = !sentByBot,
                                 time = element.time,
                                 messages = element.messages,
-                                audioStatus = audio?.run { audioStatus[identity] },
+                                audioStatus = audio?.run { audioStatus[fileMd5] },
                                 quoteStatus = quote?.run { quoteStatus[messageId] },
                                 fileStatus = file?.run { fileStatus[correspondingMessageId] },
                                 modifier = Modifier
@@ -149,10 +143,6 @@ fun ChatListView(
                                 onClickAvatar = { }
                             )
                         }
-                    }
-
-                    is ChatElement.DateDivider -> {
-                        DateDivider(element.date)
                     }
 
                     is ChatElement.Notification -> {
@@ -617,36 +607,6 @@ private fun Notification(
                 ),
             )
         }
-    }
-}
-
-@Composable
-private fun DateDivider(dayString: String, modifier: Modifier = Modifier) {
-    @Composable
-    fun RowScope.DateDividerLineLine() {
-        Divider(
-            modifier = Modifier
-                .weight(1f)
-                .align(Alignment.CenterVertically),
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
-        )
-    }
-
-    Row(
-        modifier = modifier.then(
-            Modifier
-                .padding(vertical = 8.dp, horizontal = 16.dp)
-                .height(16.dp)
-        )
-    ) {
-        DateDividerLineLine()
-        Text(
-            text = dayString,
-            modifier = Modifier.padding(horizontal = 16.dp),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        DateDividerLineLine()
     }
 }
 

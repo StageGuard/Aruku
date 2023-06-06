@@ -31,7 +31,7 @@
             </intent-filter>
         </activity>
         <service
-                android:name=".service.ArukuMiraiService"
+                android:name=".service.ArukuService"
                 android:description="@string/app_mirai_service_desc"
                 android:enabled="true"
                 android:exported="false"

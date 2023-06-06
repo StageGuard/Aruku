@@ -1,0 +1,64 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+    id 'org.jetbrains.kotlin.kapt'
+}
+
+android {
+    compileSdk 33
+    namespace 'me.stageguard.aruku.mirai_core'
+
+    defaultConfig {
+        applicationId "me.stageguard.aruku"
+        minSdk 26
+        targetSdk 33
+        versionCode 1
+        versionName "1.0"
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            buildConfigField("boolean", "LOG_DEBUG", "false")
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
+    kotlinOptions {
+        jvmTarget = "11"
+        freeCompilerArgs += ["-Xjvm-default=all", "-opt-in=kotlin.RequiresOptIn"]
+    }
+    packagingOptions {
+        resources {
+            excludes += '/META-INF/{AL2.0,LGPL2.1}'
+            merges += '/META-INF/INDEX.LIST'
+            merges += '/META-INF/io.netty.versions.properties'
+        }
+    }
+}
+
+dependencies {
+    // aruku common dev
+    implementation "me.stageguard.aruku:common:$aruku_common_version"
+
+    // mirai
+    runtimeOnly("net.mamoe:mirai-core:$mirai_local_version") {
+        exclude module: 'atomicfu', group: 'org.jetbrains.kotlinx'
+    }
+    api "net.mamoe:mirai-core-api:$mirai_local_version"
+    implementation "net.mamoe:mirai-core-utils:$mirai_local_version"
+
+    implementation 'org.bouncycastle:bcpkix-jdk15on:1.70'
+    implementation 'org.bouncycastle:bcprov-jdk15on:1.70'
+
+    implementation 'xyz.cssxsh.mirai:mirai-device-generator:1.1.3'
+    implementation 'com.squareup.retrofit2:retrofit:2.9.0'
+
+    testImplementation 'junit:junit:4.13.2'
+}
