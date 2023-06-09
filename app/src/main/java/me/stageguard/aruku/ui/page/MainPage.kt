@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import me.stageguard.aruku.ArukuApplication
 import me.stageguard.aruku.R
+import me.stageguard.aruku.common.service.parcel.AccountState
 import me.stageguard.aruku.ui.LocalAccountsState
 import me.stageguard.aruku.ui.LocalBot
 import me.stageguard.aruku.ui.LocalNavController
@@ -41,11 +42,11 @@ const val NAV_CHAT = "chat"
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun MainPage(
-    accountStateFlow: Flow<Map<Long, me.stageguard.aruku.common.service.parcel.AccountState>>
+    accountStateFlowProvider: () -> Flow<Map<Long, AccountState>>
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val viewModel: MainViewModel = koinViewModel {
-        parametersOf(accountStateFlow, lifecycleOwner)
+        parametersOf(accountStateFlowProvider(), lifecycleOwner)
     }
 
     val activeBot by viewModel.activeAccountPref.observeAsState()

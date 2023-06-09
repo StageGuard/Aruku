@@ -12,7 +12,6 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.cancelAndJoin
@@ -36,13 +35,13 @@ import me.stageguard.aruku.cache.AudioCache
 import me.stageguard.aruku.common.createAndroidLogger
 import me.stageguard.aruku.common.message.Audio
 import me.stageguard.aruku.common.message.File
+import me.stageguard.aruku.common.service.bridge.ArukuBackendBridge
 import me.stageguard.aruku.common.service.bridge.BotStateObserver
 import me.stageguard.aruku.common.service.bridge.ContactSyncBridge
 import me.stageguard.aruku.common.service.bridge.DisposableBridge
 import me.stageguard.aruku.common.service.bridge.LoginSolverBridge
 import me.stageguard.aruku.common.service.bridge.MessageSubscriber
 import me.stageguard.aruku.common.service.bridge.RoamingQueryBridge
-import me.stageguard.aruku.common.service.bridge.ServiceBridge
 import me.stageguard.aruku.common.service.bridge.suspendIO
 import me.stageguard.aruku.common.service.parcel.AccountInfo
 import me.stageguard.aruku.common.service.parcel.AccountInfoImpl
@@ -71,7 +70,6 @@ import me.stageguard.aruku.database.message.toPreviewEntity
 import me.stageguard.aruku.domain.MainRepository
 import me.stageguard.aruku.domain.RetrofitDownloadService
 import me.stageguard.aruku.domain.SequenceRoamingMessageMediator
-import me.stageguard.aruku.service.ServiceConnector
 import me.stageguard.aruku.util.weakReference
 import retrofit2.Retrofit
 import java.lang.ref.WeakReference
@@ -85,12 +83,9 @@ class MainRepositoryImpl(
 ) : MainRepository, LifecycleEventObserver, CoroutineScope by MainScope() {
     private val logger = createAndroidLogger()
 
-    private var connectorRef: WeakReference<ServiceConnector>? = null
-    private val binder: ServiceBridge? get() = connectorRef?.get()?.binder
+    private var binderRef: WeakReference<ArukuBackendBridge>? = null
+    private val binder: ArukuBackendBridge? get() = binderRef?.get()
     private val mainScope = this
-
-    @OptIn(ExperimentalCoroutinesApi::class)
-    private val binderAwaitContext = Dispatchers.IO.limitedParallelism(1)
 
     /**
      * singleton disposables
@@ -151,8 +146,8 @@ class MainRepositoryImpl(
         }
     }
 
-    override fun referConnector(connector: ServiceConnector) {
-        connectorRef = connector.weakReference()
+    override fun referBackendBridge(bridge: ArukuBackendBridge) {
+        binderRef = bridge.weakReference()
     }
 
     private fun setupServiceBridge() = launch {
@@ -617,21 +612,18 @@ class MainRepositoryImpl(
     }
 
     private fun assertServiceConnected() {
-        val connector = connectorRef?.get()
+        val connector = binderRef?.get()
         if (connector == null) {
             logger.w("ServiceConnector has been collected by gc.")
             return
-        }
-        if (connector.connected.value != true) {
-            logger.w("ServiceConnector is not connected to service.")
         }
     }
 
     /**
      * await binder will block whole thread
      */
-    private suspend fun awaitBinder(): ServiceBridge {
-        return withContext(binderAwaitContext) {
+    private suspend fun awaitBinder(): ArukuBackendBridge {
+        return withContext(ArukuApplication.INSTANCE.binderAwaitContext) {
             suspendCancellableCoroutine { cont ->
                 var binder0 = binder
                 while (cont.isActive && binder0 == null) binder0 = binder

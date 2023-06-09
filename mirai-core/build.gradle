@@ -9,7 +9,7 @@ android {
     namespace 'me.stageguard.aruku.mirai_core'
 
     defaultConfig {
-        applicationId "me.stageguard.aruku"
+        applicationId "me.stageguard.aruku.mirai_core"
         minSdk 26
         targetSdk 33
         versionCode 1
@@ -44,6 +44,8 @@ android {
 }
 
 dependencies {
+    implementation "androidx.lifecycle:lifecycle-service:$lifecycle_version"
+
     // aruku common dev
     implementation "me.stageguard.aruku:common:$aruku_common_version"
 

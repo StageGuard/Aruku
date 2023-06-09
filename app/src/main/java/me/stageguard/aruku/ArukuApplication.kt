@@ -7,6 +7,8 @@ import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.decode.GifDecoder
 import coil.decode.ImageDecoderDecoder
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import me.stageguard.aruku.common.createAndroidLogger
 import me.stageguard.aruku.service.ArukuService
 import me.stageguard.aruku.util.FaceAPNGDecoder
@@ -18,6 +20,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 class ArukuApplication : Application(), ImageLoaderFactory {
     private val logger = createAndroidLogger()
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val binderAwaitContext = Dispatchers.IO.limitedParallelism(1)
     companion object {
         val initialized = AtomicBoolean(false)
         lateinit var INSTANCE: ArukuApplication

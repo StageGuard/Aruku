@@ -63,4 +63,6 @@
     <string name="home_account_dialog_show_all">SWITCH BOT</string>
     <string name="home_account_dialog_hide_all">HIDE BOTS</string>
     <string name="home_account_dialog_login">LOGIN</string>
+    <string name="single_backend_changed">Communication backend has changed to %1%s.</string>
+    <string name="backend_connect_failed">Communication backend $1$s connect failed: %2%s.</string>
 </resources>

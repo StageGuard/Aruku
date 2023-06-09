@@ -1,5 +1,6 @@
 package me.stageguard.aruku.mirai_core
 
+import android.app.NotificationManager
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -19,7 +20,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import me.stageguard.aruku.common.createAndroidLogger
-import me.stageguard.aruku.common.service.BaseService
+import me.stageguard.aruku.common.service.BaseArukuBackend
 import me.stageguard.aruku.common.service.bridge.BotStateObserver
 import me.stageguard.aruku.common.service.bridge.ContactSyncBridge
 import me.stageguard.aruku.common.service.bridge.DisposableBridge
@@ -71,16 +72,13 @@ import net.mamoe.mirai.message.data.sourceOrNull
 import net.mamoe.mirai.utils.BotConfiguration.HeartbeatStrategy
 import net.mamoe.mirai.utils.BotConfiguration.MiraiProtocol
 import net.mamoe.mirai.utils.MiraiExperimentalApi
+import org.bouncycastle.jce.provider.BouncyCastleProvider
 import xyz.cssxsh.mirai.device.MiraiDeviceGenerator
-import java.io.File
+import java.security.Security
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
-import kotlin.coroutines.CoroutineContext
 
-class ArukuMiraiService(
-    coroutineContext: CoroutineContext,
-    override val workingDir: File,
-) : BaseService(coroutineContext, workingDir) {
+class ArukuMiraiCoreService: BaseArukuBackend() {
     private val logger = createAndroidLogger()
 
     private val loginData: ConcurrentHashMap<Long, AccountLoginData> = ConcurrentHashMap()
@@ -101,6 +99,9 @@ class ArukuMiraiService(
     private val messageCacheQueue: ConcurrentLinkedQueue<Message> = ConcurrentLinkedQueue()
 
     override fun onCreate() {
+        Security.removeProvider(BouncyCastleProvider.PROVIDER_NAME)
+        Security.addProvider(BouncyCastleProvider())
+
         launch {
             val channelFlow = stateChannel.consumeAsFlow()
 
@@ -438,7 +439,7 @@ class ArukuMiraiService(
 
             // process in service coroutine scope to ensure that
             // message must be processed if bot is closed in the middle of processing.
-            this@ArukuMiraiService.launch {
+            this@ArukuMiraiCoreService.launch {
                 val message = MessageImpl(
                     account = event.bot.id,
                     contact = contact,
@@ -673,7 +674,7 @@ class ArukuMiraiService(
     }
 
     private fun createBot(accountInfo: AccountLoginData): Bot {
-        val botWorkingDir = workingDir
+        val botWorkingDir = filesDir.resolve("mirai/${accountInfo.accountNo}/")
         if (!botWorkingDir.exists()) botWorkingDir.mkdirs()
 
         return BotFactory.newBot(accountInfo.accountNo, accountInfo.passwordMd5) {

@@ -58,5 +58,7 @@ dependencies {
     kapt "com.josesamuel:remoter:$remoter_version"
     kapt "org.parceler:parceler:$parceler_version"
 
+    implementation "androidx.lifecycle:lifecycle-service:$lifecycle_version"
+
     testImplementation 'junit:junit:4.13.2'
 }

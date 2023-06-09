@@ -4,6 +4,7 @@ import androidx.paging.PagingData
 import kotlinx.coroutines.flow.Flow
 import me.stageguard.aruku.cache.AudioCache
 import me.stageguard.aruku.common.message.File
+import me.stageguard.aruku.common.service.bridge.ArukuBackendBridge
 import me.stageguard.aruku.common.service.bridge.LoginSolverBridge
 import me.stageguard.aruku.common.service.bridge.RoamingQueryBridge
 import me.stageguard.aruku.common.service.parcel.AccountInfo
@@ -17,11 +18,10 @@ import me.stageguard.aruku.database.account.AccountEntity
 import me.stageguard.aruku.database.contact.ContactEntity
 import me.stageguard.aruku.database.message.MessagePreviewEntity
 import me.stageguard.aruku.database.message.MessageRecordEntity
-import me.stageguard.aruku.service.ServiceConnector
 
 interface MainRepository {
     val stateFlow: Flow<Map<Long, AccountState>>
-    fun referConnector(connector: ServiceConnector)
+    fun referBackendBridge(bridge: ArukuBackendBridge)
     // binder
     fun addBot(info: AccountLoginData, alsoLogin: Boolean): Boolean
     fun removeBot(accountNo: Long): Boolean

@@ -9,24 +9,23 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.MutableLiveData
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
+import me.stageguard.aruku.ArukuApplication
 import me.stageguard.aruku.common.createAndroidLogger
-import me.stageguard.aruku.common.service.bridge.ServiceBridge
-import me.stageguard.aruku.common.service.bridge.ServiceBridge_Proxy
 
 class ServiceConnector(
     private val context: Context
 ) : ServiceConnection, LifecycleEventObserver {
     private val logger = createAndroidLogger()
 
-    private var _delegate: ServiceBridge? = null
+    private var binder: ServiceBinder_Proxy? = null
     val connected: MutableLiveData<Boolean> = MutableLiveData(false)
-
-    val binder get() = _delegate
 
     override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
         logger.d("service is connected: $name")
         if (service != null) {
-            _delegate = ServiceBridge_Proxy(service)
+            binder = ServiceBinder_Proxy(service)
         } else {
             logger.w("service binder is null while aruku service is connected.")
         }
@@ -35,7 +34,7 @@ class ServiceConnector(
 
     override fun onServiceDisconnected(name: ComponentName?) {
         logger.d("service is disconnected: $name")
-        _delegate = null
+        binder = null
         connected.value = false
     }
 
@@ -45,7 +44,7 @@ class ServiceConnector(
                 val bindResult = context.bindService(
                     Intent(context, ArukuService::class.java), this, Context.BIND_ABOVE_CLIENT
                 )
-                if (!bindResult) logger.e("Cannot bind ArukuMiraiService.")
+                if (!bindResult) logger.e("Cannot bind ArukuService.")
             }
 
             Lifecycle.Event.ON_DESTROY -> {
@@ -57,6 +56,21 @@ class ServiceConnector(
             }
 
             else -> {}
+        }
+    }
+
+    suspend fun awaitBinder(): ServiceBinder {
+        return withContext(ArukuApplication.INSTANCE.binderAwaitContext) {
+            suspendCancellableCoroutine { cont ->
+                var binder0 = binder
+                while (cont.isActive && binder0 == null) binder0 = binder
+
+                if (binder0 != null) {
+                    cont.resumeWith(Result.success(binder0))
+                } else {
+                    cont.resumeWith(Result.failure(Exception("await binder is null")))
+                }
+            }
         }
     }
 }

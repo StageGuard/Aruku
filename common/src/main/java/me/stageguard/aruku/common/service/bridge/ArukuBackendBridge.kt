@@ -11,7 +11,7 @@ import remoter.annotations.ParamIn
 import remoter.annotations.Remoter
 
 @Remoter
-interface ServiceBridge {
+interface ArukuBackendBridge {
     fun addBot(@ParamIn info: AccountLoginData?, alsoLogin: Boolean): Boolean
     fun removeBot(accountNo: Long): Boolean
     fun getBots(): List<Long>
