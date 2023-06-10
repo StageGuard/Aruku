@@ -14,7 +14,7 @@ import kotlinx.coroutines.withContext
 import me.stageguard.aruku.ArukuApplication
 import me.stageguard.aruku.common.createAndroidLogger
 
-class ServiceConnector(
+class ArukuServiceConnection(
     private val context: Context
 ) : ServiceConnection, LifecycleEventObserver {
     private val logger = createAndroidLogger()

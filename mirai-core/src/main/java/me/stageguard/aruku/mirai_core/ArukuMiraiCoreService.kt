@@ -1,6 +1,10 @@
 package me.stageguard.aruku.mirai_core
 
+import android.app.Notification
+import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.content.Intent
+import android.os.DeadObjectException
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -79,6 +83,11 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 
 class ArukuMiraiCoreService: BaseArukuBackend() {
+    companion object {
+        private const val FOREGROUND_NOTIFICATION_ID = 73
+        private const val FOREGROUND_NOTIFICATION_CHANNEL_ID = "ArukuMiraiCoreService"
+    }
+
     private val logger = createAndroidLogger()
 
     private val loginData: ConcurrentHashMap<Long, AccountLoginData> = ConcurrentHashMap()
@@ -115,10 +124,20 @@ class ArukuMiraiCoreService: BaseArukuBackend() {
                     return@collect
                 }
                 // dispatch state to bridge directly
-                stateObserver?.dispatchState(state)
+                tryOrMarkAsDead(
+                    block = { stateObserver?.dispatchState(state) },
+                    onDied = { stateCacheQueue.offer(state) }
+                )
             }
         }
         logger.i("service is created.")
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        super.onStartCommand(intent, flags, startId)
+
+        createNotification()
+        return START_STICKY
     }
 
     override fun onDestroy() {
@@ -405,11 +424,17 @@ class ArukuMiraiCoreService: BaseArukuBackend() {
                 return@launch
             }
 
-            syncer.onSyncContact(ContactSyncOp.REFRESH, bot.id, buildList {
-                addAll(bot.groups.map(Group::toContactInfo))
-                addAll(bot.friends.map(Friend::toContactInfo))
-            })
-            syncer.onUpdateAccountInfo(bot.run { AccountInfoImpl(id, nick, avatarUrl) })
+            tryOrMarkAsDead(
+                block = {
+                    syncer.onSyncContact(ContactSyncOp.REFRESH, bot.id, buildList {
+                        addAll(bot.groups.map(Group::toContactInfo))
+                        addAll(bot.friends.map(Friend::toContactInfo))
+                    })
+                    syncer.onUpdateAccountInfo(bot.run { AccountInfoImpl(id, nick, avatarUrl) })
+                },
+                onDied = { logger.w("contact syncer binder has died.") }
+            )
+
 
             logger.i("sync contact of bot ${bot.id} complete.")
             syncContactLock.unlock()
@@ -457,7 +482,10 @@ class ArukuMiraiCoreService: BaseArukuBackend() {
                     return@launch
                 }
 
-                subscriber.onMessage(message)
+                tryOrMarkAsDead(
+                    block = { subscriber.onMessage(message) },
+                    onDied = { messageCacheQueue.offer(message) }
+                )
             }
 
             return@subscribe ListeningStatus.LISTENING
@@ -482,30 +510,35 @@ class ArukuMiraiCoreService: BaseArukuBackend() {
             syncContactLock.lock()
             val syncer = contactSyncer
 
-            if(syncer != null) when (event) {
-                is FriendAddEvent, is StrangerRelationChangeEvent.Friended -> {
-                    val friend = if (event is FriendAddEvent) event.friend
-                    else (event as StrangerRelationChangeEvent.Friended).friend
+            if(syncer != null) tryOrMarkAsDead(
+                block = {
+                    when (event) {
+                        is FriendAddEvent, is StrangerRelationChangeEvent.Friended -> {
+                            val friend = if (event is FriendAddEvent) event.friend
+                            else (event as StrangerRelationChangeEvent.Friended).friend
 
-                    syncer.onSyncContact(ContactSyncOp.ENTRANCE, event.bot.id, listOf(friend.toContactInfo()))
-                    logger.i("friend added via event, friend=${friend}.")
-                }
+                            syncer.onSyncContact(ContactSyncOp.ENTRANCE, event.bot.id, listOf(friend.toContactInfo()))
+                            logger.i("friend added via event, friend=${friend}.")
+                        }
 
-                is FriendDeleteEvent -> {
-                    syncer.onSyncContact(ContactSyncOp.REMOVE, event.bot.id, listOf(event.friend.toContactInfo()))
-                    logger.i("friend deleted via event, friend=${event.friend}")
-                }
+                        is FriendDeleteEvent -> {
+                            syncer.onSyncContact(ContactSyncOp.REMOVE, event.bot.id, listOf(event.friend.toContactInfo()))
+                            logger.i("friend deleted via event, friend=${event.friend}")
+                        }
 
-                is BotJoinGroupEvent -> {
-                    syncer.onSyncContact(ContactSyncOp.ENTRANCE, event.bot.id, listOf(event.group.toContactInfo()))
-                    logger.i("group added via event, friend=${event.group}")
-                }
+                        is BotJoinGroupEvent -> {
+                            syncer.onSyncContact(ContactSyncOp.ENTRANCE, event.bot.id, listOf(event.group.toContactInfo()))
+                            logger.i("group added via event, friend=${event.group}")
+                        }
 
-                is BotLeaveEvent -> {
-                    syncer.onSyncContact(ContactSyncOp.REMOVE, event.bot.id, listOf(event.group.toContactInfo()))
-                    logger.i("group deleted via event, friend=${event.group}")
-                }
-            } else logger.w("contact syncer is null.")
+                        is BotLeaveEvent -> {
+                            syncer.onSyncContact(ContactSyncOp.REMOVE, event.bot.id, listOf(event.group.toContactInfo()))
+                            logger.i("group deleted via event, friend=${event.group}")
+                        }
+                    }
+                },
+                onDied = { logger.w("contact syncer has died.") }
+            ) else logger.w("contact syncer is null.")
 
             syncContactLock.unlock()
             return@subscribe ListeningStatus.LISTENING
@@ -746,6 +779,57 @@ class ArukuMiraiCoreService: BaseArukuBackend() {
 
             stateChannel.send(AccountState.Logging(state.account))
             loginSolutionChannel.send(solution)
+        }
+    }
+
+    private inline fun tryOrMarkAsDead(block: () -> Unit, noinline onDied: (() -> Unit)? = null) {
+        try {
+            block()
+        } catch (re: RuntimeException) {
+            if (re.cause is DeadObjectException) {
+                stateObserver = null
+                loginSolver = null
+                contactSyncer = null
+                messageSubscriber = null
+
+                onDied?.invoke()
+                return
+            }
+            throw re
+        }
+    }
+
+    private fun createNotification() {
+        val context = this
+        val notificationManager =
+            context.getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+
+
+        val existingNotification =
+            notificationManager.activeNotifications.find { it.id == FOREGROUND_NOTIFICATION_ID }
+
+        if (existingNotification == null) {
+            var channel =
+                notificationManager.getNotificationChannel(FOREGROUND_NOTIFICATION_CHANNEL_ID)
+
+            if (channel == null) {
+                channel = NotificationChannel(
+                    FOREGROUND_NOTIFICATION_CHANNEL_ID,
+                    getString(R.string.service_name),
+                    NotificationManager.IMPORTANCE_HIGH
+                ).apply { lockscreenVisibility = Notification.VISIBILITY_PUBLIC }
+
+                notificationManager.createNotificationChannel(channel)
+            }
+
+            val notification = Notification.Builder(this, channel.id).apply {
+                setContentTitle(getString(R.string.service_name))
+                setContentText(getString(R.string.service_notification_text))
+                setSmallIcon(R.drawable.ic_launcher_foreground)
+                setTicker(getString(R.string.service_notification_text))
+            }.build()
+
+            startForeground(FOREGROUND_NOTIFICATION_ID, notification)
         }
     }
 

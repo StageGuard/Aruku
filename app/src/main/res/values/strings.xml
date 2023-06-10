@@ -32,7 +32,7 @@
     <string name="stat_heartbeat_timeout_millis">Stat heartbeat timeout millis</string>
     <string name="heartbeat_timeout_millis">Heartbeat timeout millis</string>
     <string name="reconnection_retry_times">Reconnection retry times</string>
-    <string name="service_notification_text">Aruku service is running foreground.</string>
+    <string name="service_notification_text">Aruku service is running at foreground.</string>
     <string name="service_connecting">Connecting to ArukuMiraiService</string>
     <string name="service_connecting_message">We lost connection to ArukuMiraiService, please wait until it is
         connected.
