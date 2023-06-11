@@ -47,7 +47,8 @@ dependencies {
     implementation "androidx.lifecycle:lifecycle-service:$lifecycle_version"
 
     // aruku common dev
-    implementation "me.stageguard.aruku:common:$aruku_common_version"
+    // implementation "me.stageguard.aruku:common:$aruku_common_version"
+    implementation project(path: ':common')
 
     // mirai
     runtimeOnly("net.mamoe:mirai-core:$mirai_local_version") {

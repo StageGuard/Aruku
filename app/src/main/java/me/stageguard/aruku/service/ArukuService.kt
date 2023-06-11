@@ -276,7 +276,6 @@ class ArukuService : LifecycleService(), CoroutineScope, ServiceConnection {
 
             val disconnectedState = BackendState.Disconnected(packageName)
             holders[packageName]?.state = disconnectedState
-            holders[packageName]?.dispose()
             holders.remove(packageName)
 
             logger.i("backend $packageName is disconnected.")
@@ -388,12 +387,12 @@ class ArukuService : LifecycleService(), CoroutineScope, ServiceConnection {
 
     override fun onDestroy() {
         super.onDestroy()
-        holders.forEach { (_, holder) ->
+        holders.forEach { (packageName, holder) ->
             holder.dispose()
             dispatchBackendState(BackendState.Disconnected(packageName))
         }
         holders.clear()
         unbindService(this)
-        logger.i("all backend $packageName is disconnected via destruction aruku service.")
+        logger.i("all backend is disconnected via destruction aruku service.")
     }
 }

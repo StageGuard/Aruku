@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="service_detached_desc">Aruku 后端 %1$s 正在前台运行，但未连接 Aruku，点击“停止”以关闭服务.</string>
+    <string name="service_attached_desc">Aruku 后端 %1$s 正在前台运行，并且已连接至 Aruku.</string>
+    <string name="service_close_button">停止</string>
+</resources>

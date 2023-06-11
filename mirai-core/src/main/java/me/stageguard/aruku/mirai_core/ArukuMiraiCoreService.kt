@@ -1,10 +1,5 @@
 package me.stageguard.aruku.mirai_core
 
-import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.content.Intent
-import android.os.DeadObjectException
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -107,7 +102,12 @@ class ArukuMiraiCoreService: BaseArukuBackend() {
     private var messageSubscriber: MessageSubscriber? = null
     private val messageCacheQueue: ConcurrentLinkedQueue<Message> = ConcurrentLinkedQueue()
 
-    override fun onCreate() {
+    override val serviceName: String = "ArukuMiraiCore"
+    override val notificationId: Int = FOREGROUND_NOTIFICATION_ID
+    override val notificationChannelId: String = FOREGROUND_NOTIFICATION_CHANNEL_ID
+    override val notificationIcon: Int = R.drawable.ic_launcher_foreground
+
+    override fun onCreate0() {
         Security.removeProvider(BouncyCastleProvider.PROVIDER_NAME)
         Security.addProvider(BouncyCastleProvider())
 
@@ -133,15 +133,10 @@ class ArukuMiraiCoreService: BaseArukuBackend() {
         logger.i("service is created.")
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        super.onStartCommand(intent, flags, startId)
-
-        createNotification()
-        return START_STICKY
-    }
-
-    override fun onDestroy() {
-        bots.forEach { (_, bot) -> removeBot(bot.id) }
+    override fun onDestroy0() {
+        bots.forEach { (_, bot) -> closeBot(bot.id) }
+        bots.clear()
+        botJobs.clear()
     }
 
     override fun addBot(info: AccountLoginData?, alsoLogin: Boolean): Boolean {
@@ -154,7 +149,6 @@ class ArukuMiraiCoreService: BaseArukuBackend() {
 
     override fun getBots(): List<Long> {
         return bots.keys().toList()
-
     }
 
     override fun attachBotStateObserver(observer: BotStateObserver): DisposableBridge {
@@ -782,55 +776,11 @@ class ArukuMiraiCoreService: BaseArukuBackend() {
         }
     }
 
-    private inline fun tryOrMarkAsDead(block: () -> Unit, noinline onDied: (() -> Unit)? = null) {
-        try {
-            block()
-        } catch (re: RuntimeException) {
-            if (re.cause is DeadObjectException) {
-                stateObserver = null
-                loginSolver = null
-                contactSyncer = null
-                messageSubscriber = null
-
-                onDied?.invoke()
-                return
-            }
-            throw re
-        }
-    }
-
-    private fun createNotification() {
-        val context = this
-        val notificationManager =
-            context.getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-
-
-        val existingNotification =
-            notificationManager.activeNotifications.find { it.id == FOREGROUND_NOTIFICATION_ID }
-
-        if (existingNotification == null) {
-            var channel =
-                notificationManager.getNotificationChannel(FOREGROUND_NOTIFICATION_CHANNEL_ID)
-
-            if (channel == null) {
-                channel = NotificationChannel(
-                    FOREGROUND_NOTIFICATION_CHANNEL_ID,
-                    getString(R.string.service_name),
-                    NotificationManager.IMPORTANCE_HIGH
-                ).apply { lockscreenVisibility = Notification.VISIBILITY_PUBLIC }
-
-                notificationManager.createNotificationChannel(channel)
-            }
-
-            val notification = Notification.Builder(this, channel.id).apply {
-                setContentTitle(getString(R.string.service_name))
-                setContentText(getString(R.string.service_notification_text))
-                setSmallIcon(R.drawable.ic_launcher_foreground)
-                setTicker(getString(R.string.service_notification_text))
-            }.build()
-
-            startForeground(FOREGROUND_NOTIFICATION_ID, notification)
-        }
+    override fun onFrontendDisconnected() {
+        stateObserver = null
+        loginSolver = null
+        contactSyncer = null
+        messageSubscriber = null
     }
 
     private fun Throwable.unwrapMessage(): String? {

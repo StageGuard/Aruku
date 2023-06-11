@@ -2,6 +2,7 @@ package me.stageguard.aruku.ui.activity
 
 import android.app.Activity
 import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
@@ -34,6 +35,7 @@ import me.stageguard.aruku.R
 import me.stageguard.aruku.common.createAndroidLogger
 import me.stageguard.aruku.common.service.bridge.DisposableBridge
 import me.stageguard.aruku.domain.MainRepository
+import me.stageguard.aruku.service.ArukuService
 import me.stageguard.aruku.service.ArukuServiceConnection
 import me.stageguard.aruku.service.bridge.BackendStateListener
 import me.stageguard.aruku.service.bridge.DelegateBackendBridge
@@ -55,7 +57,7 @@ class MainActivity : ComponentActivity(), BackendStateListener {
     private val okkv by inject<Okkv>()
 
     private val serviceConnection: ArukuServiceConnection = ArukuServiceConnection(this)
-    private var backendStateListenerDisposable: DisposableBridge? = null
+    private var backendStateListener: DisposableBridge? = null
     private var activeBackend by okkv.okkv<String>("active_backend")
 
     private val backendEntryActivityLauncher =
@@ -98,12 +100,6 @@ class MainActivity : ComponentActivity(), BackendStateListener {
                 logger.i("backend ${state.id} is connected.")
             }
         }
-
-
-
-        /**
-         * account state flow produced by this backend service.
-         */
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -139,11 +135,29 @@ class MainActivity : ComponentActivity(), BackendStateListener {
             }
         }
 
+
+    }
+
+    override fun onStart() {
+        super.onStart()
+
         lifecycleScope.launch {
-            // ensure aruku service is connected.
-            serviceConnection.awaitBinder().apply {
-                backendStateListenerDisposable = registerBackendStateListener(this@MainActivity)
+            val bindResult = bindService(
+                Intent(this@MainActivity, ArukuService::class.java),
+                serviceConnection,
+                Context.BIND_ABOVE_CLIENT
+            )
+            if (!bindResult) {
+                // TODO: show error message
+                logger.w("cannot bind ArukuService, bind returns false.")
+                return@launch
             }
+            // ensure aruku service is connected.
+            if (backendStateListener == null) {
+                val binder = serviceConnection.awaitBinder()
+                backendStateListener = binder.registerBackendStateListener(this@MainActivity)
+            }
+
             val entries = getExternalBackendEntry()
             if (entries.size == 1) {
                 val entry = entries.single()
@@ -165,7 +179,8 @@ class MainActivity : ComponentActivity(), BackendStateListener {
     }
 
     override fun onDestroy() {
-        backendStateListenerDisposable?.dispose()
+        backendStateListener?.dispose()
+        backendStateListener = null
         lifecycle.removeObserver(serviceConnection)
         super.onDestroy()
     }

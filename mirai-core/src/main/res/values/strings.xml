@@ -1,5 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="service_name">ArukuMiraiCore</string>
-    <string name="service_notification_text">ArukuMiraiCore service is running at foreground.</string>
-</resources>

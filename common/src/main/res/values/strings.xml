@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="service_attached_desc">Aruku backend %1$s is running at foreground and attached to Aruku.</string>
+    <string name="service_detached_desc">Aruku backend %1$s is running at foreground, but not attached to Aruku. Click \"STOP\" to stop this service.</string>
+    <string name="service_close_button">STOP</string>
+</resources>
