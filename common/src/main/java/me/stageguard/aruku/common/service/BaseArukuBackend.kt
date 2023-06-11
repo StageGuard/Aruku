@@ -32,8 +32,8 @@ abstract class BaseArukuBackend: LifecycleService(), ArukuBackendBridge, Corouti
         onCreate0()
     }
     override fun onDestroy() {
-        super.onDestroy()
         onDestroy0()
+        super.onDestroy()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -104,7 +104,6 @@ abstract class BaseArukuBackend: LifecycleService(), ArukuBackendBridge, Corouti
                 setSmallIcon(notificationIcon)
                 setTicker(content)
 
-                println("frontendConnected: $frontendConnected")
                 if (!frontendConnected) {
                     val service = this@BaseArukuBackend
                     val stopIntent = PendingIntent.getService(
