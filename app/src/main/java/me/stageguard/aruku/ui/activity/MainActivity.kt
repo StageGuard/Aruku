@@ -21,8 +21,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.core.view.WindowCompat
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleRegistry
 import androidx.lifecycle.flowWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
@@ -32,14 +30,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.cancellable
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import me.stageguard.aruku.MainRepositoryImpl
 import me.stageguard.aruku.R
 import me.stageguard.aruku.common.createAndroidLogger
-import me.stageguard.aruku.common.service.bridge.ArukuBackendBridge
-import me.stageguard.aruku.common.service.bridge.ArukuBackendBridge_Proxy
+import me.stageguard.aruku.common.service.bridge.DisposableBridge
 import me.stageguard.aruku.domain.MainRepository
 import me.stageguard.aruku.service.ArukuServiceConnection
 import me.stageguard.aruku.service.bridge.BackendStateListener
+import me.stageguard.aruku.service.bridge.DelegateBackendBridge
 import me.stageguard.aruku.service.parcel.BackendState
 import me.stageguard.aruku.ui.LocalStringLocale
 import me.stageguard.aruku.ui.LocalSystemUiController
@@ -58,6 +55,7 @@ class MainActivity : ComponentActivity(), BackendStateListener {
     private val okkv by inject<Okkv>()
 
     private val serviceConnection: ArukuServiceConnection = ArukuServiceConnection(this)
+    private var backendStateListenerDisposable: DisposableBridge? = null
     private var activeBackend by okkv.okkv<String>("active_backend")
 
     private val backendEntryActivityLauncher =
@@ -69,13 +67,11 @@ class MainActivity : ComponentActivity(), BackendStateListener {
 
             if (component != null) lifecycleScope.launch {
                 val binder = serviceConnection.awaitBinder()
-                backendLifecycle.addObserver(repo as MainRepositoryImpl)
                 binder.bindBackendService(component.packageName)
             }
         }
 
-    private var backendBridge: MutableStateFlow<ArukuBackendBridge?> = MutableStateFlow(null)
-    private val backendLifecycle = LifecycleRegistry(this@MainActivity)
+    private var backendBridge: MutableStateFlow<DelegateBackendBridge?> = MutableStateFlow(null)
 
     private val repo by inject<MainRepository>(mode = LazyThreadSafetyMode.SYNCHRONIZED)
     private val stateFlow by lazy { repo.stateFlow.cancellable().flowWithLifecycle(lifecycle) }
@@ -87,24 +83,27 @@ class MainActivity : ComponentActivity(), BackendStateListener {
     override fun onState(state: BackendState) {
         when(state) {
             is BackendState.ConnectFailed -> {
-                backendLifecycle.currentState = Lifecycle.State.DESTROYED
                 backendBridge.update { null }
                 logger.i("backend ${state.id} connect failed.")
                 toastShort(R.string.backend_connect_failed.stringRes(state.id, state.reason))
             }
             is BackendState.Disconnected -> {
                 backendBridge.update { null }
-                backendLifecycle.currentState = Lifecycle.State.DESTROYED
                 logger.i("backend ${state.id} is disconnected.")
             }
             is BackendState.Connected -> {
-                backendLifecycle.currentState = Lifecycle.State.STARTED
-                val bridge = object : ArukuBackendBridge by ArukuBackendBridge_Proxy(state.bridge) { }
-                backendBridge.update { bridge }
-                repo.referBackendBridge(bridge)
+                val delegateBackendBridge = serviceConnection.binder?.getBackendBridge(state.id)
+                backendBridge.update { delegateBackendBridge }
+                if(delegateBackendBridge != null) repo.referBackendBridge(delegateBackendBridge)
                 logger.i("backend ${state.id} is connected.")
             }
         }
+
+
+
+        /**
+         * account state flow produced by this backend service.
+         */
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -143,11 +142,8 @@ class MainActivity : ComponentActivity(), BackendStateListener {
         lifecycleScope.launch {
             // ensure aruku service is connected.
             serviceConnection.awaitBinder().apply {
-                registerBackendStateListener(this@MainActivity)
+                backendStateListenerDisposable = registerBackendStateListener(this@MainActivity)
             }
-            backendLifecycle.currentState = Lifecycle.State.INITIALIZED
-            backendLifecycle.currentState = Lifecycle.State.CREATED
-
             val entries = getExternalBackendEntry()
             if (entries.size == 1) {
                 val entry = entries.single()
@@ -169,8 +165,8 @@ class MainActivity : ComponentActivity(), BackendStateListener {
     }
 
     override fun onDestroy() {
+        backendStateListenerDisposable?.dispose()
         lifecycle.removeObserver(serviceConnection)
-        backendLifecycle.currentState = Lifecycle.State.DESTROYED
         super.onDestroy()
     }
 

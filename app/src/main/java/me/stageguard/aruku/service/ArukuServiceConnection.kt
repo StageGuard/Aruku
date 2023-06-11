@@ -19,7 +19,7 @@ class ArukuServiceConnection(
 ) : ServiceConnection, LifecycleEventObserver {
     private val logger = createAndroidLogger()
 
-    private var binder: ServiceBinder_Proxy? = null
+    var binder: ServiceBinder? = null
     val connected: MutableLiveData<Boolean> = MutableLiveData(false)
 
     override fun onServiceConnected(name: ComponentName?, service: IBinder?) {

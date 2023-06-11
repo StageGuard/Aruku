@@ -43,9 +43,7 @@ val applicationModule = module {
     // repo
     single<MainRepository>(createdAtStart = false) {
         MainRepositoryImpl(
-            context = get(),
             database = get(),
-            retrofit = get(),
         )
     }
 

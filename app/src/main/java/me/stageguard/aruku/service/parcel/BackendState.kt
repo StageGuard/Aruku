@@ -1,6 +1,5 @@
 package me.stageguard.aruku.service.parcel
 
-import android.os.IBinder
 import android.os.Parcelable
 import kotlinx.parcelize.Parcelize
 
@@ -9,7 +8,7 @@ import kotlinx.parcelize.Parcelize
  */
 sealed class BackendState(open val id: String) {
     @Parcelize
-    class Connected(override val id: String, val bridge: IBinder) : BackendState(id), Parcelable
+    class Connected(override val id: String) : BackendState(id), Parcelable
 
     @Parcelize
     class Disconnected(override val id: String) : BackendState(id), Parcelable
