@@ -72,7 +72,7 @@ class ChatViewModel(
 
     @UiState
     val messages: Flow<PagingData<ChatElement>> =
-        repository.getMessageRecords(account, contact).map { data ->
+        repository.getMessageRecords(account, contact, viewModelScope.coroutineContext).map { data ->
             data.map { it.mapChatElement() }
         }.cachedIn(viewModelScope)
 

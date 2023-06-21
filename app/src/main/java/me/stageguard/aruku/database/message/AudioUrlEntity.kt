@@ -9,5 +9,5 @@ import kotlinx.serialization.Serializable
 @Entity(tableName = "audio_url")
 data class AudioUrlEntity(
     @PrimaryKey @ColumnInfo(name = "file_md5") val fileMd5: String,
-    @ColumnInfo(name = "url") val url: String
+    @ColumnInfo(name = "url") val url: String // TODO: empty means expired or not found
 )

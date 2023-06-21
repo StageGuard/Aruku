@@ -1,0 +1,67 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+    id 'org.jetbrains.kotlin.kapt'
+    id 'org.jetbrains.kotlin.plugin.serialization'
+}
+
+android {
+    compileSdk 33
+    namespace 'me.stageguard.aruku.mah'
+
+    defaultConfig {
+        applicationId "me.stageguard.aruku.mah"
+        minSdk 26
+        targetSdk 33
+        versionCode 1
+        versionName "1.0"
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            buildConfigField("boolean", "LOG_DEBUG", "false")
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
+    kotlinOptions {
+        jvmTarget = "11"
+        freeCompilerArgs += ["-Xjvm-default=all", "-opt-in=kotlin.RequiresOptIn"]
+    }
+    packagingOptions {
+        resources {
+            excludes += '/META-INF/{AL2.0,LGPL2.1}'
+            merges += '/META-INF/INDEX.LIST'
+            merges += '/META-INF/io.netty.versions.properties'
+        }
+    }
+}
+
+dependencies {
+    implementation "androidx.lifecycle:lifecycle-service:$lifecycle_version"
+
+    // aruku common dev
+    // implementation "me.stageguard.aruku:common:$aruku_common_version"
+    implementation project(path: ':common')
+
+    implementation "org.jetbrains.kotlin:kotlin-serialization:$kotlin_version"
+    implementation "org.jetbrains.kotlin:kotlin-reflect:$kotlin_version"
+
+    // ktor websocket
+    def ktor_version = "2.3.1"
+    implementation "io.ktor:ktor-client-core:$ktor_version"
+    implementation "io.ktor:ktor-client-okhttp:$ktor_version"
+    implementation "io.ktor:ktor-client-websockets:$ktor_version"
+    implementation "io.ktor:ktor-serialization-kotlinx-json:$ktor_version"
+
+    implementation "commons-codec:commons-codec:1.15"
+
+    testImplementation 'junit:junit:4.13.2'
+}

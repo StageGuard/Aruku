@@ -9,8 +9,8 @@ pluginManagement {
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
-        google()
         mavenCentral()
+        google()
         maven { url 'https://jitpack.io' }
         maven { url "https://androidx.dev/storage/compose-compiler/repository/" }
         maven { url "https://repo.mirai.mamoe.net/snapshots" }
@@ -21,3 +21,4 @@ rootProject.name = "Aruku"
 include ':app'
 include ':common'
 include ':mirai-core'
+include ':mirai-api-http'

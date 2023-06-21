@@ -18,6 +18,7 @@ import me.stageguard.aruku.database.contact.ContactEntity
 import me.stageguard.aruku.database.message.MessagePreviewEntity
 import me.stageguard.aruku.database.message.MessageRecordEntity
 import me.stageguard.aruku.service.bridge.DelegateBackendBridge
+import kotlin.coroutines.CoroutineContext
 
 interface MainRepository {
     val stateFlow: Flow<Map<Long, AccountState>>
@@ -47,6 +48,7 @@ interface MainRepository {
     fun getMessageRecords(
         account: Long,
         contact: ContactId,
+        coroutineContext: CoroutineContext,
     ): Flow<PagingData<MessageRecordEntity>>
 
     fun getExactMessageRecord(

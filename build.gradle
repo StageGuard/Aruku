@@ -11,7 +11,7 @@ buildscript {
         accompanist_version = '0.28.0'
         okkv2_version = '1.2.4'
         kotlinx_serialization_version = '1.5.0'
-        kotlin_version = "1.8.10"
+        kotlin_version = "1.8.20"
         coil_version = "2.4.0"
         remoter_version = "2.0.4"
         parceler_version = "1.1.13"

@@ -32,7 +32,6 @@ import net.mamoe.mirai.message.data.MessageChain
 import net.mamoe.mirai.message.data.MessageSource
 import net.mamoe.mirai.message.data.OnlineAudio
 import net.mamoe.mirai.utils.MiraiExperimentalApi
-import net.mamoe.mirai.utils.getRandomString
 import net.mamoe.mirai.utils.toUHexString
 
 private val logger = createAndroidLogger("MessageElement")

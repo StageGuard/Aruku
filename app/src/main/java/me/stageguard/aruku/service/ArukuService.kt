@@ -392,7 +392,7 @@ class ArukuService : LifecycleService(), CoroutineScope, ServiceConnection {
             dispatchBackendState(BackendState.Disconnected(packageName))
         }
         holders.clear()
-        unbindService(this)
+        try { unbindService(this) } catch (_: Exception) { }
         logger.i("all backend is disconnected via destruction aruku service.")
     }
 }

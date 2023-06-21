@@ -6,6 +6,7 @@ import androidx.paging.PagingState
 import androidx.paging.RemoteMediator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -19,6 +20,7 @@ import me.stageguard.aruku.database.ArukuDatabase
 import me.stageguard.aruku.database.message.MessageRecordEntity
 import me.stageguard.aruku.database.message.toEntity
 import kotlin.coroutines.CoroutineContext
+import kotlin.coroutines.EmptyCoroutineContext
 
 /**
  * fetch absent message by message sequence.
@@ -31,6 +33,7 @@ class SequenceRoamingMessageMediator(
     val account: Long,
     val contact: ContactId,
     private val database: ArukuDatabase,
+    parentCoroutineContext: CoroutineContext? = EmptyCoroutineContext,
     roamingQueryBridgeProvider: (Long, ContactId) -> RoamingQueryBridge?
 ) : RemoteMediator<Int, MessageRecordEntity>(), CoroutineScope {
     private val logger = createAndroidLogger()
@@ -40,8 +43,8 @@ class SequenceRoamingMessageMediator(
     private var currLastSeq = Long.MAX_VALUE
     private val seqLock = Mutex()
 
-    override val coroutineContext: CoroutineContext
-        get() = Dispatchers.IO + SupervisorJob()
+    override val coroutineContext: CoroutineContext =
+        Dispatchers.IO + SupervisorJob(parentCoroutineContext?.get(Job))
 
     override suspend fun load(
         loadType: LoadType,

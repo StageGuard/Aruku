@@ -59,6 +59,7 @@ import me.stageguard.aruku.service.bridge.DelegateBackendBridge
 import me.stageguard.aruku.util.weakReference
 import java.lang.ref.WeakReference
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.coroutines.CoroutineContext
 
 class MainRepositoryImpl(
     private val database: ArukuDatabase,
@@ -260,11 +261,7 @@ class MainRepositoryImpl(
     override fun getMessagePreview(account: Long): Flow<LoadState<List<MessagePreviewEntity>>> {
         return flow {
             emit(LoadState.Loading())
-            try {
-                emitAll(database.messagePreview().getMessages(account).map { LoadState.Ok(it) })
-            } catch (ex: Exception) {
-                emit(LoadState.Error(ex))
-            }
+            emitAll(database.messagePreview().getMessages(account).map { LoadState.Ok(it) })
         }.catch {
             emit(LoadState.Error(it))
         }
@@ -273,12 +270,7 @@ class MainRepositoryImpl(
     override fun getGroups(account: Long): Flow<LoadState<List<ContactEntity>>> {
         return flow {
             emit(LoadState.Loading())
-            try {
-                emitAll(database.contacts()
-                    .getContactsFlow(account, ContactType.GROUP).map { LoadState.Ok(it) })
-            } catch (ex: Exception) {
-                emit(LoadState.Error(ex))
-            }
+            emitAll(database.contacts().getContactsFlow(account, ContactType.GROUP).map { LoadState.Ok(it) })
         }.catch {
             emit(LoadState.Error(it))
         }
@@ -302,10 +294,14 @@ class MainRepositoryImpl(
     override fun getMessageRecords(
         account: Long,
         contact: ContactId,
+        coroutineContext: CoroutineContext,
     ): Flow<PagingData<MessageRecordEntity>> {
         return Pager(
             config = PagingConfig(pageSize = 20),
-            remoteMediator = SequenceRoamingMessageMediator(account, contact, database, ::openRoamingQuery),
+            remoteMediator = SequenceRoamingMessageMediator(
+                account, contact, database,
+                coroutineContext, ::openRoamingQuery
+            ),
             pagingSourceFactory = {
                 database.messageRecords().getMessagesPaging(account, contact.subject, contact.type)
             }
