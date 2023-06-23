@@ -12,7 +12,7 @@ import me.stageguard.aruku.common.service.parcel.AccountProfile
 import me.stageguard.aruku.common.service.parcel.AccountState
 import me.stageguard.aruku.common.service.parcel.ContactId
 import me.stageguard.aruku.common.service.parcel.GroupMemberInfo
-import me.stageguard.aruku.database.LoadState
+import me.stageguard.aruku.util.LoadState
 import me.stageguard.aruku.database.account.AccountEntity
 import me.stageguard.aruku.database.contact.ContactEntity
 import me.stageguard.aruku.database.message.MessagePreviewEntity
@@ -50,6 +50,8 @@ interface MainRepository {
         contact: ContactId,
         coroutineContext: CoroutineContext,
     ): Flow<PagingData<MessageRecordEntity>>
+
+    fun updateMessageRecord(vararg records: MessageRecordEntity)
 
     fun getExactMessageRecord(
         account: Long,

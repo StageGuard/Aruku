@@ -1,5 +1,6 @@
 package me.stageguard.aruku.ui.page.chat
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
@@ -9,8 +10,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
@@ -52,11 +55,17 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.google.accompanist.flowlayout.FlowRow
 import com.google.accompanist.flowlayout.MainAxisAlignment
+import com.valentinilk.shimmer.Shimmer
+import com.valentinilk.shimmer.ShimmerBounds
+import com.valentinilk.shimmer.rememberShimmer
+import com.valentinilk.shimmer.shimmer
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import me.stageguard.aruku.ui.LocalBot
 import me.stageguard.aruku.ui.LocalPrimaryMessage
 import me.stageguard.aruku.ui.common.CoerceWidthLayout
 import me.stageguard.aruku.ui.theme.surface2
+import me.stageguard.aruku.util.LoadState
 import kotlin.math.min
 
 @Composable
@@ -73,6 +82,7 @@ fun ChatListView(
     onQueryFileStatus: suspend (messageId: Long, fileId: String?) -> Unit,
 ) {
     val bot = LocalBot.current
+    val placeHolderShimmer = rememberShimmer(shimmerBounds = ShimmerBounds.View)
 
     LaunchedEffect(chatList.itemSnapshotList) {
         chatList.itemSnapshotList.forEach { element ->
@@ -117,12 +127,22 @@ fun ChatListView(
                         val quote = element.messages.filterIsInstance<UIMessageElement.Quote>().firstOrNull()
                         val file = element.messages.filterIsInstance<UIMessageElement.File>().firstOrNull()
 
+                        var senderName: LoadState<String> by remember { mutableStateOf(LoadState.Loading()) }
+                        var senderAvatar: LoadState<Any?> by remember { mutableStateOf(LoadState.Loading()) }
+
+                        LaunchedEffect(Unit) {
+                            launch(Dispatchers.IO) {
+                                senderName = LoadState.Ok(element.senderName())
+                                senderAvatar = LoadState.Ok(element.senderAvatarUrl())
+                            }
+                        }
+
                         CompositionLocalProvider(LocalPrimaryMessage provides sentByBot) {
                             Message(
                                 messageId = element.messageId,
                                 senderId = element.senderId,
-                                senderName = element.senderName,
-                                senderAvatar = element.senderAvatarUrl,
+                                senderName = senderName,
+                                senderAvatar = senderAvatar,
                                 isAlignmentStart = !sentByBot,
                                 showAvatar = !lastSentByCurrent && !sentByBot,
                                 occupyAvatarSpace = !sentByBot,
@@ -132,6 +152,7 @@ fun ChatListView(
                                 startCorner = sentByBot,
                                 endCorner = !sentByBot,
                                 time = element.time,
+                                shimmer = placeHolderShimmer,
                                 messages = element.messages,
                                 audioStatus = audio?.run { audioStatus[fileMd5] },
                                 quoteStatus = quote?.run { quoteStatus[messageId] },
@@ -160,8 +181,8 @@ fun ChatListView(
 private fun Message(
     messageId: Long,
     senderId: Long,
-    senderName: String,
-    senderAvatar: Any?,
+    senderName: LoadState<String>,
+    senderAvatar: LoadState<Any?>,
     isAlignmentStart: Boolean, // align layout to left (avatar|message) if true
     showAvatar: Boolean, // show avatar if true
     occupyAvatarSpace: Boolean, // set a empty space as place holder of avatar if !showAvatar
@@ -171,6 +192,7 @@ private fun Message(
     startCorner: Boolean, // start corner if true or else end corner of message content
     endCorner: Boolean,
     time: String,
+    shimmer: Shimmer,
     messages: List<UIMessageElement>,
     audioStatus: ChatAudioStatus?,
     quoteStatus: ChatQuoteMessageStatus?,
@@ -195,6 +217,20 @@ private fun Message(
 
     val bubbleBackgroundColor = MaterialTheme.colorScheme.run { if (isPrimary) secondary else secondaryContainer }
     val textContentColor = MaterialTheme.colorScheme.run { if (isPrimary) onSecondary else onSecondaryContainer }
+
+    @Composable
+    fun Modifier.placeholder(width: Dp, style: TextStyle): Modifier {
+        return width(width)
+            .height(with(density) { style.lineHeight.toDp() })
+            .padding(with(density) {
+                (style.lineHeight.toDp() - style.fontSize.toDp()) / 2
+            })
+            .shimmer(shimmer)
+            .background(
+                color = MaterialTheme.colorScheme.secondary,
+                shape = RoundedCornerShape(0)
+            )
+    }
 
     BoxWithConstraints(
         modifier = Modifier.fillMaxWidth()
@@ -252,7 +288,7 @@ private fun Message(
 
             if(showAvatar) AsyncImage(
                 model = ImageRequest.Builder(context)
-                    .data(senderAvatar)
+                    .data(if (senderAvatar is LoadState.Ok) senderAvatar.value else null)
                     .crossfade(true)
                     .build(),
                 contentDescription = "avatar of $senderId",
@@ -260,14 +296,20 @@ private fun Message(
                     .layoutId("avatar")
                     .size(avatarSize)
                     .clip(CircleShape)
+                    .run { if (senderAvatar !is LoadState.Ok) shimmer(shimmer) else this }
                     .clickable { onClickAvatar(senderId) },
                 contentScale = ContentScale.Crop,
             )
             if (showSender) Text(
-                text = senderName,
+                text = if (senderName is LoadState.Ok) senderName.value else "",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.layoutId("senderName")
+                modifier = Modifier.layoutId("senderName").run {
+                    if (senderName !is LoadState.Ok) placeholder(
+                        width = 50.dp,
+                        style = MaterialTheme.typography.labelMedium
+                    ) else this
+                }
             )
 
             val topStart = if (startCorner) roundCornerSize else if (topCorner) roundCornerSize else 4.dp

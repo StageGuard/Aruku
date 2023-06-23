@@ -1,4 +1,4 @@
-package me.stageguard.aruku.database
+package me.stageguard.aruku.util
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map

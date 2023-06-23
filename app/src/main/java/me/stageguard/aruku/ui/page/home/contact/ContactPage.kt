@@ -21,9 +21,7 @@ import coil.request.ImageRequest
 import com.google.accompanist.pager.*
 import kotlinx.coroutines.launch
 import me.stageguard.aruku.R
-import me.stageguard.aruku.database.LoadState
-import me.stageguard.aruku.common.service.parcel.ContactId
-import me.stageguard.aruku.common.service.parcel.ContactType
+import me.stageguard.aruku.util.LoadState
 import me.stageguard.aruku.ui.LocalBot
 import me.stageguard.aruku.ui.common.WhitePage
 import me.stageguard.aruku.ui.common.pagerTabIndicatorOffsetMD3

@@ -44,7 +44,6 @@ import me.stageguard.aruku.common.service.parcel.ContactId
 import me.stageguard.aruku.common.service.parcel.ContactType
 import me.stageguard.aruku.common.service.parcel.GroupMemberInfo
 import me.stageguard.aruku.database.ArukuDatabase
-import me.stageguard.aruku.database.LoadState
 import me.stageguard.aruku.database.account.AccountEntity
 import me.stageguard.aruku.database.account.toEntity
 import me.stageguard.aruku.database.account.toLoginData
@@ -56,6 +55,7 @@ import me.stageguard.aruku.domain.MainRepository
 import me.stageguard.aruku.domain.SequenceRoamingMessageMediator
 import me.stageguard.aruku.service.bridge.AudioStateListener
 import me.stageguard.aruku.service.bridge.DelegateBackendBridge
+import me.stageguard.aruku.util.LoadState
 import me.stageguard.aruku.util.weakReference
 import java.lang.ref.WeakReference
 import java.util.concurrent.ConcurrentHashMap
@@ -306,6 +306,12 @@ class MainRepositoryImpl(
                 database.messageRecords().getMessagesPaging(account, contact.subject, contact.type)
             }
         ).flow
+    }
+
+    override fun updateMessageRecord(vararg records: MessageRecordEntity) {
+        launch {
+            database.suspendIO { messageRecords().upsert(*records) }
+        }
     }
 
     override fun getExactMessageRecord(

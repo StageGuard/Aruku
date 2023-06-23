@@ -159,8 +159,8 @@ fun ChatViewPreview() {
 
             fun text(vararg content: String) = ChatElement.Message(
                 senderId = 1425419431,
-                senderName = "ojhdt",
-                senderAvatarUrl = null,
+                senderName = { "ojhdt" },
+                senderAvatarUrl = { null },
                 time = "12:12",
                 messageId = randSrcId(),
                 messages = listOf(
@@ -322,8 +322,8 @@ fun ChatViewPreview() {
                 val msgFileId = randSrcId()
                 add(ChatElement.Message(
                     senderId = 132123123L,
-                    senderName = "Sender1",
-                    senderAvatarUrl = null,
+                    senderName = { "Sender1" },
+                    senderAvatarUrl = { null },
                     time = "11:45",
                     messageId = msgFileId,
                     messages = listOf(
@@ -514,8 +514,8 @@ fun ChatViewPreview() {
                     1234L to ChatQuoteMessageStatus.Querying,
                     12345L to ChatQuoteMessageStatus.Ready(ChatElement.Message(
                         senderId = 1355416608L,
-                        senderName = "StageGuard",
-                        senderAvatarUrl = null,
+                        senderName = { "StageGuard" },
+                        senderAvatarUrl = { null },
                         time = "11:45",
                         messageId = randSrcId(),
                         messages = listOf(

@@ -16,8 +16,8 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import me.stageguard.aruku.common.createAndroidLogger
 import me.stageguard.aruku.common.service.parcel.ContactId
-import me.stageguard.aruku.database.LoadState
-import me.stageguard.aruku.database.mapOk
+import me.stageguard.aruku.util.LoadState
+import me.stageguard.aruku.util.mapOk
 import me.stageguard.aruku.domain.MainRepository
 import me.stageguard.aruku.ui.UiState
 import me.stageguard.aruku.util.Either

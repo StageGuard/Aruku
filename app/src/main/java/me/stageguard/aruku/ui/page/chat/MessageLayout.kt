@@ -76,6 +76,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import me.stageguard.aruku.ui.common.ClickableText
 import me.stageguard.aruku.ui.theme.surface2
+import me.stageguard.aruku.util.LoadState
 import me.stageguard.aruku.util.animateFloatAsMutableState
 import me.stageguard.aruku.util.formatFileSize
 import me.stageguard.aruku.util.getFileIcon
@@ -521,6 +522,11 @@ fun Quote(
         (bodyTextStyle.lineHeight.toDp() - bodyTextStyle.fontSize.toDp()) / 2
     }
 
+    var senderName: LoadState<String> by remember { mutableStateOf(LoadState.Loading()) }
+    LaunchedEffect(message) {
+        if (message != null) senderName = LoadState.Ok(message.senderName())
+    }
+
     @Composable
     fun Modifier.placeholder(width: Dp): Modifier {
         return width(width)
@@ -550,10 +556,10 @@ fun Quote(
                     .padding(bottom = lineHeight / 4)
             ) {
                 Text(
-                    text = message?.senderName ?: "",
+                    text = (senderName as? LoadState.Ok)?.value ?: "",
                     modifier = Modifier
                         .padding(end = 4.dp)
-                        .run { if (loading) placeholder(80.dp) else this },
+                        .run { if (!loading && senderName is LoadState.Ok) this else placeholder(80.dp) },
                     style = bodyTextStyle,
                     color = bodyTextColor,
                     overflow = TextOverflow.Ellipsis,

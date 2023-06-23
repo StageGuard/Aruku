@@ -61,8 +61,8 @@ import com.valentinilk.shimmer.shimmer
 import me.stageguard.aruku.R
 import me.stageguard.aruku.common.service.parcel.ContactId
 import me.stageguard.aruku.common.service.parcel.ContactType
-import me.stageguard.aruku.database.LoadState
-import me.stageguard.aruku.database.ok
+import me.stageguard.aruku.util.LoadState
+import me.stageguard.aruku.util.ok
 import me.stageguard.aruku.ui.LocalBot
 import me.stageguard.aruku.ui.common.FastScrollToTopFab
 import me.stageguard.aruku.ui.common.WhitePage

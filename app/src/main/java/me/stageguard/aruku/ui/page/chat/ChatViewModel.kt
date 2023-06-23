@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import androidx.paging.map
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
@@ -15,6 +16,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import me.stageguard.aruku.cache.AudioCache
 import me.stageguard.aruku.common.createAndroidLogger
 import me.stageguard.aruku.common.message.At
@@ -29,11 +31,11 @@ import me.stageguard.aruku.common.message.MessageElement
 import me.stageguard.aruku.common.message.PlainText
 import me.stageguard.aruku.common.message.Quote
 import me.stageguard.aruku.common.service.parcel.ContactType
-import me.stageguard.aruku.database.LoadState
 import me.stageguard.aruku.database.message.MessageRecordEntity
 import me.stageguard.aruku.domain.MainRepository
 import me.stageguard.aruku.ui.UiState
 import me.stageguard.aruku.ui.page.ChatPageNav
+import me.stageguard.aruku.util.LoadState
 import me.stageguard.aruku.util.toFormattedTime
 
 class ChatViewModel(
@@ -72,14 +74,16 @@ class ChatViewModel(
 
     @UiState
     val messages: Flow<PagingData<ChatElement>> =
-        repository.getMessageRecords(account, contact, viewModelScope.coroutineContext).map { data ->
-            data.map { it.mapChatElement() }
-        }.cachedIn(viewModelScope)
+        repository.getMessageRecords(account, contact, viewModelScope.coroutineContext)
+            .map { data -> data.map { it.mapChatElement() } }
+            .cachedIn(viewModelScope)
 
     private suspend fun MessageRecordEntity.mapChatElement(excludeQuote: Boolean = false): ChatElement {
-        val memberInfo = if (contact.type == ContactType.GROUP) {
-            repository.getGroupMemberInfo(this@ChatViewModel.account, contact.subject, sender)
-        } else null
+        val memberInfo by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+            if (contact.type != ContactType.FRIEND) repository.getGroupMemberInfo(this@ChatViewModel.account, contact.subject, sender) else null
+        }
+
+        val senderNameDeferred = CompletableDeferred<String>()
 
         fun MutableList<UIMessageElement>.addNonTextElement(content: MessageElement) {
             when (content) {
@@ -126,13 +130,25 @@ class ChatViewModel(
             }
         }
 
+        viewModelScope.launch {
+            repository.updateMessageRecord(copy(senderName = senderNameDeferred.await()))
+        }
+
         return ChatElement.Message(
             senderId = sender,
-            senderName = senderName,
-            senderAvatarUrl = when (contact.type) {
-                ContactType.GROUP -> memberInfo?.senderAvatarUrl
-                ContactType.FRIEND -> repository.getAvatarUrl(this@ChatViewModel.account, contact)
-                ContactType.TEMP -> error("temp message is currently unsupported")
+            senderName = {
+                (if (contact.type != ContactType.FRIEND) {
+                    memberInfo?.senderName
+                } else {
+                    repository.getNickname(account, contact)
+                } ?: contact.subject.toString()).also { senderNameDeferred.complete(it) }
+            },
+            senderAvatarUrl = {
+                if (contact.type != ContactType.FRIEND) {
+                    memberInfo?.senderAvatarUrl
+                } else {
+                    repository.getAvatarUrl(account, contact)
+                }
             },
             time = time.toFormattedTime(),
             messageId = messageId,
@@ -213,8 +229,8 @@ sealed interface ChatElement {
 
     data class Message(
         val senderId: Long,
-        val senderName: String,
-        val senderAvatarUrl: String?,
+        val senderName: suspend () -> String, // lazy load in compose coroutine scope
+        val senderAvatarUrl: suspend () -> String?, // lazy load in compose coroutine scope
         val time: String,
         val messageId: Long,
         val messages: List<UIMessageElement>

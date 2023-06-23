@@ -44,7 +44,7 @@ class BotSession(
     private val eventFlow = MutableSharedFlow<EventDTO>(
         extraBufferCapacity = 20, onBufferOverflow = BufferOverflow.DROP_OLDEST
     )
-    private val commandChannel = Channel<WsIncoming>(capacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST) {
+    private val commandChannel = Channel<WsIncoming>(capacity = 10, onBufferOverflow = BufferOverflow.DROP_OLDEST) {
         logger.w("command result $it is not received and processed.")
     }
 
