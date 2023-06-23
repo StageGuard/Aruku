@@ -28,6 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -84,6 +85,9 @@ fun ChatListView(
     val bot = LocalBot.current
     val placeHolderShimmer = rememberShimmer(shimmerBounds = ShimmerBounds.View)
 
+    val senderNameMap = remember { mutableStateMapOf<Long, String>() }
+    val senderAvatarMap = remember { mutableStateMapOf<Long, Any?>() }
+
     LaunchedEffect(chatList.itemSnapshotList) {
         chatList.itemSnapshotList.forEach { element ->
             if (element == null) return@forEach
@@ -132,8 +136,8 @@ fun ChatListView(
 
                         LaunchedEffect(Unit) {
                             launch(Dispatchers.IO) {
-                                senderName = LoadState.Ok(element.senderName())
-                                senderAvatar = LoadState.Ok(element.senderAvatarUrl())
+                                senderName = LoadState.Ok(senderNameMap.getOrPut(element.senderId) { element.senderName() })
+                                senderAvatar = LoadState.Ok(senderAvatarMap.getOrPut(element.senderId) { element.senderAvatarUrl() })
                             }
                         }
 

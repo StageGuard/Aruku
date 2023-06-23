@@ -21,7 +21,6 @@ import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.json.decodeFromStream
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.serializer
 import me.stageguard.aruku.common.createAndroidLogger
 import me.stageguard.aruku.mah.dto.IncomingJson
 import me.stageguard.aruku.mah.dto.WsIncoming
@@ -66,41 +65,7 @@ class BotSession(
             val receiver = launch recv@ {
                 for (data in incoming) {
                     if (data !is Frame.Text) continue
-
-                    val deserialized = data.data.inputStream().use {
-                        json.decodeFromStream(WsIncoming.serializer(), it)
-                    }
-
-                    // verify result
-                    if (deserialized.syncId.isEmpty()) {
-                        val retCode = deserialized.data.jsonObject["code"]!!.jsonPrimitive.content.toInt()
-                        if (retCode != 0) {
-                            verifyResult.complete(retCode)
-                            this@BotSession.close()
-                            return@recv
-                        }
-                        val verifyRet = json.decodeFromJsonElement(
-                            VerifyRetDTO::class.serializer(), deserialized.data
-                        )
-                        verifyResult.complete(verifyRet.code)
-                        logger.i("session of bot $accountNo is started.")
-                        continue
-                    }
-
-                    // event
-                    if (deserialized.syncId.toIntOrNull() == RESERVED_SYNC_ID) {
-                        val event = IncomingJson.decodeFromJsonElement(
-                            EventDTO::class.serializer(),
-                            deserialized.data
-                        )
-                        eventFlow.emit(event)
-                        logger.d("websocket incoming event: $event.")
-                        continue
-                    }
-
-                    // command result
-                    commandChannel.send(deserialized)
-                    logger.d("websocket incoming command: $deserialized.")
+                    data.decodeIncoming()
                 }
             }
 
@@ -108,6 +73,46 @@ class BotSession(
             close()
             receiver.join()
         }
+    }
+
+    @OptIn(ExperimentalSerializationApi::class)
+    private fun Frame.Text.decodeIncoming() = launch {
+        val deserialized = withTimeout(1000L) {
+            data.inputStream().use {
+                json.decodeFromStream(WsIncoming.serializer(), it)
+            }
+        }
+
+        // verify result
+        if (deserialized.syncId.isEmpty()) {
+            val retCode = deserialized.data.jsonObject["code"]!!.jsonPrimitive.content.toInt()
+            if (retCode != 0) {
+                verifyResult.complete(retCode)
+                this@BotSession.close()
+                return@launch
+            }
+            val verifyRet = json.decodeFromJsonElement(
+                VerifyRetDTO.serializer(), deserialized.data
+            )
+            verifyResult.complete(verifyRet.code)
+            logger.i("session of bot $accountNo is started.")
+            return@launch
+        }
+
+        // event
+        if (deserialized.syncId.toIntOrNull() == RESERVED_SYNC_ID) {
+            val event = IncomingJson.decodeFromJsonElement(
+                EventDTO.serializer(),
+                deserialized.data
+            )
+            eventFlow.emit(event)
+            logger.d("websocket incoming event: $event.")
+            return@launch
+        }
+
+        // command result
+        commandChannel.send(deserialized)
+        logger.d("websocket incoming command: $deserialized.")
     }
 
     val connected get() = !verifyResult.isActive
